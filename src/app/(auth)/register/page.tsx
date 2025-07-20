@@ -21,6 +21,16 @@ import { useToast } from '@/hooks/use-toast';
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) {
+     if ('code' in error) {
+      switch ((error as any).code) {
+        case 'auth/email-already-in-use':
+          return 'This email address is already in use by another account.';
+        case 'auth/weak-password':
+          return 'Password should be at least 6 characters.';
+        default:
+          return error.message;
+      }
+    }
     return error.message;
   }
   if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as any).message === 'string') {
@@ -41,10 +51,16 @@ export default function RegisterPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+     if (!auth) {
+       toast({
+        variant: 'destructive',
+        title: 'Configuration Error',
+        description: 'Firebase is not configured. Please add your API keys.',
+      });
+      return;
+    }
+
     try {
-       if (!auth) {
-        throw new Error('Firebase Auth is not initialized.');
-      }
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,

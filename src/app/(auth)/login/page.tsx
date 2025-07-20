@@ -21,6 +21,19 @@ import { useToast } from '@/hooks/use-toast';
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) {
+    // Check for specific Firebase error codes
+    if ('code' in error) {
+      switch ((error as any).code) {
+        case 'auth/user-not-found':
+          return 'No user found with this email.';
+        case 'auth/wrong-password':
+          return 'Incorrect password. Please try again.';
+        case 'auth/invalid-credential':
+          return 'Invalid credentials. Please check your email and password.';
+        default:
+          return error.message;
+      }
+    }
     return error.message;
   }
   if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as any).message === 'string') {
@@ -40,10 +53,16 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth) {
+       toast({
+        variant: 'destructive',
+        title: 'Configuration Error',
+        description: 'Firebase is not configured. Please add your API keys.',
+      });
+      return;
+    }
+
     try {
-      if (!auth) {
-        throw new Error('Firebase Auth is not initialized.');
-      }
       await signInWithEmailAndPassword(auth, email, password);
       router.push('/dashboard');
     } catch (error: unknown) {

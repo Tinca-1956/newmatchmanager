@@ -1,7 +1,7 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeApp, getApps, getApp, type FirebaseOptions } from 'firebase/app';
+import { getAuth, type Auth } from 'firebase/auth';
 
-const firebaseConfig = {
+const firebaseConfig: FirebaseOptions = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
@@ -10,18 +10,28 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const allConfigValuesPresent = Object.values(firebaseConfig).every(Boolean);
+// This function checks if all required config values are present.
+// It's important to ensure we don't try to initialize Firebase without a full config.
+function isConfigComplete(config: FirebaseOptions): boolean {
+  return !!config.apiKey && !!config.authDomain && !!config.projectId;
+}
 
-let app, auth;
 
-if (allConfigValuesPresent) {
-  app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-  auth = getAuth(app);
-} else {
-  console.warn("Firebase config is missing. Authentication will not work.");
-  // Provide mock/null objects if config is not present
-  app = null;
-  auth = null;
+let app;
+let auth: Auth | null = null;
+
+// We only want to run this initialization logic in the browser.
+if (typeof window !== 'undefined' && isConfigComplete(firebaseConfig)) {
+  try {
+    app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    auth = getAuth(app);
+  } catch (e) {
+    console.error("Failed to initialize Firebase", e);
+  }
+}
+
+if (typeof window !== 'undefined' && !isConfigComplete(firebaseConfig)) {
+    console.warn("Firebase config is missing or incomplete. Authentication will not work.");
 }
 
 
