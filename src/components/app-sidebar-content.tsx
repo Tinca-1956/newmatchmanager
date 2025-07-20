@@ -14,6 +14,7 @@ import {
   Info,
   Fish,
   User,
+  Database,
 } from 'lucide-react';
 import { SheetClose } from './ui/sheet';
 import { useAuth } from '@/hooks/use-auth';
@@ -29,6 +30,7 @@ const navItems = [
   { href: '/results', icon: Medal, label: 'Results' },
   { href: '/users', icon: UserCog, label: 'Users', adminOnly: true },
   { href: '/about', icon: Info, label: 'About' },
+  { href: '/test-db', icon: Database, label: 'DB Test' },
 ];
 
 interface AppSidebarContentProps {
