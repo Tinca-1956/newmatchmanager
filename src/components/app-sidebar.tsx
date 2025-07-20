@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -7,7 +8,7 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarFooter,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -40,12 +41,21 @@ const navItems = [
 export default function AppSidebar() {
   const pathname = usePathname();
   const userRole = mockUser.role;
+  const { setOpenMobile } = useSidebar();
+
+  const handleLinkClick = () => {
+    setOpenMobile(false);
+  };
 
   return (
     <Sidebar collapsible="desktop" className="bg-sidebar text-sidebar-foreground">
       <SidebarContent>
         <SidebarHeader className="p-4">
-          <Link href="/dashboard" className="flex items-center gap-2">
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-2"
+            onClick={handleLinkClick}
+          >
             <Fish className="h-8 w-8 text-sidebar-primary" />
             <h1 className="text-xl font-semibold text-sidebar-primary-foreground">
               Match Manager
@@ -57,10 +67,12 @@ export default function AppSidebar() {
             if (item.adminOnly && userRole !== 'Site Admin') {
               return null;
             }
-            const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+            const isActive =
+              pathname === item.href ||
+              (item.href !== '/dashboard' && pathname.startsWith(item.href));
             return (
               <SidebarMenuItem key={item.href}>
-                <Link href={item.href}>
+                <Link href={item.href} onClick={handleLinkClick}>
                   <SidebarMenuButton isActive={isActive} className="w-full">
                     <item.icon className="h-5 w-5" />
                     <span className="truncate">{item.label}</span>
