@@ -20,10 +20,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
-import { mockClubs, mockUser } from '@/lib/mock-data';
 import { useToast } from '@/hooks/use-toast';
 import { updateProfile } from 'firebase/auth';
-import { auth } from '@/lib/firebase-client';
+import { auth, firestore } from '@/lib/firebase-client';
+import { collection, doc, getDoc, getDocs, setDoc } from 'firebase/firestore';
+import type { Club } from '@/lib/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -31,20 +33,56 @@ export default function ProfilePage() {
 
   const [displayName, setDisplayName] = useState('');
   const [primaryClubId, setPrimaryClubId] = useState('');
+  const [clubs, setClubs] = useState<Club[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      setDisplayName(user.displayName || '');
-      // In a real app, this would come from the user's profile in the database.
-      // We'll use the mockUser for now.
-      setPrimaryClubId(mockUser.primaryClubId || '');
+    async function fetchProfileAndClubs() {
+      if (!user || !firestore) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        // Fetch clubs
+        const clubsCollection = collection(firestore, 'clubs');
+        const clubSnapshot = await getDocs(clubsCollection);
+        const clubsData = clubSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Club));
+        setClubs(clubsData);
+
+        // Fetch user profile from Firestore
+        const userDocRef = doc(firestore, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setPrimaryClubId(userData.primaryClubId || '');
+        }
+
+        setDisplayName(user.displayName || '');
+        
+      } catch (error) {
+        console.error("Error fetching data: ", error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Could not fetch your profile data.',
+        });
+      } finally {
+        setIsLoading(false);
+      }
     }
-  }, [user]);
+
+    fetchProfileAndClubs();
+  }, [user, toast]);
 
   const handleSaveChanges = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !auth?.currentUser) {
+    if (!user || !auth?.currentUser || !firestore) {
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -60,9 +98,13 @@ export default function ProfilePage() {
         await updateProfile(auth.currentUser, { displayName });
       }
 
-      // Here you would typically also save the primaryClubId to your database (e.g., Firestore)
-      // For this example, we'll just show a success message.
-      console.log('Saving primary club ID:', primaryClubId);
+      // Save user profile data to Firestore
+      const userDocRef = doc(firestore, 'users', user.uid);
+      await setDoc(userDocRef, { 
+        primaryClubId,
+        displayName,
+        email: user.email,
+      }, { merge: true });
 
       toast({
         title: 'Success!',
@@ -78,6 +120,44 @@ export default function ProfilePage() {
       setIsSaving(false);
     }
   };
+
+  if (isLoading) {
+    return (
+       <div className="flex flex-col gap-8">
+         <div>
+          <h1 className="text-3xl font-bold tracking-tight">My Profile</h1>
+          <p className="text-muted-foreground">
+            Manage your account settings and club association.
+          </p>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Edit Profile</CardTitle>
+            <CardDescription>
+              Update your personal details here. Click save when you're done.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="displayName">Angler Name</Label>
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="primaryClub">Primary Club</Label>
+              <Skeleton className="h-10 w-full" />
+            </div>
+             <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Skeleton className="h-10 w-full" />
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Skeleton className="h-10 w-28" />
+          </CardFooter>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -112,7 +192,7 @@ export default function ProfilePage() {
                   <SelectValue placeholder="Select a club" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockClubs.map((club) => (
+                  {clubs.map((club) => (
                     <SelectItem key={club.id} value={club.id}>
                       {club.name}
                     </SelectItem>
