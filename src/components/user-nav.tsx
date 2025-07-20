@@ -21,6 +21,7 @@ import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { User, LogOut } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
+import Link from 'next/link';
 
 export function UserNav() {
   const { user, loading } = useAuth();
@@ -60,9 +61,11 @@ export function UserNav() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem>
-            <User className="mr-2 h-4 w-4" />
-            <span>Profile</span>
+          <DropdownMenuItem asChild>
+            <Link href="/profile">
+              <User className="mr-2 h-4 w-4" />
+              <span>Profile</span>
+            </Link>
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />

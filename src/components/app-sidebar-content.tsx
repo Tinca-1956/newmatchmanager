@@ -13,12 +13,14 @@ import {
   UserCog,
   Info,
   Fish,
+  User,
 } from 'lucide-react';
 import { SheetClose } from './ui/sheet';
 import { useAuth } from '@/hooks/use-auth';
 
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/profile', icon: User, label: 'Profile' },
   { href: '/clubs', icon: Shield, label: 'Clubs' },
   { href: '/members', icon: Users, label: 'Members' },
   { href: '/marshals', icon: CircleUserRound, label: 'Marshals' },
