@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { firestore } from '@/lib/firebase-client';
+import { firestore, auth } from '@/lib/firebase-client';
 import { doc, getDoc } from 'firebase/firestore';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
@@ -25,23 +25,33 @@ export default function TestDbPage() {
       return;
     }
 
+    if (!auth?.currentUser) {
+       setTestResult({
+        status: 'error',
+        message: 'You must be logged in to perform this test.',
+      });
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      // We try to get a document that we know doesn't exist.
-      // If we get a 'permission-denied' error, the rules are wrong.
-      // If we get a 'not-found' result, the connection and rules are working for reads.
-      const testDocRef = doc(firestore, 'test_collection', 'test_doc');
+      // We try to get the current user's own document.
+      // The security rules should allow this.
+      // If we get a 'permission-denied' error, the rules are wrong or not deployed.
+      // If the request is allowed (even if the doc doesn't exist), the connection is fine.
+      const testDocRef = doc(firestore, 'users', auth.currentUser.uid);
       await getDoc(testDocRef);
       
       setTestResult({
         status: 'success',
-        message: 'Successfully connected to Firestore! The security rules are allowing read access.',
+        message: 'Successfully connected to Firestore! The security rules are allowing you to read your own user document.',
       });
 
     } catch (error: any) {
       if (error.code === 'permission-denied') {
          setTestResult({
             status: 'error',
-            message: 'Connection failed: Permission Denied. Please make sure you have deployed the firestore.rules file to your Firebase project.',
+            message: 'Connection failed: Permission Denied. Please make sure you have deployed the correct firestore.rules file to your Firebase project.',
         });
       } else {
          setTestResult({
@@ -68,7 +78,7 @@ export default function TestDbPage() {
           <CardTitle>Firestore Connection</CardTitle>
           <CardDescription>
             Click the button below to perform a test read from your database.
-            This will help diagnose issues with API keys or security rules.
+            This will check if you can read your own user document, which helps diagnose issues with API keys or security rules.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
