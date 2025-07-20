@@ -41,48 +41,43 @@ const navItems = [
 export default function AppSidebar() {
   const pathname = usePathname();
   const userRole = mockUser.role;
-  const { setOpenMobile } = useSidebar();
-
-  const handleLinkClick = () => {
-    setOpenMobile(false);
-  };
 
   return (
-    <Sidebar collapsible="desktop" className="bg-sidebar text-sidebar-foreground">
-      <SidebarContent>
-        <SidebarHeader className="p-4">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2"
-            onClick={handleLinkClick}
-          >
-            <Fish className="h-8 w-8 text-sidebar-primary" />
-            <h1 className="text-xl font-semibold text-sidebar-primary-foreground">
-              Match Manager
-            </h1>
+    <div className="hidden border-r bg-muted/40 md:block">
+      <div className="flex h-full max-h-screen flex-col gap-2">
+        <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
+          <Link href="/" className="flex items-center gap-2 font-semibold">
+            <Fish className="h-6 w-6" />
+            <span className="">Match Manager</span>
           </Link>
-        </SidebarHeader>
-        <SidebarMenu>
-          {navItems.map((item) => {
-            if (item.adminOnly && userRole !== 'Site Admin') {
-              return null;
-            }
-            const isActive =
-              pathname === item.href ||
-              (item.href !== '/dashboard' && pathname.startsWith(item.href));
-            return (
-              <SidebarMenuItem key={item.href}>
-                <Link href={item.href} onClick={handleLinkClick}>
-                  <SidebarMenuButton isActive={isActive} className="w-full">
-                    <item.icon className="h-5 w-5" />
-                    <span className="truncate">{item.label}</span>
-                  </SidebarMenuButton>
+        </div>
+        <div className="flex-1">
+          <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
+            {navItems.map((item) => {
+              if (item.adminOnly && userRole !== 'Site Admin') {
+                return null;
+              }
+              const isActive =
+                pathname === item.href ||
+                (item.href !== '/dashboard' && pathname.startsWith(item.href));
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
+                    isActive
+                      ? 'bg-muted text-primary'
+                      : 'text-muted-foreground hover:text-primary'
+                  }`}
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
                 </Link>
-              </SidebarMenuItem>
-            );
-          })}
-        </SidebarMenu>
-      </SidebarContent>
-    </Sidebar>
+              );
+            })}
+          </nav>
+        </div>
+      </div>
+    </div>
   );
 }

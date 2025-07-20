@@ -12,14 +12,14 @@ export default function MainLayout({
 }) {
   return (
     <SidebarProvider>
-      <div className="min-h-screen w-full bg-background">
+      <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
         <AppSidebar />
-        <SidebarInset>
-          <div className="flex h-full flex-col">
-            <AppHeader />
-            <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
-          </div>
-        </SidebarInset>
+        <div className="flex flex-col">
+          <AppHeader />
+          <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
+            {children}
+          </main>
+        </div>
       </div>
     </SidebarProvider>
   );
