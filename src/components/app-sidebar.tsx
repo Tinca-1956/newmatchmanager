@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -25,6 +24,7 @@ import {
   Fish,
 } from 'lucide-react';
 import { mockUser } from '@/lib/mock-data';
+import { SheetClose } from './ui/sheet';
 
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -38,45 +38,65 @@ const navItems = [
   { href: '/about', icon: Info, label: 'About' },
 ];
 
-export default function AppSidebar() {
+interface AppSidebarProps {
+  isMobile: boolean;
+}
+
+function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
   const pathname = usePathname();
   const userRole = mockUser.role;
 
+  const LinkOrDiv = onLinkClick ? SheetClose : 'div';
+
   return (
-    <div className="hidden border-r bg-muted/40 md:block">
-      <div className="flex h-full max-h-screen flex-col gap-2">
-        <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-          <Link href="/" className="flex items-center gap-2 font-semibold">
-            <Fish className="h-6 w-6" />
-            <span className="">Match Manager</span>
+    <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
+      {navItems.map((item) => {
+        if (item.adminOnly && userRole !== 'Site Admin') {
+          return null;
+        }
+        const isActive =
+          pathname === item.href ||
+          (item.href !== '/dashboard' && pathname.startsWith(item.href));
+
+        const linkContent = (
+          <Link
+            href={item.href}
+            className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
+              isActive
+                ? 'bg-muted text-primary'
+                : 'text-muted-foreground hover:text-primary'
+            }`}
+          >
+            <item.icon className="h-4 w-4" />
+            {item.label}
           </Link>
-        </div>
-        <div className="flex-1">
-          <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
-            {navItems.map((item) => {
-              if (item.adminOnly && userRole !== 'Site Admin') {
-                return null;
-              }
-              const isActive =
-                pathname === item.href ||
-                (item.href !== '/dashboard' && pathname.startsWith(item.href));
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
-                    isActive
-                      ? 'bg-muted text-primary'
-                      : 'text-muted-foreground hover:text-primary'
-                  }`}
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
+        );
+
+        if (onLinkClick) {
+          return (
+            <SheetClose asChild key={item.href}>
+              {linkContent}
+            </SheetClose>
+          );
+        }
+
+        return <div key={item.href}>{linkContent}</div>;
+      })}
+    </nav>
+  );
+}
+
+export default function AppSidebar({ isMobile }: AppSidebarProps) {
+  return (
+    <div className="flex h-full max-h-screen flex-col gap-2 bg-sidebar text-sidebar-foreground">
+      <div className="flex h-14 items-center border-b border-sidebar-border px-4 lg:h-[60px] lg:px-6">
+        <Link href="/" className="flex items-center gap-2 font-semibold">
+          <Fish className="h-6 w-6" />
+          <span className="">Match Manager</span>
+        </Link>
+      </div>
+      <div className="flex-1">
+        <NavMenu onLinkClick={isMobile ? () => {} : undefined} />
       </div>
     </div>
   );
