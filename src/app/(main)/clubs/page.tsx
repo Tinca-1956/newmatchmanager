@@ -3,15 +3,11 @@
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  CardFooter,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { mockClubs } from '@/lib/mock-data';
-import Image from 'next/image';
 import { PlusCircle } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export default function ClubsPage() {
   return (
@@ -29,32 +25,32 @@ export default function ClubsPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {mockClubs.map((club) => (
-          <Card key={club.id} className="flex flex-col">
-            <CardHeader>
-              <div className="relative h-40 w-full">
-                <Image
-                  src={`${club.imageUrl.split('?')[0]}?w=400&h=200`}
-                  alt={club.name}
-                  layout="fill"
-                  objectFit="cover"
-                  className="rounded-t-lg"
-                  data-ai-hint="fishing club"
-                />
+      <Card>
+        <CardContent className="p-0">
+          <div className="space-y-0">
+            {mockClubs.map((club) => (
+              <div
+                key={club.id}
+                className="flex items-center justify-between p-4 border-b last:border-b-0"
+              >
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-12 w-12" data-ai-hint="fishing club">
+                    <AvatarImage src={club.imageUrl} alt={club.name} />
+                    <AvatarFallback>{club.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-semibold">{club.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {club.description}
+                    </p>
+                  </div>
+                </div>
+                <Button variant="outline">View Details</Button>
               </div>
-              <CardTitle className="pt-4">{club.name}</CardTitle>
-              <CardDescription>{club.description}</CardDescription>
-            </CardHeader>
-            <CardContent className="flex-grow"></CardContent>
-            <CardFooter>
-              <Button variant="outline" className="w-full">
-                View Details
-              </Button>
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
