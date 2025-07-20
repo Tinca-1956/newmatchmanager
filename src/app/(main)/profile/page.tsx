@@ -98,7 +98,7 @@ export default function ProfilePage() {
         await updateProfile(auth.currentUser, { displayName });
       }
 
-      // Save user profile data to Firestore
+      // Save/update user profile data to Firestore
       const userDocRef = doc(firestore, 'users', user.uid);
       await setDoc(userDocRef, { 
         primaryClubId,
@@ -111,10 +111,11 @@ export default function ProfilePage() {
         description: 'Your profile has been updated.',
       });
     } catch (error) {
+      console.error("Error saving profile: ", error);
       toast({
         variant: 'destructive',
         title: 'Update Failed',
-        description: 'Could not save your changes. Please try again.',
+        description: 'Could not save your changes. Please check your permissions and try again.',
       });
     } finally {
       setIsSaving(false);
