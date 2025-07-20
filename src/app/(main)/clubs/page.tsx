@@ -6,7 +6,7 @@ import {
   CardContent,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Trash2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Dialog,
@@ -16,11 +16,22 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
-import { collection, addDoc, getDocs, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 import type { Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -106,6 +117,31 @@ export default function ClubsPage() {
       setIsSaving(false);
     }
   };
+
+  const handleDeleteClub = async (clubId: string, clubName: string) => {
+    if (!firestore) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Firestore is not initialized.',
+      });
+      return;
+    }
+    try {
+      await deleteDoc(doc(firestore, 'clubs', clubId));
+      toast({
+        title: 'Club Deleted',
+        description: `Club "${clubName}" has been removed.`,
+      });
+    } catch (error) {
+      console.error('Error deleting document: ', error);
+      toast({
+        variant: 'destructive',
+        title: 'Delete Failed',
+        description: 'Could not delete the club. Please try again.',
+      });
+    }
+  };
   
   const renderClubList = () => {
     if (isLoading) {
@@ -148,7 +184,34 @@ export default function ClubsPage() {
               </p>
             </div>
           </div>
-          <Button variant="outline">View Details</Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline">View Details</Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="icon">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the 
+                    <span className="font-bold"> {club.name}</span> club and all of its data.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => handleDeleteClub(club.id, club.name)}
+                    className="bg-destructive hover:bg-destructive/90"
+                  >
+                    Continue
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
     ));
   }
