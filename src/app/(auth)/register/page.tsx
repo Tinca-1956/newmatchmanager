@@ -19,6 +19,19 @@ import { auth } from '@/lib/firebase-client';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as any).message === 'string') {
+    return (error as any).message;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  return 'An unexpected error occurred.';
+}
+
 export default function RegisterPage() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -29,6 +42,9 @@ export default function RegisterPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+       if (!auth) {
+        throw new Error('Firebase Auth is not initialized.');
+      }
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
@@ -40,11 +56,11 @@ export default function RegisterPage() {
         });
       }
       router.push('/select-club');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         variant: 'destructive',
         title: 'Registration Failed',
-        description: error.message,
+        description: getErrorMessage(error),
       });
     }
   };

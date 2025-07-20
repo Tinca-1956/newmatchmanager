@@ -19,6 +19,19 @@ import { auth } from '@/lib/firebase-client';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as any).message === 'string') {
+    return (error as any).message;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  return 'An unexpected error occurred.';
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,13 +41,16 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      if (!auth) {
+        throw new Error('Firebase Auth is not initialized.');
+      }
       await signInWithEmailAndPassword(auth, email, password);
       router.push('/dashboard');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         variant: 'destructive',
         title: 'Login Failed',
-        description: error.message,
+        description: getErrorMessage(error),
       });
     }
   };
