@@ -14,8 +14,8 @@ import {
   Info,
   Fish,
 } from 'lucide-react';
-import { mockUser } from '@/lib/mock-data';
 import { SheetClose } from './ui/sheet';
+import { useAuth } from '@/hooks/use-auth';
 
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -35,7 +35,8 @@ interface AppSidebarContentProps {
 
 function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
   const pathname = usePathname();
-  const userRole = mockUser.role;
+  // We'll add role-based logic later. For now, assume a non-admin user.
+  const userRole = 'Angler'; 
 
   return (
     <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
@@ -76,6 +77,10 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
 }
 
 export default function AppSidebarContent({ isMobile }: AppSidebarContentProps) {
+  const { user, loading } = useAuth();
+  
+  if (loading) return null;
+
   return (
     <div className="flex h-full max-h-screen flex-col gap-2 bg-sidebar text-sidebar-foreground">
       <div className="flex h-14 items-center border-b border-sidebar-border px-4 lg:h-[60px] lg:px-6">
