@@ -3,7 +3,7 @@ import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import AppSidebar from './app-sidebar';
+import AppSidebarContent from './app-sidebar-content';
 import { UserNav } from './user-nav';
 
 export default function AppHeader() {
@@ -21,7 +21,7 @@ export default function AppHeader() {
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="flex flex-col p-0">
-          <AppSidebar isMobile={true} />
+          <AppSidebarContent isMobile={true} />
         </SheetContent>
       </Sheet>
       <div className="w-full flex-1">
