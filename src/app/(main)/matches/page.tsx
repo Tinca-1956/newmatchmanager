@@ -59,6 +59,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { RegisterIcon } from '@/components/icons/register-icon';
 
 const EMPTY_MATCH: Omit<Match, 'id' | 'clubId' | 'seriesName'> = {
     seriesId: '',
@@ -352,13 +353,15 @@ export default function MatchesPage() {
             <Button variant="outline" size="sm">
                 <Medal className="h-4 w-4"/>
             </Button>
-             <Button 
+            <Button 
                 variant="outline" 
-                size="sm" 
+                size="icon" 
+                className="h-9 w-9"
                 onClick={(e) => handleOpenRegisterDialog(e, match)}
                 disabled={isRegistered || isFull || match.status !== 'Upcoming'}
+                title={isRegistered ? 'Already Registered' : 'Register for Match'}
               >
-                {isRegistered ? 'Registered' : 'Register'}
+                <RegisterIcon className="h-5 w-5"/>
               </Button>
              {canEdit && (
                 <Button variant="outline" size="sm" onClick={(e) => handleOpenEditDialog(e, match)}>
