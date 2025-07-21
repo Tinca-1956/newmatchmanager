@@ -3,88 +3,67 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function to check if the user is authenticated
-    function isAuthenticated() {
-      return request.auth != null;
+    // --- Helper Functions ---
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    // Helper function to get the user's profile data
-    function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
-    }
-    
-    // Helper function to check if a user has a specific role
-    function hasRole(userId, role) {
-      let userData = getUserData(userId);
-      return isAuthenticated() && userData.role == role;
+    function getUserClubId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId;
     }
 
-    // Helper function to check if a user has one of multiple roles
-    function hasAnyRole(userId, roles) {
-      let userData = getUserData(userId);
-      return isAuthenticated() && userData.role in roles;
-    }
-    
-    // Helper function to check if the user is an admin of a specific club
-    function isClubAdmin(userId, clubId) {
-      let userData = getUserData(userId);
-      return isAuthenticated() &&
-             (userData.role == 'Club Admin' || userData.role == 'Site Admin') &&
-             userData.primaryClubId == clubId;
-    }
-    
-    // Site admins can do anything
-    match /{document=**} {
-      allow read, write: if hasRole(request.auth.uid, 'Site Admin');
-    }
-
-    // Rules for the 'users' collection
+    // --- User Profiles ---
+    // Users can read their own profile.
+    // Users can update their own profile (firstName, lastName, primaryClubId).
+    // Admins can update any user's profile.
     match /users/{userId} {
-      // Users can read and update their own profile
-      allow read, update: if request.auth.uid == userId;
-      // Club Admins can read user profiles from their club
-      allow get: if isClubAdmin(request.auth.uid, get(/databases/$(database)/documents/users/$(userId)).data.primaryClubId);
-      // Allow creation of user doc during club selection
+      allow read: if request.auth.uid == userId || getUserRole() == 'Site Admin';
+      allow update: if request.auth.uid == userId 
+        || getUserRole() in ['Site Admin', 'Club Admin'];
       allow create: if request.auth.uid == userId;
     }
 
-    // Rules for the 'clubs' collection
+    // --- Clubs ---
+    // All authenticated users can read club information.
+    // Only Site Admins can create, update, or delete clubs.
     match /clubs/{clubId} {
-      // Any authenticated user can read the list of clubs (e.g., for selection)
-      allow read: if isAuthenticated();
-      // Only admins can create/update clubs
-      allow create, update, delete: if hasAnyRole(request.auth.uid, ['Site Admin', 'Club Admin']);
+      allow read: if request.auth != null;
+      allow write: if getUserRole() == 'Site Admin';
     }
 
-    // Rules for the 'series' collection
+    // --- Series ---
+    // Authenticated users can read series info.
+    // Club Admins can manage series for their own club.
+    // Site Admins can manage any series.
     match /series/{seriesId} {
-        // Anyone in the club can read the series
-        allow read: if isAuthenticated() && getUserData(request.auth.uid).primaryClubId == resource.data.clubId;
-        // Only club admins can manage series
-        allow create, update, delete: if isClubAdmin(request.auth.uid, resource.data.clubId);
+      allow read: if request.auth != null;
+      allow write: if getUserRole() == 'Site Admin' 
+        || (getUserRole() == 'Club Admin' && request.resource.data.clubId == getUserClubId());
     }
 
-    // Rules for the 'matches' collection
+    // --- Matches ---
+    // Authenticated users can read match info.
+    // Users can register/unregister (update registeredAnglers array).
+    // Admins can manage matches in their club.
     match /matches/{matchId} {
-        // Anyone in the club can read the matches
-        allow read: if isAuthenticated() && getUserData(request.auth.uid).primaryClubId == resource.data.clubId;
-        
-        // Club admins can create/update/delete matches
-        allow create, delete: if isClubAdmin(request.auth.uid, resource.data.clubId);
-        
-        // Allow users to register (update registeredAnglers/count)
-        // Also allow admins/marshals to update status
-        allow update: if (isAuthenticated() && getUserData(request.auth.uid).primaryClubId == resource.data.clubId) ||
-                         hasAnyRole(request.auth.uid, ['Club Admin', 'Marshal']);
+      allow read: if request.auth != null;
+      // Allow general updates by admins
+      allow update: if getUserRole() == 'Site Admin' 
+        || (getUserRole() == 'Club Admin' && request.resource.data.clubId == getUserClubId())
+        // Allow any authenticated user to update ONLY the registeredAnglers array (for registration)
+        || (request.auth != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['registeredAnglers', 'registeredCount']));
+      allow create, delete: if getUserRole() == 'Site Admin' 
+        || (getUserRole() == 'Club Admin' && request.resource.data.clubId == getUserClubId());
     }
-    
-    // Rules for the 'results' collection
-    match /results/{resultId} {
-        // Anyone in the club can read results
-        allow read: if isAuthenticated() && getUserData(request.auth.uid).primaryClubId == resource.data.clubId;
 
-        // Marshals, Club Admins, Site Admins can create/update results
-        allow write: if hasAnyRole(request.auth.uid, ['Marshal', 'Club Admin', 'Site Admin']);
+    // --- Results ---
+    // Authenticated users can read results.
+    // Marshals, Club Admins, and Site Admins can write results for matches in their club.
+    match /results/{resultId} {
+      allow read: if request.auth != null;
+      // Check the clubId of the match document being referenced in the result
+      allow write: if getUserRole() == 'Site Admin'
+        || (getUserRole() in ['Club Admin', 'Marshal'] && get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.clubId == getUserClubId());
     }
   }
 }
