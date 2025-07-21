@@ -3,7 +3,6 @@
 import {
   Avatar,
   AvatarFallback,
-  AvatarImage,
 } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -43,10 +42,12 @@ export function UserNav() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+        <Button 
+            variant="ghost" 
+            className="relative h-8 w-8 rounded-full focus-visible:ring-0 focus-visible:ring-offset-0 hover:bg-transparent"
+        >
           <Avatar className="h-8 w-8">
-            <AvatarImage src={user.photoURL || ''} alt={user.displayName || ''} />
-            <AvatarFallback>
+            <AvatarFallback className="bg-transparent text-sidebar-foreground">
               <User className="h-5 w-5" />
             </AvatarFallback>
           </Avatar>
