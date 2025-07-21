@@ -260,7 +260,7 @@ export default function WeighInPage() {
                         </div>
                     </div>
                      <div className="space-y-2">
-                        <Label htmlFor={`weight-${angler.id}`}>Weight (oz)</Label>
+                        <Label htmlFor={`weight-${angler.id}`}>Weight</Label>
                         <Input
                             id={`weight-${angler.id}`}
                             type="number"
