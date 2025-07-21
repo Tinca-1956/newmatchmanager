@@ -1,76 +1,48 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
   
-    // Helper Functions
-    function isUserAuthenticated() {
+    // Helper functions
+    function isAuth() {
       return request.auth != null;
     }
 
-    function isSiteAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
     }
     
-    function isClubAdmin() {
-       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin';
+    function isUserRole(userId, roles) {
+      let userData = getUserData(userId);
+      return isAuth() && userData.role in roles;
+    }
+
+    // Rules for 'users' collection
+    match /users/{userId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() && request.auth.uid == userId // Can update own doc
+                       || isUserRole(request.auth.uid, ['Site Admin', 'Club Admin']); // Admins can update docs
     }
 
     // Rules for 'clubs' collection
     match /clubs/{clubId} {
-      // Anyone authenticated can read the list of clubs
-      allow read: if isUserAuthenticated();
-      
-      // Only Site Admins can create or update club details
-      allow create, update: if isSiteAdmin();
-
-      // Only Site Admins can delete a club
-      allow delete: if isSiteAdmin();
-    }
-    
-    // Rules for 'users' collection
-    match /users/{userId} {
-      // Users can read their own document. Club/Site admins can read any user document.
-      allow read: if isUserAuthenticated() && (request.auth.uid == userId || isClubAdmin() || isSiteAdmin());
-
-      // Users can update their own name and primary club.
-      // Admins can update name, role, and memberStatus.
-      allow update: if isUserAuthenticated() && 
-                      (request.auth.uid == userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstName', 'lastName', 'primaryClubId'])) ||
-                      ((isClubAdmin() || isSiteAdmin()) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstName', 'lastName', 'role', 'memberStatus']));
-                      
-      // Allow user creation (typically during post-registration flow)
-      allow create: if isUserAuthenticated();
-      
-      // Generally, don't allow users to be deleted from the client.
-      allow delete: if false;
+      allow read: if isAuth();
+      allow create: if isUserRole(request.auth.uid, ['Site Admin', 'Club Admin']);
+      allow update: if isUserRole(request.auth.uid, ['Site Admin', 'Club Admin']);
+      allow delete: if isUserRole(request.auth.uid, ['Site Admin']);
     }
     
     // Rules for 'series' collection
     match /series/{seriesId} {
-       // Club Admins or Site Admins can read series data
-      allow read: if isUserAuthenticated() && (isClubAdmin() || isSiteAdmin());
-      
-      // Club Admins or Site Admins can create and update series
-      allow create, update: if isUserAuthenticated() && (isClubAdmin() || isSiteAdmin());
-      
-      // Only Site Admins should be able to delete a series (for now)
-      allow delete: if isSiteAdmin();
+      allow read: if isAuth();
+      allow create, update: if isUserRole(request.auth.uid, ['Site Admin', 'Club Admin']);
     }
-
+    
     // Rules for 'matches' collection
     match /matches/{matchId} {
-       // Club Admins or Site Admins can read match data
-      allow read: if isUserAuthenticated() && (isClubAdmin() || isSiteAdmin());
-      
-      // Club Admins or Site Admins can create and update matches
-      allow create, update: if isUserAuthenticated() && (isClubAdmin() || isSiteAdmin());
-      
-      // Only Site Admins should be able to delete a match
-      allow delete: if isSiteAdmin();
+      allow get, list: if isAuth();
+      allow create, update: if isUserRole(request.auth.uid, ['Site Admin', 'Club Admin']);
     }
   }
 }
-
-    
