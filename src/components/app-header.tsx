@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
 import { doc, getDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function AppHeader() {
   const { user } = useAuth();
@@ -75,14 +76,23 @@ export default function AppHeader() {
       </Sheet>
 
       <div className="w-full flex-1">
-        <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-sidebar-foreground/70" />
-            {isLoading ? (
-                <Skeleton className="h-6 w-48 bg-sidebar-accent" />
-            ) : (
-                <span className="font-bold text-lg">{primaryClubName}</span>
-            )}
-        </div>
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <div className="flex items-center gap-2 cursor-default">
+                        <Shield className="h-5 w-5 text-sidebar-foreground/70" />
+                        {isLoading ? (
+                            <Skeleton className="h-6 w-48 bg-sidebar-accent" />
+                        ) : (
+                            <span className="font-bold text-lg">{primaryClubName}</span>
+                        )}
+                    </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" align="start">
+                    <p className="text-left">To change the displayed club, edit your profile</p>
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
       </div>
 
       <UserNav />
