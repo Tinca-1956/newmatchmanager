@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-type WeighInStatus = 'Weighed' | 'Did Not Weigh' | 'Pending';
+type WeighInStatus = 'NYW' | 'OK' | 'DNF' | 'DNW' | 'DSQ';
 
 type AnglerDetails = Pick<User, 'id' | 'firstName' | 'lastName'> & {
   peg: string;
@@ -95,7 +95,7 @@ export default function WeighInPage() {
                 });
                 anglersData.push(...chunkData);
             }
-            setAnglers(anglersData.map(a => ({ ...a, peg: '', section: '', weight: '', status: 'Pending', rank: '' })));
+            setAnglers(anglersData.map(a => ({ ...a, peg: '', section: '', weight: '', status: 'NYW', rank: '' })));
         }
 
       } catch (error: any) {
@@ -132,7 +132,7 @@ export default function WeighInPage() {
         const batch = writeBatch(firestore);
         
         const results: Omit<Result, 'position' | 'points'>[] = anglers
-            .filter(angler => angler.status === 'Weighed' && parseInt(angler.weight) > 0)
+            .filter(angler => angler.status === 'OK' && parseInt(angler.weight) > 0)
             .map(angler => {
                 const totalOz = parseInt(angler.weight || '0');
                 return {
@@ -280,9 +280,11 @@ export default function WeighInPage() {
                                     <SelectValue placeholder="Status" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="Pending">Pending</SelectItem>
-                                    <SelectItem value="Weighed">Weighed</SelectItem>
-                                    <SelectItem value="Did Not Weigh">Did Not Weigh</SelectItem>
+                                    <SelectItem value="NYW">NYW</SelectItem>
+                                    <SelectItem value="OK">OK</SelectItem>
+                                    <SelectItem value="DNF">DNF</SelectItem>
+                                    <SelectItem value="DNW">DNW</SelectItem>
+                                    <SelectItem value="DSQ">DSQ</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
