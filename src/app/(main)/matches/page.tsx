@@ -18,7 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, CalendarIcon } from 'lucide-react';
+import { PlusCircle, Edit, CalendarIcon, User as UserIcon } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -37,7 +37,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -51,13 +50,15 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, Timestamp, arrayUnion, increment } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, Timestamp, arrayUnion, increment, getDocs, getDoc } from 'firebase/firestore';
 import type { Match, Series, User, MatchStatus } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 const EMPTY_MATCH: Omit<Match, 'id' | 'clubId' | 'seriesName'> = {
     seriesId: '',
@@ -73,6 +74,7 @@ const EMPTY_MATCH: Omit<Match, 'id' | 'clubId' | 'seriesName'> = {
     registeredAnglers: [],
 };
 
+type AnglerDetails = Pick<User, 'id' | 'firstName' | 'lastName'>;
 
 export default function MatchesPage() {
   const { user } = useAuth();
@@ -87,8 +89,11 @@ export default function MatchesPage() {
   
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
+  const [isViewRegisteredDialogOpen, setIsViewRegisteredDialogOpen] = useState(false);
   
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [registeredAnglersDetails, setRegisteredAnglersDetails] = useState<AnglerDetails[]>([]);
+  const [isLoadingAnglers, setIsLoadingAnglers] = useState(false);
   const [formState, setFormState] = useState<Omit<Match, 'id' | 'clubId' | 'seriesName'>>(EMPTY_MATCH);
 
 
@@ -158,26 +163,82 @@ export default function MatchesPage() {
     };
   }, [user, toast]);
 
-   const handleOpenEditDialog = (match: Match) => {
+   const handleOpenEditDialog = (e: React.MouseEvent, match: Match) => {
+    e.stopPropagation();
     setSelectedMatch(match);
     const { id, clubId, seriesName, ...rest } = match;
     setFormState(rest);
     setIsEditDialogOpen(true);
   };
   
-   const handleOpenCreateDialog = () => {
+   const handleOpenCreateDialog = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setSelectedMatch(null);
     setFormState(EMPTY_MATCH);
     setIsEditDialogOpen(true);
   }
 
-  const handleOpenRegisterDialog = (match: Match) => {
+  const handleOpenRegisterDialog = (e: React.MouseEvent, match: Match) => {
+    e.stopPropagation();
     setSelectedMatch(match);
     setIsRegisterDialogOpen(true);
   };
   
   const handleFormChange = (field: keyof typeof formState, value: any) => {
     setFormState(prev => ({...prev, [field]: value}));
+  };
+
+  const handleViewRegisteredClick = async (match: Match) => {
+    if (!firestore) return;
+    setSelectedMatch(match);
+    setIsViewRegisteredDialogOpen(true);
+    setIsLoadingAnglers(true);
+    
+    if (!match.registeredAnglers || match.registeredAnglers.length === 0) {
+      setRegisteredAnglersDetails([]);
+      setIsLoadingAnglers(false);
+      return;
+    }
+
+    try {
+      // Firestore 'in' query can take up to 30 elements at a time.
+      // Chunk the angler IDs to handle more than 30.
+      const anglerIds = match.registeredAnglers;
+      const anglersData: AnglerDetails[] = [];
+      const chunks = [];
+
+      for (let i = 0; i < anglerIds.length; i += 30) {
+        chunks.push(anglerIds.slice(i, i + 30));
+      }
+      
+      for (const chunk of chunks) {
+         if (chunk.length === 0) continue;
+         const usersCollection = collection(firestore, 'users');
+         const q = query(usersCollection, where('__name__', 'in', chunk));
+         const querySnapshot = await getDocs(q);
+
+         const chunkData = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              firstName: data.firstName || 'N/A',
+              lastName: data.lastName || 'N/A',
+            } as AnglerDetails;
+         });
+         anglersData.push(...chunkData);
+      }
+      
+      setRegisteredAnglersDetails(anglersData);
+    } catch (error) {
+      console.error("Error fetching registered anglers: ", error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not fetch registered angler details.',
+      });
+    } finally {
+      setIsLoadingAnglers(false);
+    }
   };
 
   const handleSaveMatch = async (e: React.FormEvent) => {
@@ -275,7 +336,7 @@ export default function MatchesPage() {
       const isFull = match.registeredCount >= match.capacity;
 
       return (
-       <TableRow key={match.id}>
+       <TableRow key={match.id} onClick={() => handleViewRegisteredClick(match)} className="cursor-pointer">
           <TableCell>
             <div className="text-sm text-muted-foreground">{match.seriesName}</div>
           </TableCell>
@@ -287,23 +348,47 @@ export default function MatchesPage() {
           <TableCell>{match.capacity}</TableCell>
           <TableCell>{match.registeredCount}</TableCell>
           <TableCell>{match.status}</TableCell>
-          <TableCell className="text-right space-x-2">
+          <TableCell className="text-right space-x-2" onClick={(e) => e.stopPropagation()}>
              <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => handleOpenRegisterDialog(match)}
+                onClick={(e) => handleOpenRegisterDialog(e, match)}
                 disabled={isRegistered || isFull || match.status !== 'Upcoming'}
               >
                 {isRegistered ? 'Registered' : 'Register'}
               </Button>
              {canEdit && (
-                <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(match)}>
+                <Button variant="outline" size="sm" onClick={(e) => handleOpenEditDialog(e, match)}>
                     <Edit className="h-4 w-4"/>
                 </Button>
             )}
           </TableCell>
         </TableRow>
     )});
+  }
+
+  const renderAnglerList = () => {
+    if (isLoadingAnglers) {
+      return Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 p-2">
+            <Skeleton className="h-9 w-9 rounded-full" />
+            <Skeleton className="h-4 w-40" />
+        </div>
+      ));
+    }
+
+    if (registeredAnglersDetails.length === 0) {
+        return <p className="text-muted-foreground p-4 text-center">No anglers registered yet.</p>;
+    }
+
+    return registeredAnglersDetails.map((angler) => (
+        <div key={angler.id} className="flex items-center gap-3 p-2 border-b">
+            <Avatar className="h-9 w-9">
+                <AvatarFallback><UserIcon className="h-5 w-5"/></AvatarFallback>
+            </Avatar>
+            <span>{angler.firstName} {angler.lastName}</span>
+        </div>
+    ));
   }
 
   return (
@@ -324,7 +409,7 @@ export default function MatchesPage() {
       <Card>
         <CardHeader>
             <CardTitle>Upcoming & Recent Matches</CardTitle>
-            <CardDescription>A list of all matches for your club.</CardDescription>
+            <CardDescription>A list of all matches for your club. Click a row to see registered anglers.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -478,6 +563,25 @@ export default function MatchesPage() {
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
+      )}
+
+      {selectedMatch && (
+        <Dialog open={isViewRegisteredDialogOpen} onOpenChange={setIsViewRegisteredDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Registered Anglers</DialogTitle>
+                    <DialogDescription>
+                        List of anglers registered for {selectedMatch.name}.
+                    </DialogDescription>
+                </DialogHeader>
+                <ScrollArea className="h-72 w-full mt-4">
+                    {renderAnglerList()}
+                </ScrollArea>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsViewRegisteredDialogOpen(false)}>Close</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
       )}
     </div>
   );
