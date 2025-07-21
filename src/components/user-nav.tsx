@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import {
   Avatar,
   AvatarFallback,
@@ -15,18 +16,50 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/use-auth';
-import { auth } from '@/lib/firebase-client';
+import { auth, firestore } from '@/lib/firebase-client';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { User, LogOut } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import Link from 'next/link';
+import { doc, getDoc } from 'firebase/firestore';
 
 export function UserNav() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [role, setRole] = useState<string>('');
+  const [isFetchingRole, setIsFetchingRole] = useState(true);
+
+  useEffect(() => {
+    async function fetchUserRole() {
+      if (user && firestore) {
+        setIsFetchingRole(true);
+        try {
+          const userDocRef = doc(firestore, 'users', user.uid);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            setRole(userDoc.data().role || 'Angler');
+          } else {
+            setRole('Angler'); // Default role if not found
+          }
+        } catch (error) {
+          console.error("Error fetching user role: ", error);
+          setRole('Angler'); // Fallback role
+        } finally {
+          setIsFetchingRole(false);
+        }
+      } else {
+        setIsFetchingRole(false);
+      }
+    }
+
+    if (!loading) {
+      fetchUserRole();
+    }
+  }, [user, loading]);
 
   const handleLogout = async () => {
+    if (!auth) return;
     await signOut(auth);
     router.push('/login');
   };
@@ -57,9 +90,13 @@ export function UserNav() {
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">{user.displayName}</p>
-            <p className="text-xs leading-none text-muted-foreground">
-              {user.email}
-            </p>
+            {isFetchingRole ? (
+                <Skeleton className="h-4 w-3/4" />
+            ) : (
+                <p className="text-xs leading-none text-muted-foreground">
+                {user.email} {role && `(${role})`}
+                </p>
+            )}
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
