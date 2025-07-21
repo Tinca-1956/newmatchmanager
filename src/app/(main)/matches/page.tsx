@@ -182,6 +182,15 @@ export default function MatchesPage() {
 
   const handleOpenRegisterDialog = (e: React.MouseEvent, match: Match) => {
     e.stopPropagation();
+    if (match.registeredCount >= match.capacity) {
+      toast({
+        variant: 'destructive',
+        title: 'Registration Full',
+        description:
+          'This match registration list has reached the maximum number of anglers that the location can comfortably accommodate',
+      });
+      return;
+    }
     setSelectedMatch(match);
     setIsRegisterDialogOpen(true);
   };
@@ -364,20 +373,20 @@ export default function MatchesPage() {
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
-                  <TooltipTrigger asChild>
-                      <Button 
-                          variant="outline" 
-                          size="icon" 
-                          className="h-9 w-9"
-                          onClick={(e) => handleOpenRegisterDialog(e, match)}
-                          disabled={isRegistered || isFull || match.status !== 'Upcoming'}
-                        >
-                          <RegisterIcon className="h-5 w-5"/>
-                        </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="left">
-                      <p>{isRegistered ? 'Already Registered' : 'Register for this match'}</p>
-                  </TooltipContent>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={(e) => handleOpenRegisterDialog(e, match)}
+                    disabled={isRegistered || match.status !== 'Upcoming'}
+                  >
+                    <RegisterIcon className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left">
+                  <p>{isRegistered ? 'Already Registered' : 'Register for this match'}</p>
+                </TooltipContent>
               </Tooltip>
              {canEdit && (
                 <Tooltip>
