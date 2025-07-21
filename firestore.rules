@@ -1,63 +1,37 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
   
-    // Helper functions
-    function isAuth() {
-      return request.auth != null && request.auth.uid != null;
-    }
-    
-    function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
-    }
-    
-    function isSiteAdmin() {
-      return isAuth() && getUserData(request.auth.uid).role == 'Site Admin';
+    // Helper function to check user's role from their document
+    function isUserRole(userId, allowedRoles) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role in allowedRoles;
     }
 
-    function isClubAdmin(clubId) {
-      let userData = getUserData(request.auth.uid);
-      return isAuth() && userData.role == 'Club Admin' && userData.primaryClubId == clubId;
-    }
-
-    // USERS collection rules
+    // Rules for the 'users' collection
     match /users/{userId} {
-      // READ: Users can read their own profile.
-      // Site Admins can read any user's profile.
-      // Club Admins can read profiles of users in their own club.
-      allow read: if isAuth() && (
-        request.auth.uid == userId ||
-        isSiteAdmin() ||
-        (isClubAdmin(resource.data.primaryClubId) && resource.data.primaryClubId != null)
-      );
+      // Allow a user to create their own document
+      allow create: if request.auth != null;
 
-      // CREATE: Authenticated users can create their own user document.
-      allow create: if isAuth() && request.auth.uid == userId;
-
-      // UPDATE: Users can update their own profile.
-      // Site Admins can update any user.
-      // Club Admins can update users in their club.
-      // A user cannot change their own role.
-      // A Club Admin cannot change a Site Admin's role.
-      allow update: if isAuth() && (
-          (request.auth.uid == userId && request.resource.data.role == resource.data.role) ||
-          isSiteAdmin() ||
-          (isClubAdmin(resource.data.primaryClubId) && resource.data.role != 'Site Admin')
-      );
+      // Allow a user to read their own document, or if they are an admin
+      // Also allow any authenticated user to read other user profiles (for member lists)
+      allow read: if request.auth != null;
       
-      // DELETE: Not allowed for now to prevent orphaned data.
-      allow delete: if false;
+      // Allow a user to update their own document,
+      // OR allow a Site Admin or Club Admin to update any user's document
+      allow update: if request.auth.uid == userId || isUserRole(request.auth.uid, ['Site Admin', 'Club Admin']);
+
+      // Only allow Site Admins to delete users for now
+      allow delete: if isUserRole(request.auth.uid, ['Site Admin']);
     }
 
-    // CLUBS collection rules
+    // Rules for the 'clubs' collection
     match /clubs/{clubId} {
-      // READ: Any authenticated user can read club information.
-      allow read: if isAuth();
-
-      // CREATE, UPDATE: Only Site Admins or Club Admins can manage clubs.
-      // We will refine this later. For now, any auth user can.
-      allow write: if isAuth();
+      // Any authenticated user can read the list of clubs
+      allow read: if request.auth != null;
+      
+      // Allow Site Admins or Club Admins to create/update/delete clubs
+      allow write: if request.auth != null && isUserRole(request.auth.uid, ['Site Admin', 'Club Admin']);
     }
-
   }
 }
