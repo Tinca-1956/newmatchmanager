@@ -23,8 +23,7 @@ type WeighInStatus = 'Weighed' | 'Did Not Weigh' | 'Pending';
 type AnglerDetails = Pick<User, 'id' | 'firstName' | 'lastName'> & {
   peg: string;
   section: string;
-  weightLbs: string;
-  weightOz: string;
+  weight: string;
   status: WeighInStatus;
   rank: string;
 };
@@ -76,7 +75,7 @@ export default function WeighInPage() {
         setMatch({ ...matchData, date: (matchData.date as any).toDate() });
 
         if (matchData.registeredAnglers && matchData.registeredAnglers.length > 0) {
-            const anglersData: Omit<AnglerDetails, 'peg' | 'section' | 'weightLbs' | 'weightOz' | 'status' | 'rank'>[] = [];
+            const anglersData: Omit<AnglerDetails, 'peg' | 'section' | 'weight' | 'status' | 'rank'>[] = [];
             const chunks: string[][] = [];
             for (let i = 0; i < matchData.registeredAnglers.length; i += 30) {
                 chunks.push(matchData.registeredAnglers.slice(i, i + 30));
@@ -92,11 +91,11 @@ export default function WeighInPage() {
                         id: doc.id,
                         firstName: data.firstName || 'N/A',
                         lastName: data.lastName || 'N/A',
-                    } as Omit<AnglerDetails, 'peg' | 'section' | 'weightLbs' | 'weightOz' | 'status' | 'rank'>;
+                    } as Omit<AnglerDetails, 'peg' | 'section' | 'weight' | 'status' | 'rank'>;
                 });
                 anglersData.push(...chunkData);
             }
-            setAnglers(anglersData.map(a => ({ ...a, peg: '', section: '', weightLbs: '', weightOz: '', status: 'Pending', rank: '' })));
+            setAnglers(anglersData.map(a => ({ ...a, peg: '', section: '', weight: '', status: 'Pending', rank: '' })));
         }
 
       } catch (error: any) {
@@ -133,9 +132,9 @@ export default function WeighInPage() {
         const batch = writeBatch(firestore);
         
         const results: Omit<Result, 'position' | 'points'>[] = anglers
-            .filter(angler => angler.status === 'Weighed' && (parseInt(angler.weightLbs) > 0 || parseInt(angler.weightOz) > 0))
+            .filter(angler => angler.status === 'Weighed' && parseInt(angler.weight) > 0)
             .map(angler => {
-                const totalOz = (parseInt(angler.weightLbs || '0') * 16) + parseInt(angler.weightOz || '0');
+                const totalOz = parseInt(angler.weight || '0');
                 return {
                     matchId: match.id,
                     userId: angler.id,
@@ -261,24 +260,14 @@ export default function WeighInPage() {
                         </div>
                     </div>
                      <div className="space-y-2">
-                        <Label>Weight</Label>
-                        <div className="grid grid-cols-2 gap-4">
-                            <Input
-                                id={`weightLbs-${angler.id}`}
-                                type="number"
-                                placeholder="Lbs"
-                                value={angler.weightLbs}
-                                onChange={(e) => handleFieldChange(angler.id, 'weightLbs', e.target.value)}
-                            />
-                            <Input
-                                id={`weightOz-${angler.id}`}
-                                type="number"
-                                placeholder="Oz"
-                                max="15"
-                                value={angler.weightOz}
-                                onChange={(e) => handleFieldChange(angler.id, 'weightOz', e.target.value)}
-                            />
-                        </div>
+                        <Label htmlFor={`weight-${angler.id}`}>Weight (oz)</Label>
+                        <Input
+                            id={`weight-${angler.id}`}
+                            type="number"
+                            placeholder="e.g. 256"
+                            value={angler.weight}
+                            onChange={(e) => handleFieldChange(angler.id, 'weight', e.target.value)}
+                        />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                          <div className="space-y-2">
