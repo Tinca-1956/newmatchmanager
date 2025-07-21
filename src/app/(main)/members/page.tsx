@@ -61,79 +61,79 @@ export default function MembersPage() {
 
   useEffect(() => {
     if (authLoading || !user || !firestore) {
-      if (!authLoading && !user) {
+      if (!authLoading) {
         setIsLoading(false);
       }
       return;
     }
 
+    let unsubscribe: () => void = () => {};
+
     const userDocRef = doc(firestore, 'users', user.uid);
-    let unsubscribeMembers: () => void = () => {};
-
-    const fetchPrimaryClubAndMembers = async () => {
-      try {
-        const userDoc = await getDoc(userDocRef);
-        if (!userDoc.exists()) {
-          toast({ variant: 'destructive', title: 'Error', description: 'Could not find your user profile.' });
-          setIsLoading(false);
-          return;
-        }
-        
-        const userProfile = { id: userDoc.id, ...userDoc.data() } as User;
-        setCurrentUserProfile(userProfile);
-
-        const primaryClubId = userDoc.data()?.primaryClubId;
-        if (!primaryClubId) {
-          setClubName('No primary club selected');
-          setMembers([]);
-          setIsLoading(false);
-          return;
-        }
-        
-        const clubDocRef = doc(firestore, 'clubs', primaryClubId);
-        const clubDoc = await getDoc(clubDocRef);
-        const currentClubName = clubDoc.exists() ? clubDoc.data().name : 'Unknown Club';
-        setClubName(currentClubName);
-
-        const usersCollection = collection(firestore, 'users');
-        const membersQuery = query(usersCollection, where('primaryClubId', '==', primaryClubId));
-
-        unsubscribeMembers = onSnapshot(membersQuery, (snapshot) => {
-          const membersData = snapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              firstName: data.firstName || '',
-              lastName: data.lastName || '',
-              email: data.email || '',
-              role: data.role || 'Angler',
-              primaryClubId: data.primaryClubId,
-              clubName: currentClubName,
-            } as Member;
-          });
-          setMembers(membersData);
-          setIsLoading(false);
-        }, (error) => {
-          console.error("Error fetching members: ", error);
-          toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: 'Could not fetch club members.',
-          });
-          setIsLoading(false);
-        });
-        
-      } catch (error) {
-        console.error("Error fetching user/club data: ", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load initial data.' });
-        setIsLoading(false);
+    const unsubscribeUser = onSnapshot(userDocRef, async (userDoc) => {
+      if (unsubscribe) {
+        unsubscribe(); // Detach previous members listener
       }
-    };
-    
-    fetchPrimaryClubAndMembers();
+
+      if (!userDoc.exists()) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not find your user profile.' });
+        setIsLoading(false);
+        return;
+      }
+      
+      const userProfile = { id: userDoc.id, ...userDoc.data() } as User;
+      setCurrentUserProfile(userProfile);
+
+      const primaryClubId = userDoc.data()?.primaryClubId;
+      if (!primaryClubId) {
+        setClubName('No primary club selected');
+        setMembers([]);
+        setIsLoading(false);
+        return;
+      }
+      
+      const clubDocRef = doc(firestore, 'clubs', primaryClubId);
+      const clubDoc = await getDoc(clubDocRef);
+      const currentClubName = clubDoc.exists() ? clubDoc.data().name : 'Unknown Club';
+      setClubName(currentClubName);
+
+      const usersCollection = collection(firestore, 'users');
+      const membersQuery = query(usersCollection, where('primaryClubId', '==', primaryClubId));
+
+      unsubscribe = onSnapshot(membersQuery, (snapshot) => {
+        const membersData = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            firstName: data.firstName || '',
+            lastName: data.lastName || '',
+            email: data.email || '',
+            role: data.role || 'Angler',
+            primaryClubId: data.primaryClubId,
+            clubName: currentClubName,
+          } as Member;
+        });
+        setMembers(membersData);
+        setIsLoading(false);
+      }, (error) => {
+        console.error("Error fetching members: ", error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Could not fetch club members.',
+        });
+        setIsLoading(false);
+      });
+
+    }, (error) => {
+       console.error("Error fetching user data: ", error);
+       toast({ variant: 'destructive', title: 'Error', description: 'Failed to load your profile.' });
+       setIsLoading(false);
+    });
 
     return () => {
-      unsubscribeMembers();
+      unsubscribeUser();
+      unsubscribe();
     };
   }, [user, authLoading, toast]);
   

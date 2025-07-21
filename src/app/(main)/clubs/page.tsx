@@ -40,8 +40,10 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function ClubsPage() {
+  const { user } = useAuth();
   const [clubs, setClubs] = useState<Club[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -52,7 +54,7 @@ export default function ClubsPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!firestore) {
+    if (!firestore || !user) {
       setIsLoading(false);
       return;
     }
@@ -87,8 +89,9 @@ export default function ClubsPage() {
       }
     );
 
+    // Cleanup subscription on unmount
     return () => unsubscribe();
-  }, [toast]);
+  }, [toast, user]);
   
   const handleEditClick = (club: Club) => {
     setSelectedClub(club);
