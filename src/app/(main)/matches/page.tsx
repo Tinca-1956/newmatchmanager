@@ -60,6 +60,7 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { RegisterIcon } from '@/components/icons/register-icon';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const EMPTY_MATCH: Omit<Match, 'id' | 'clubId' | 'seriesName'> = {
     seriesId: '',
@@ -351,9 +352,18 @@ export default function MatchesPage() {
           <TableCell>{match.registeredCount}</TableCell>
           <TableCell>{match.status}</TableCell>
           <TableCell className="text-right space-x-2" onClick={(e) => e.stopPropagation()}>
-            <Button variant="outline" size="sm">
-                <Medal className="h-4 w-4"/>
-            </Button>
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="outline" size="sm">
+                            <Medal className="h-4 w-4"/>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">
+                        <p>Display realtime results</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
             <Button 
                 variant="outline" 
                 size="icon" 
