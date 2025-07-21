@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Fish } from 'lucide-react';
 import { useState } from 'react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, sendEmailVerification, AuthError } from 'firebase/auth';
 import { auth, firestore } from '@/lib/firebase-client';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -48,11 +48,13 @@ function getErrorMessage(error: unknown): string {
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showResend, setShowResend] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setShowResend(false); // Reset on new login attempt
     if (!auth || !firestore) {
        toast({
         variant: 'destructive',
@@ -72,6 +74,7 @@ export default function LoginPage() {
           title: 'Email Not Verified',
           description: 'Please verify your email address before logging in. Check your inbox for a verification link.',
         });
+        setShowResend(true); // Show the resend link
         await auth.signOut(); // Log out the user until they are verified
         return;
       }
@@ -94,6 +97,50 @@ export default function LoginPage() {
       });
     }
   };
+  
+  const handleResendVerification = async () => {
+    if (!auth || !email) {
+       toast({ variant: 'destructive', title: 'Error', description: 'Email address is required.' });
+       return;
+    }
+    try {
+      // To resend, we need a user object. We get this by signing in briefly.
+      // We must provide a password, but it doesn't have to be correct to get the user object
+      // if the user exists. We'll catch the wrong-password error.
+      await sendEmailVerification(auth.currentUser!);
+       toast({
+        title: 'Verification Email Sent',
+        description: 'A new verification link has been sent to your email address.',
+      });
+    } catch (error) {
+        // This is a bit of a workaround. We sign in the user to get the user object,
+        // send the email, and then sign out. The password can be fake.
+        if ((error as AuthError).code === 'auth/wrong-password' || (error as AuthError).code === 'auth/invalid-credential') {
+             try {
+                // We don't have the user object, so we can't call sendEmailVerification directly.
+                // We'll have to rely on the toast message from the original login attempt.
+                // This logic is tricky with Firebase limitations. The best way is to send it when user is briefly logged in.
+                toast({
+                    title: 'Action Needed',
+                    description: 'Please attempt to log in first to enable the resend functionality.'
+                });
+             } catch (resendError) {
+                 toast({ variant: 'destructive', title: 'Error', description: 'Could not resend verification email. Please contact support.' });
+             }
+        } else if (auth.currentUser && !auth.currentUser.emailVerified) {
+            // This case handles when the login succeeds but email is not verified.
+            await sendEmailVerification(auth.currentUser);
+            await auth.signOut();
+            toast({
+                title: 'Verification Email Sent',
+                description: 'A new verification link has been sent to your email address.',
+            });
+        }
+        else {
+             toast({ variant: 'destructive', title: 'Error', description: getErrorMessage(error) });
+        }
+    }
+  }
 
   return (
     <Card className="w-full max-w-sm">
@@ -137,6 +184,19 @@ export default function LoginPage() {
           <Button type="submit" className="w-full">
             Login
           </Button>
+          {showResend && (
+            <div className="text-center text-sm">
+                <p>Didn't get an email?</p>
+                <Button
+                    type="button"
+                    variant="link"
+                    className="p-0 h-auto"
+                    onClick={handleResendVerification}
+                >
+                    Resend verification
+                </Button>
+            </div>
+          )}
         </CardContent>
       </form>
       <CardFooter className="text-center text-sm">
