@@ -27,8 +27,6 @@ import { User as UserIcon } from 'lucide-react';
 
 interface Member extends User {
   clubName: string;
-  firstName: string;
-  lastName: string;
 }
 
 export default function MembersPage() {
@@ -78,20 +76,14 @@ export default function MembersPage() {
         unsubscribeMembers = onSnapshot(membersQuery, (snapshot) => {
           const membersData = snapshot.docs.map(doc => {
             const data = doc.data();
-            const displayName = data.displayName || '';
-            const nameParts = displayName.split(' ');
-            const firstName = nameParts[0] || '';
-            const lastName = nameParts.slice(1).join(' ') || '';
-
             return {
               id: doc.id,
-              name: displayName,
+              firstName: data.firstName || '',
+              lastName: data.lastName || '',
               email: data.email || '',
               role: data.role || 'Angler',
               primaryClubId: data.primaryClubId,
               clubName: currentClubName,
-              firstName,
-              lastName,
             } as Member;
           });
           setMembers(membersData);
@@ -136,6 +128,7 @@ export default function MembersPage() {
             <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
           </TableRow>
       ));
     }
@@ -143,7 +136,7 @@ export default function MembersPage() {
     if (members.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={4} className="h-24 text-center">
+          <TableCell colSpan={5} className="h-24 text-center">
             No members found for this club.
           </TableCell>
         </TableRow>
@@ -157,7 +150,7 @@ export default function MembersPage() {
               <Avatar className="h-9 w-9">
                  <AvatarFallback><UserIcon className="h-5 w-5"/></AvatarFallback>
               </Avatar>
-              <div className="grid gap-0.5">
+              <div>
                 <p className="font-medium">{member.firstName}</p>
                  <p className="text-sm text-muted-foreground">{member.email}</p>
               </div>

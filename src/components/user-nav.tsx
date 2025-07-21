@@ -24,37 +24,55 @@ import { Skeleton } from './ui/skeleton';
 import Link from 'next/link';
 import { doc, getDoc } from 'firebase/firestore';
 
+interface UserProfile {
+    firstName: string;
+    lastName: string;
+    role: string;
+}
+
 export function UserNav() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [role, setRole] = useState<string>('');
-  const [isFetchingRole, setIsFetchingRole] = useState(true);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isFetchingProfile, setIsFetchingProfile] = useState(true);
 
   useEffect(() => {
-    async function fetchUserRole() {
+    async function fetchUserProfile() {
       if (user && firestore) {
-        setIsFetchingRole(true);
+        setIsFetchingProfile(true);
         try {
           const userDocRef = doc(firestore, 'users', user.uid);
           const userDoc = await getDoc(userDocRef);
           if (userDoc.exists()) {
-            setRole(userDoc.data().role || 'Angler');
+            const data = userDoc.data();
+            setProfile({
+                firstName: data.firstName || '',
+                lastName: data.lastName || '',
+                role: data.role || 'Angler'
+            });
           } else {
-            setRole('Angler'); // Default role if not found
+            // Fallback for user doc not created yet
+            const displayName = user.displayName || '';
+            const nameParts = displayName.split(' ');
+            setProfile({
+                firstName: nameParts[0] || '',
+                lastName: nameParts.slice(1).join(' ') || '',
+                role: 'Angler'
+            })
           }
         } catch (error) {
-          console.error("Error fetching user role: ", error);
-          setRole('Angler'); // Fallback role
+          console.error("Error fetching user profile: ", error);
+          setProfile({ firstName: 'User', lastName: '', role: 'Angler'}); // Fallback role
         } finally {
-          setIsFetchingRole(false);
+          setIsFetchingProfile(false);
         }
       } else {
-        setIsFetchingRole(false);
+        setIsFetchingProfile(false);
       }
     }
 
     if (!loading) {
-      fetchUserRole();
+      fetchUserProfile();
     }
   }, [user, loading]);
 
@@ -89,13 +107,18 @@ export function UserNav() {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user.displayName}</p>
-            {isFetchingRole ? (
-                <Skeleton className="h-4 w-3/4" />
+             {isFetchingProfile ? (
+                <>
+                    <Skeleton className="h-5 w-3/4" />
+                    <Skeleton className="h-4 w-4/5" />
+                </>
             ) : (
-                <p className="text-xs leading-none text-muted-foreground">
-                {user.email} {role && `(${role})`}
-                </p>
+                <>
+                    <p className="text-sm font-medium leading-none">{profile?.firstName} {profile?.lastName}</p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                    {user.email} {profile?.role && `(${profile.role})`}
+                    </p>
+                </>
             )}
           </div>
         </DropdownMenuLabel>

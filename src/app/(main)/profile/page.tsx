@@ -31,7 +31,8 @@ export default function ProfilePage() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const [displayName, setDisplayName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [primaryClubId, setPrimaryClubId] = useState('');
   const [role, setRole] = useState<UserRole | ''>('');
   const [clubs, setClubs] = useState<Club[]>([]);
@@ -61,13 +62,18 @@ export default function ProfilePage() {
 
         if (userDoc.exists()) {
           const userData = userDoc.data();
+          setFirstName(userData.firstName || '');
+          setLastName(userData.lastName || '');
           setPrimaryClubId(userData.primaryClubId || '');
           setRole(userData.role || 'Angler');
         } else {
+          // If no firestore doc, try to get from auth and set defaults
+          const displayName = user.displayName || '';
+          const nameParts = displayName.split(' ');
+          setFirstName(nameParts[0] || '');
+          setLastName(nameParts.slice(1).join(' ') || '');
           setRole('Angler');
         }
-
-        setDisplayName(user.displayName || '');
         
       } catch (error) {
         console.error("Error fetching data: ", error);
@@ -97,6 +103,7 @@ export default function ProfilePage() {
 
     setIsSaving(true);
     try {
+      const displayName = `${firstName} ${lastName}`.trim();
       // Update display name in Firebase Auth
       if (displayName !== user.displayName) {
         await updateProfile(auth.currentUser, { displayName });
@@ -105,8 +112,9 @@ export default function ProfilePage() {
       // Save/update user profile data to Firestore
       const userDocRef = doc(firestore, 'users', user.uid);
       await setDoc(userDocRef, { 
+        firstName,
+        lastName,
         primaryClubId,
-        displayName,
         email: user.email,
         role: role,
       }, { merge: true });
@@ -144,9 +152,15 @@ export default function ProfilePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="displayName">Angler Name</Label>
-              <Skeleton className="h-10 w-full" />
+            <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Skeleton className="h-10 w-full" />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Skeleton className="h-10 w-full" />
+                </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="primaryClub">Primary Club</Label>
@@ -186,14 +200,25 @@ export default function ProfilePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="displayName">Angler Name</Label>
-              <Input
-                id="displayName"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Your full name"
-              />
+            <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Input
+                        id="firstName"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        placeholder="Your first name"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input
+                        id="lastName"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        placeholder="Your last name"
+                    />
+                </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="primaryClub">Primary Club</Label>

@@ -2,7 +2,8 @@ export type UserRole = 'Site Admin' | 'Club Admin' | 'Marshal' | 'Angler';
 
 export interface User {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   role: UserRole;
   primaryClubId?: string;
