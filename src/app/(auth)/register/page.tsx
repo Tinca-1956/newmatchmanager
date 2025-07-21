@@ -43,7 +43,8 @@ function getErrorMessage(error: unknown): string {
 }
 
 export default function RegisterPage() {
-  const [fullName, setFullName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const router = useRouter();
@@ -68,7 +69,7 @@ export default function RegisterPage() {
       );
       if (userCredential.user) {
         await updateProfile(userCredential.user, {
-          displayName: fullName,
+          displayName: `${firstName} ${lastName}`,
         });
       }
       router.push('/select-club');
@@ -94,15 +95,27 @@ export default function RegisterPage() {
       </CardHeader>
       <form onSubmit={handleRegister}>
         <CardContent className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="full-name">Full name</Label>
-            <Input
-              id="full-name"
-              placeholder="John Angler"
-              required
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-            />
+           <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="first-name">First name</Label>
+              <Input
+                id="first-name"
+                placeholder="John"
+                required
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="last-name">Second Name</Label>
+              <Input
+                id="last-name"
+                placeholder="Angler"
+                required
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+              />
+            </div>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="email">Email</Label>
