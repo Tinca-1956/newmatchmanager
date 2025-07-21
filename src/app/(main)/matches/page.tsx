@@ -353,27 +353,33 @@ export default function MatchesPage() {
           <TableCell>{match.status}</TableCell>
           <TableCell className="text-right space-x-2" onClick={(e) => e.stopPropagation()}>
             <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button variant="outline" size="sm">
-                            <Medal className="h-4 w-4"/>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button variant="outline" size="sm">
+                        <Medal className="h-4 w-4"/>
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                    <p>Display realtime results</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                  <TooltipTrigger asChild>
+                      <Button 
+                          variant="outline" 
+                          size="icon" 
+                          className="h-9 w-9"
+                          onClick={(e) => handleOpenRegisterDialog(e, match)}
+                          disabled={isRegistered || isFull || match.status !== 'Upcoming'}
+                        >
+                          <RegisterIcon className="h-5 w-5"/>
                         </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="right">
-                        <p>Display realtime results</p>
-                    </TooltipContent>
-                </Tooltip>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">
+                      <p>{isRegistered ? 'Already Registered' : 'Register for this match'}</p>
+                  </TooltipContent>
+              </Tooltip>
             </TooltipProvider>
-            <Button 
-                variant="outline" 
-                size="icon" 
-                className="h-9 w-9"
-                onClick={(e) => handleOpenRegisterDialog(e, match)}
-                disabled={isRegistered || isFull || match.status !== 'Upcoming'}
-                title={isRegistered ? 'Already Registered' : 'Register for Match'}
-              >
-                <RegisterIcon className="h-5 w-5"/>
-              </Button>
              {canEdit && (
                 <Button variant="outline" size="sm" onClick={(e) => handleOpenEditDialog(e, match)}>
                     <Edit className="h-4 w-4"/>
