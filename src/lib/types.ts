@@ -29,8 +29,10 @@ export interface Membership {
 
 export interface Series {
   id: string;
-  name: string;
   clubId: string;
+  name: string;
+  matchCount: number;
+  completedMatches: number;
 }
 
 export interface Match {
