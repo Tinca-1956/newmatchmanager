@@ -333,19 +333,19 @@ export default function MembersPage() {
                       </SelectItem>
                       <SelectItem 
                         value="Club Admin" 
-                        disabled={selectedMember.role === 'Site Admin' && currentUserProfile?.role === 'Club Admin'}
+                        disabled={selectedMember.role === 'Site Admin' && currentUserProfile?.role !== 'Site Admin'}
                       >
                         Club Admin
                       </SelectItem>
                       <SelectItem 
                         value="Marshal"
-                        disabled={selectedMember.role === 'Site Admin' && currentUserProfile?.role === 'Club Admin'}
+                        disabled={selectedMember.role === 'Site Admin' && currentUserProfile?.role !== 'Site Admin'}
                       >
                         Marshal
                       </SelectItem>
                       <SelectItem 
                         value="Angler"
-                        disabled={selectedMember.role === 'Site Admin' && currentUserProfile?.role === 'Club Admin'}
+                        disabled={selectedMember.role === 'Site Admin' && currentUserProfile?.role !== 'Site Admin'}
                       >
                         Angler
                       </SelectItem>
