@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -315,6 +316,34 @@ export default function MatchesPage() {
     }
   };
   
+  const getMatchDisplayStatus = (match: Match): MatchStatus => {
+    // If status is manually set to Cancelled, always show that.
+    if (match.status === 'Cancelled') {
+      return 'Cancelled';
+    }
+
+    const now = new Date();
+    const matchDate = match.date instanceof Date ? match.date : (match.date as Timestamp).toDate();
+
+    const [drawHours, drawMinutes] = match.drawTime.split(':').map(Number);
+    const drawTime = new Date(matchDate);
+    drawTime.setHours(drawHours, drawMinutes, 0, 0);
+
+    const [endHours, endMinutes] = match.endTime.split(':').map(Number);
+    const endTime = new Date(matchDate);
+    endTime.setHours(endHours, endMinutes, 0, 0);
+
+    const completedTime = new Date(endTime.getTime() + 90 * 60000); // Add 90 minutes
+
+    if (now > completedTime) {
+        return 'Completed';
+    }
+    if (now > drawTime) {
+        return 'In Progress';
+    }
+    return 'Upcoming';
+  };
+  
   const canEdit = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
   const canWeighIn = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin' || currentUserProfile?.role === 'Marshal';
 
@@ -346,6 +375,7 @@ export default function MatchesPage() {
 
     return matches.map((match) => {
       const isRegistered = user ? match.registeredAnglers.includes(user.uid) : false;
+      const displayStatus = getMatchDisplayStatus(match);
       const isFull = match.registeredCount >= match.capacity;
 
       return (
@@ -360,7 +390,7 @@ export default function MatchesPage() {
           <TableCell>{format(match.date, 'EEE, dd MMM yyyy')}</TableCell>
           <TableCell>{match.capacity}</TableCell>
           <TableCell>{match.registeredCount}</TableCell>
-          <TableCell>{match.status}</TableCell>
+          <TableCell>{displayStatus}</TableCell>
           <TableCell className="text-right space-x-2" onClick={(e) => e.stopPropagation()}>
             <TooltipProvider>
               <Tooltip>
@@ -400,7 +430,10 @@ export default function MatchesPage() {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="left">
-                  <p>{isRegistered ? 'Already Registered' : 'Register for this match'}</p>
+                    {isRegistered 
+                        ? <p>You are registered for this match. To unregister go your PROFILE page</p> 
+                        : <p>Register for this match</p>
+                    }
                 </TooltipContent>
               </Tooltip>
              {canEdit && (
