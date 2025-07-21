@@ -109,7 +109,7 @@ export default function MembersPage() {
             lastName: data.lastName || '',
             email: data.email || '',
             role: data.role || 'Angler',
-            memberStatus: data.memberStatus || 'Pending',
+            memberStatus: data.memberStatus || 'Pending', // Default to 'Pending' if field is missing
             primaryClubId: data.primaryClubId,
             clubName: currentClubName,
           } as Member;
