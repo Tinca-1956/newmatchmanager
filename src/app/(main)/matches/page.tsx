@@ -18,7 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, CalendarIcon, User as UserIcon, Medal } from 'lucide-react';
+import { PlusCircle, Edit, CalendarIcon, User as UserIcon, Medal, HelpCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -613,7 +613,17 @@ export default function MatchesPage() {
                 <ScrollArea className="h-72 w-full mt-4">
                     {renderAnglerList()}
                 </ScrollArea>
-                <DialogFooter>
+                <DialogFooter className="sm:justify-between items-center pt-4">
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="top" align="start">
+                                <p>Go to the Profile page to unregister.</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                     <Button variant="outline" onClick={() => setIsViewRegisteredDialogOpen(false)}>Close</Button>
                 </DialogFooter>
             </DialogContent>
