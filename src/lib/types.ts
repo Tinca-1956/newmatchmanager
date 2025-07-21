@@ -9,7 +9,6 @@ export interface User {
   role: UserRole;
   memberStatus: MembershipStatus;
   primaryClubId?: string;
-  avatarUrl?: string;
 }
 
 export interface Club {
