@@ -20,15 +20,15 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
 import { collection, doc, getDoc, onSnapshot, query, where } from 'firebase/firestore';
-import type { User, Club } from '@/lib/types';
+import type { User } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { User as UserIcon } from 'lucide-react';
 
 interface Member extends User {
-  clubName?: string;
-  firstName?: string;
-  lastName?: string;
+  clubName: string;
+  firstName: string;
+  lastName: string;
 }
 
 export default function MembersPage() {
@@ -62,48 +62,50 @@ export default function MembersPage() {
         const primaryClubId = userDoc.data()?.primaryClubId;
         if (!primaryClubId) {
           setClubName('No primary club selected');
+          setMembers([]);
           setIsLoading(false);
           return;
         }
-
+        
         const clubDocRef = doc(firestore, 'clubs', primaryClubId);
         const clubDoc = await getDoc(clubDocRef);
-        if (clubDoc.exists()) {
-          const clubData = clubDoc.data() as Club;
-          setClubName(clubData.name);
+        const currentClubName = clubDoc.exists() ? clubDoc.data().name : 'Unknown Club';
+        setClubName(currentClubName);
 
-          const usersCollection = collection(firestore, 'users');
-          const membersQuery = query(usersCollection, where('primaryClubId', '==', primaryClubId));
+        const usersCollection = collection(firestore, 'users');
+        const membersQuery = query(usersCollection, where('primaryClubId', '==', primaryClubId));
 
-          unsubscribeMembers = onSnapshot(membersQuery, (snapshot) => {
-            const membersData = snapshot.docs.map(doc => {
-              const data = doc.data() as User;
-              const [firstName, ...lastNameParts] = (data.name || '').split(' ');
-              const lastName = lastNameParts.join(' ');
+        unsubscribeMembers = onSnapshot(membersQuery, (snapshot) => {
+          const membersData = snapshot.docs.map(doc => {
+            const data = doc.data();
+            const displayName = data.displayName || '';
+            const nameParts = displayName.split(' ');
+            const firstName = nameParts[0] || '';
+            const lastName = nameParts.slice(1).join(' ') || '';
 
-              return {
-                ...data,
-                id: doc.id,
-                clubName: clubData.name,
-                firstName: firstName || '',
-                lastName: lastName || '',
-              } as Member;
-            });
-            setMembers(membersData);
-            setIsLoading(false);
-          }, (error) => {
-            console.error("Error fetching members: ", error);
-            toast({
-              variant: 'destructive',
-              title: 'Error',
-              description: 'Could not fetch club members.',
-            });
-            setIsLoading(false);
+            return {
+              id: doc.id,
+              name: displayName,
+              email: data.email || '',
+              role: data.role || 'Angler',
+              primaryClubId: data.primaryClubId,
+              clubName: currentClubName,
+              firstName,
+              lastName,
+            } as Member;
           });
-        } else {
-          setClubName('Primary club not found');
+          setMembers(membersData);
           setIsLoading(false);
-        }
+        }, (error) => {
+          console.error("Error fetching members: ", error);
+          toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Could not fetch club members.',
+          });
+          setIsLoading(false);
+        });
+        
       } catch (error) {
         console.error("Error fetching user/club data: ", error);
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to load initial data.' });
