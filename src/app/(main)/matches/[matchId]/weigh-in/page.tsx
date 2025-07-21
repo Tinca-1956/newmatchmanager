@@ -108,10 +108,10 @@ export default function WeighInPage() {
                 const result = existingResults.get(a.id);
                 return { 
                     ...a, 
-                    peg: '', // Future feature: save peg/section to result
-                    section: '', // Future feature: save peg/section to result
+                    peg: result?.peg || '',
+                    section: result?.section || '',
                     weight: result?.weight?.toString() || '', 
-                    status: (result ? 'OK' : 'NYW') as WeighInStatus, 
+                    status: (result?.status || 'NYW') as WeighInStatus, 
                     rank: result?.position?.toString() || '',
                     isSaving: false
                 }
@@ -160,7 +160,7 @@ export default function WeighInPage() {
         const totalOz = parseInt(angler.weight || '0', 10);
         
         // Save the individual angler's result
-        const dataToSave: Omit<Result, 'position' | 'points'> = {
+        const dataToSave: Partial<Result> = {
             matchId: match.id,
             userId: angler.id,
             userName: `${angler.firstName} ${angler.lastName}`,
@@ -168,6 +168,9 @@ export default function WeighInPage() {
             date: match.date,
             seriesId: match.seriesId,
             clubId: match.clubId,
+            peg: angler.peg,
+            section: angler.section,
+            status: angler.status,
         };
         await setDoc(resultDocRef, dataToSave, { merge: true });
 
@@ -180,24 +183,37 @@ export default function WeighInPage() {
             resultsToProcess.push(doc.data() as Result);
         });
 
-        // Sort by weight descending to assign positions
-        resultsToProcess.sort((a, b) => b.weight - a.weight);
+        // Sort by weight descending to assign positions for 'OK' statuses
+        resultsToProcess
+          .filter(r => r.status === 'OK' && r.weight > 0)
+          .sort((a, b) => b.weight - a.weight)
+          .forEach((result, index) => {
+            const resultToUpdate = resultsToProcess.find(r => r.userId === result.userId);
+            if (resultToUpdate) {
+                resultToUpdate.position = index + 1;
+                resultToUpdate.points = index + 1;
+            }
+          });
+
 
         // Update all result documents with new ranks in a batch
         const batch = writeBatch(firestore);
-        resultsToProcess.forEach((result, index) => {
+        resultsToProcess.forEach((result) => {
             const docRef = doc(firestore, 'results', `${match.id}_${result.userId}`);
-            batch.update(docRef, { position: index + 1, points: index + 1 });
+            batch.update(docRef, { 
+                position: result.position || null, 
+                points: result.points || null
+            });
         });
         await batch.commit();
 
         // Update local state to reflect new ranks for all anglers
         setAnglers(prevAnglers => {
             const newAnglers = [...prevAnglers];
-            resultsToProcess.forEach((result, index) => {
+            resultsToProcess.forEach((result) => {
                 const anglerIndex = newAnglers.findIndex(a => a.id === result.userId);
                 if (anglerIndex !== -1) {
-                    newAnglers[anglerIndex].rank = (index + 1).toString();
+                    newAnglers[anglerIndex].rank = result.position ? result.position.toString() : '';
                 }
             });
             // Also reset ranks for those not in the results (e.g., DNW)
@@ -304,7 +320,7 @@ export default function WeighInPage() {
                         </div>
                     </div>
                      <div className="space-y-2">
-                        <Label htmlFor={`weight-${angler.id}`}>Weight</Label>
+                        <Label htmlFor={`weight-${angler.id}`}>Weight (oz)</Label>
                         <Input
                             id={`weight-${angler.id}`}
                             type="number"

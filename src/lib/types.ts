@@ -67,4 +67,6 @@ export interface Result {
   points: number;
   date: Date | Timestamp;
   status?: WeighInStatus;
+  peg?: string;
+  section?: string;
 }
