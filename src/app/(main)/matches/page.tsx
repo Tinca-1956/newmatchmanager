@@ -203,9 +203,11 @@ export default function MatchesPage() {
     if (isLoading) {
       return Array.from({ length: 3 }).map((_, i) => (
          <TableRow key={i}>
+            <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[200px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
             <TableCell className="text-right"><Skeleton className="h-10 w-[80px]" /></TableCell>
           </TableRow>
@@ -215,7 +217,7 @@ export default function MatchesPage() {
     if (matches.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={5} className="h-24 text-center">
+          <TableCell colSpan={7} className="h-24 text-center">
             No matches found. Create the first one!
           </TableCell>
         </TableRow>
@@ -225,11 +227,14 @@ export default function MatchesPage() {
     return matches.map((match) => (
        <TableRow key={match.id}>
           <TableCell>
-            <div className="font-medium">{match.name}</div>
             <div className="text-sm text-muted-foreground">{match.seriesName}</div>
+          </TableCell>
+          <TableCell>
+            <div className="font-medium">{match.name}</div>
           </TableCell>
           <TableCell>{match.location}</TableCell>
           <TableCell>{format(match.date, 'EEE, dd MMM yyyy')}</TableCell>
+          <TableCell>{match.capacity}</TableCell>
           <TableCell>{match.status}</TableCell>
           <TableCell className="text-right">
              {canEdit && (
@@ -267,9 +272,11 @@ export default function MatchesPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Series</TableHead>
                 <TableHead>Match</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Date</TableHead>
+                <TableHead>Capacity</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
