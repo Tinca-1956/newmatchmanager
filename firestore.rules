@@ -3,76 +3,74 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
+  
     // Helper Functions
-    function isAuth() {
+    function isUserAuthenticated() {
       return request.auth != null;
     }
 
-    function getUserRole(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role;
-    }
-
-    function isSiteAdmin(userId) {
-      return getUserRole(userId) == 'Site Admin';
-    }
-
-    function isClubAdmin(userId) {
-      return getUserRole(userId) == 'Club Admin';
-    }
-
-    function isClubOrSiteAdmin(userId) {
-      let role = getUserRole(userId);
-      return role == 'Club Admin' || role == 'Site Admin';
+    function isSiteAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
     }
     
-    // Rules for 'users' collection
-    match /users/{userId} {
-      // Allow users to read their own data.
-      allow read: if isAuth() && request.auth.uid == userId;
-
-      // Allow site/club admins to read other users' data.
-      allow read: if isAuth() && isClubOrSiteAdmin(request.auth.uid);
-
-      // Allow users to update their own non-critical data.
-      allow update: if isAuth() && request.auth.uid == userId
-                    && request.resource.data.diff(resource.data).affectedKeys()
-                       .hasOnly(['firstName', 'lastName', 'primaryClubId']);
-      
-      // Allow Admins to update user roles and status.
-      allow update: if isAuth() && isClubOrSiteAdmin(request.auth.uid)
-                    && request.resource.data.diff(resource.data).affectedKeys()
-                       .hasOnly(['firstName', 'lastName', 'role', 'memberStatus']);
-
-      // Allow users to create their own user document (e.g. on first profile save).
-      allow create: if isAuth() && request.auth.uid == userId;
+    function isClubAdmin() {
+       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin';
     }
 
     // Rules for 'clubs' collection
     match /clubs/{clubId} {
-      // Anyone authenticated can view the list of clubs.
-      allow read: if isAuth();
-
-      // Only Site Admins can create clubs.
-      allow create: if isAuth() && isSiteAdmin(request.auth.uid);
+      // Anyone authenticated can read the list of clubs
+      allow read: if isUserAuthenticated();
       
-      // Only Site Admins can update clubs.
-      allow update: if isAuth() && isSiteAdmin(request.auth.uid);
+      // Only Site Admins can create or update club details
+      allow create, update: if isSiteAdmin();
 
-      // Only Site Admins can delete clubs.
-      allow delete: if isAuth() && isSiteAdmin(request.auth.uid);
+      // Only Site Admins can delete a club
+      allow delete: if isSiteAdmin();
+    }
+    
+    // Rules for 'users' collection
+    match /users/{userId} {
+      // Users can read their own document. Club/Site admins can read any user document.
+      allow read: if isUserAuthenticated() && (request.auth.uid == userId || isClubAdmin() || isSiteAdmin());
+
+      // Users can update their own name and primary club.
+      // Admins can update name, role, and memberStatus.
+      allow update: if isUserAuthenticated() && 
+                      (request.auth.uid == userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstName', 'lastName', 'primaryClubId'])) ||
+                      ((isClubAdmin() || isSiteAdmin()) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstName', 'lastName', 'role', 'memberStatus']));
+                      
+      // Allow user creation (typically during post-registration flow)
+      allow create: if isUserAuthenticated();
+      
+      // Generally, don't allow users to be deleted from the client.
+      allow delete: if false;
     }
     
     // Rules for 'series' collection
     match /series/{seriesId} {
-        // Any authenticated user can read series data.
-        allow read: if isAuth();
+       // Club Admins or Site Admins can read series data
+      allow read: if isUserAuthenticated() && (isClubAdmin() || isSiteAdmin());
+      
+      // Club Admins or Site Admins can create and update series
+      allow create, update: if isUserAuthenticated() && (isClubAdmin() || isSiteAdmin());
+      
+      // Only Site Admins should be able to delete a series (for now)
+      allow delete: if isSiteAdmin();
+    }
 
-        // Only Club or Site Admins can create or update a series.
-        allow create, update: if isAuth() && isClubOrSiteAdmin(request.auth.uid);
-
-        // Only Site Admins can delete a series.
-        allow delete: if isAuth() && isSiteAdmin(request.auth.uid);
+    // Rules for 'matches' collection
+    match /matches/{matchId} {
+       // Club Admins or Site Admins can read match data
+      allow read: if isUserAuthenticated() && (isClubAdmin() || isSiteAdmin());
+      
+      // Club Admins or Site Admins can create and update matches
+      allow create, update: if isUserAuthenticated() && (isClubAdmin() || isSiteAdmin());
+      
+      // Only Site Admins should be able to delete a match
+      allow delete: if isSiteAdmin();
     }
   }
 }
+
+    

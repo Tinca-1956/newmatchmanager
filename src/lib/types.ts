@@ -1,5 +1,7 @@
+
 export type UserRole = 'Site Admin' | 'Club Admin' | 'Marshal' | 'Angler';
 export type MembershipStatus = 'Pending' | 'Member' | 'Suspended' | 'Blocked';
+export type MatchStatus = 'Upcoming' | 'Completed' | 'Cancelled';
 
 export interface User {
   id: string;
@@ -38,10 +40,17 @@ export interface Series {
 export interface Match {
   id: string;
   seriesId: string;
+  clubId: string;
   seriesName: string;
+  name: string;
+  location: string;
   date: Date;
-  venue: string;
-  status: 'Upcoming' | 'Completed' | 'Cancelled';
+  status: MatchStatus;
+  drawTime: string;
+  startTime: string;
+  endTime: string;
+  capacity: number;
+  registeredCount: number; // Initially, just a count. Could be an array of user IDs later.
 }
 
 export interface Result {
@@ -52,3 +61,5 @@ export interface Result {
   weight: number; // in oz
   points: number;
 }
+
+    
