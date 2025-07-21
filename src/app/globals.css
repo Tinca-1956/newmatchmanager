@@ -35,7 +35,7 @@ body {
     --chart-5: 27 87% 67%;
     --sidebar-background: 0 0% 9%; /* Black for header/footer contrast */
     --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 0 0% 98%;
+    --sidebar-primary: 0 0% 100%; /* Pure white for text */
     --sidebar-primary-foreground: 0 0% 9%;
     --sidebar-accent: 0 0% 14.9%;
     --sidebar-accent-foreground: 0 0% 98%;
@@ -70,7 +70,7 @@ body {
     --chart-5: 340 75% 55%;
     --sidebar-background: 222.2 84% 4.9%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 210 40% 98%;
+    --sidebar-primary: 0 0% 100%;
     --sidebar-primary-foreground: 222.2 47.4% 11.2%;
     --sidebar-accent: 217.2 32.6% 17.5%;
     --sidebar-accent-foreground: 210 40% 98%;

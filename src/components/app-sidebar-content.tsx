@@ -57,8 +57,8 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
             href={item.href}
             className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
               isActive
-                ? 'bg-muted text-primary'
-                : 'text-muted-foreground hover:text-primary'
+                ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                : 'text-sidebar-primary hover:text-sidebar-foreground/70'
             }`}
           >
             <item.icon className="h-4 w-4" />
