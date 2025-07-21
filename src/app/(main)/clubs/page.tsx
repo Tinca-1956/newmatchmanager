@@ -44,8 +44,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
-import { collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, Timestamp } from 'firebase/firestore';
-import type { Club } from '@/lib/types';
+import { collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, Timestamp, getDoc } from 'firebase/firestore';
+import type { Club, User } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon } from 'lucide-react';
@@ -58,6 +58,7 @@ import { useAuth } from '@/hooks/use-auth';
 export default function ClubsPage() {
   const { user } = useAuth();
   const [clubs, setClubs] = useState<Club[]>([]);
+  const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -73,8 +74,16 @@ export default function ClubsPage() {
       return;
     }
 
+    // Fetch current user's profile
+    const userDocRef = doc(firestore, 'users', user.uid);
+    const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
+        if(doc.exists()){
+            setCurrentUserProfile({ id: doc.id, ...doc.data() } as User);
+        }
+    });
+
     const clubsCollection = collection(firestore, 'clubs');
-    const unsubscribe = onSnapshot(
+    const unsubscribeClubs = onSnapshot(
       clubsCollection,
       (snapshot) => {
         const clubsData = snapshot.docs.map(doc => {
@@ -102,7 +111,10 @@ export default function ClubsPage() {
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+        unsubscribeUser();
+        unsubscribeClubs();
+    };
   }, [toast, user]);
   
   const handleEditClick = (club: Club) => {
@@ -215,7 +227,7 @@ export default function ClubsPage() {
       toast({
         variant: 'destructive',
         title: 'Delete Failed',
-        description: 'Could not delete the club. Please try again.',
+        description: 'Could not delete the club. Please try again. You may not have the required permissions.',
       });
     }
   };
@@ -442,29 +454,31 @@ export default function ClubsPage() {
                         </div>
                     </div>
                     <DialogFooter className="sm:justify-between">
-                         <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                            <AlertDialogTrigger asChild>
-                                <Button type="button" variant="destructive">Delete Club</Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        This action cannot be undone. This will permanently delete the 
-                                        <span className="font-bold"> {selectedClub.name}</span> club and all of its data.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction
-                                        onClick={handleDeleteClub}
-                                        className="bg-destructive hover:bg-destructive/90"
-                                    >
-                                        Continue
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+                         {currentUserProfile?.role === 'Site Admin' && (
+                            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                                <AlertDialogTrigger asChild>
+                                    <Button type="button" variant="destructive">Delete Club</Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This action cannot be undone. This will permanently delete the 
+                                            <span className="font-bold"> {selectedClub.name}</span> club and all of its data.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={handleDeleteClub}
+                                            className="bg-destructive hover:bg-destructive/90"
+                                        >
+                                            Continue
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                         )}
                         <div className="flex gap-2">
                             <DialogClose asChild>
                                 <Button type="button" variant="ghost">Cancel</Button>
