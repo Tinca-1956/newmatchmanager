@@ -6,7 +6,7 @@ import {
   CardContent,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Trash2 } from 'lucide-react';
+import { PlusCircle, Trash2, Edit } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Dialog,
@@ -31,13 +31,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
-import { collection, addDoc, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import type { Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CalendarIcon } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { format, parseISO } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 export default function ClubsPage() {
   const [clubs, setClubs] = useState<Club[]>([]);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedClub, setSelectedClub] = useState<Club | null>(null);
   const [newClubName, setNewClubName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -53,10 +60,18 @@ export default function ClubsPage() {
     const unsubscribe = onSnapshot(
       clubsCollection,
       (snapshot) => {
-        const clubsData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as Club));
+        const clubsData = snapshot.docs.map(doc => {
+            const data = doc.data();
+            // Convert Firestore Timestamp to JS Date
+            const expiryDate = data.subscriptionExpiryDate instanceof Timestamp 
+                ? data.subscriptionExpiryDate.toDate() 
+                : data.subscriptionExpiryDate;
+            return {
+                id: doc.id,
+                ...data,
+                subscriptionExpiryDate: expiryDate,
+            } as Club
+        });
         setClubs(clubsData);
         setIsLoading(false);
       },
@@ -73,6 +88,45 @@ export default function ClubsPage() {
 
     return () => unsubscribe();
   }, [toast]);
+  
+  const handleEditClick = (club: Club) => {
+    setSelectedClub(club);
+    setIsEditDialogOpen(true);
+  }
+  
+  const handleUpdateClub = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedClub || !firestore) return;
+
+    setIsSaving(true);
+    try {
+        const clubDocRef = doc(firestore, 'clubs', selectedClub.id);
+        const dataToUpdate: Partial<Club> = {
+            name: selectedClub.name,
+            country: selectedClub.country,
+            state: selectedClub.state,
+            subscriptionExpiryDate: selectedClub.subscriptionExpiryDate,
+        };
+
+        await updateDoc(clubDocRef, dataToUpdate);
+
+        toast({
+            title: 'Success!',
+            description: `Club "${selectedClub.name}" has been updated.`,
+        });
+        setIsEditDialogOpen(false);
+        setSelectedClub(null);
+    } catch (error) {
+        console.error('Error updating document: ', error);
+        toast({
+            variant: 'destructive',
+            title: 'Update Failed',
+            description: 'Could not update the club. Please try again.',
+        });
+    } finally {
+        setIsSaving(false);
+    }
+  };
 
   const handleCreateClub = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,13 +153,16 @@ export default function ClubsPage() {
         name: newClubName,
         description: 'A new fantastic club!', // Default description
         imageUrl: `https://placehold.co/40x40`,
+        country: '',
+        state: '',
+        subscriptionExpiryDate: null,
       });
       toast({
         title: 'Success!',
         description: `Club "${newClubName}" has been created.`,
       });
       setNewClubName('');
-      setIsDialogOpen(false);
+      setIsCreateDialogOpen(false);
     } catch (error) {
       console.error('Error adding document: ', error);
       toast({
@@ -185,7 +242,10 @@ export default function ClubsPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline">View Details</Button>
+            <Button variant="outline" onClick={() => handleEditClick(club)}>
+                <Edit className="mr-2 h-4 w-4"/>
+                View Details
+            </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="icon">
@@ -226,7 +286,7 @@ export default function ClubsPage() {
             Browse and manage your fishing clubs.
           </p>
         </div>
-        <Button onClick={() => setIsDialogOpen(true)}>
+        <Button onClick={() => setIsCreateDialogOpen(true)}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Create Club
         </Button>
@@ -240,7 +300,7 @@ export default function ClubsPage() {
         </CardContent>
       </Card>
 
-       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <form onSubmit={handleCreateClub}>
             <DialogHeader>
@@ -265,7 +325,7 @@ export default function ClubsPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+              <Button type="button" variant="ghost" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={isSaving}>
                 {isSaving ? 'Saving...' : 'Save Club'}
               </Button>
@@ -273,6 +333,96 @@ export default function ClubsPage() {
           </form>
         </DialogContent>
       </Dialog>
+      
+      {selectedClub && (
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+                <form onSubmit={handleUpdateClub}>
+                    <DialogHeader>
+                        <DialogTitle>Edit Club Details</DialogTitle>
+                        <DialogDescription>
+                            Modify the details for {selectedClub.name}.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="edit-club-name" className="text-right">
+                                Club Name
+                            </Label>
+                            <Input
+                                id="edit-club-name"
+                                value={selectedClub.name}
+                                onChange={(e) => setSelectedClub({ ...selectedClub, name: e.target.value })}
+                                className="col-span-3"
+                                required
+                            />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="edit-country" className="text-right">
+                                Country
+                            </Label>
+                            <Input
+                                id="edit-country"
+                                value={selectedClub.country || ''}
+                                onChange={(e) => setSelectedClub({ ...selectedClub, country: e.target.value })}
+                                className="col-span-3"
+                                placeholder="e.g., United Kingdom"
+                            />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="edit-state" className="text-right">
+                                State/County
+                            </Label>
+                            <Input
+                                id="edit-state"
+                                value={selectedClub.state || ''}
+                                onChange={(e) => setSelectedClub({ ...selectedClub, state: e.target.value })}
+                                className="col-span-3"
+                                placeholder="e.g., West Midlands"
+                            />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="edit-expiry" className="text-right">
+                                Expiry Date
+                            </Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                        "col-span-3 justify-start text-left font-normal",
+                                        !selectedClub.subscriptionExpiryDate && "text-muted-foreground"
+                                    )}
+                                    >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {selectedClub.subscriptionExpiryDate ? (
+                                        format(selectedClub.subscriptionExpiryDate, "PPP")
+                                    ) : (
+                                        <span>Pick a date</span>
+                                    )}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar
+                                        mode="single"
+                                        selected={selectedClub.subscriptionExpiryDate}
+                                        onSelect={(date) => setSelectedClub({ ...selectedClub, subscriptionExpiryDate: date || undefined })}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="ghost" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                        <Button type="submit" disabled={isSaving}>
+                            {isSaving ? 'Saving...' : 'Save Changes'}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

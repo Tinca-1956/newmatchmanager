@@ -14,6 +14,9 @@ export interface Club {
   name: string;
   description: string;
   imageUrl: string;
+  country?: string;
+  state?: string;
+  subscriptionExpiryDate?: Date;
 }
 
 export type MembershipStatus = 'Pending' | 'Member' | 'Guest' | 'Suspended' | 'Blocked';
