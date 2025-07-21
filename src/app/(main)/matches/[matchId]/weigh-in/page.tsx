@@ -95,7 +95,8 @@ export default function WeighInPage() {
                 });
                 anglersData.push(...chunkData);
             }
-            setAnglers(anglersData.map(a => ({ ...a, peg: '', section: '', weight: '', status: 'NYW', rank: '' })));
+            const initialAnglers = anglersData.map(a => ({ ...a, peg: '', section: '', weight: '', status: 'NYW' as WeighInStatus, rank: '' }));
+            setAnglers(initialAnglers);
         }
 
       } catch (error: any) {
@@ -131,40 +132,56 @@ export default function WeighInPage() {
     try {
         const batch = writeBatch(firestore);
         
-        const results: Omit<Result, 'position' | 'points'>[] = anglers
-            .filter(angler => angler.status === 'OK' && parseInt(angler.weight) > 0)
+        const resultsToProcess: Omit<Result, 'position' | 'points'>[] = anglers
+            .filter(angler => angler.status === 'OK' && parseInt(angler.weight, 10) > 0)
             .map(angler => {
-                const totalOz = parseInt(angler.weight || '0');
+                const totalOz = parseInt(angler.weight || '0', 10);
                 return {
                     matchId: match.id,
                     userId: angler.id,
                     userName: `${angler.firstName} ${angler.lastName}`,
                     weight: totalOz,
+                    date: match.date,
+                    seriesId: match.seriesId,
+                    clubId: match.clubId,
                 };
             });
             
         // Sort by weight descending to assign positions
-        results.sort((a, b) => b.weight - a.weight);
+        resultsToProcess.sort((a, b) => b.weight - a.weight);
         
-        results.forEach((result, index) => {
+        resultsToProcess.forEach((result, index) => {
             const resultId = `${match.id}_${result.userId}`;
             const resultDocRef = doc(firestore, 'results', resultId);
             const data: Result = {
                 ...result,
                 position: index + 1,
-                points: index + 1, // Simplified points system
-                date: match.date,
-                seriesId: match.seriesId,
-                clubId: match.clubId,
+                points: index + 1, // Simplified points system for now
             }
             batch.set(resultDocRef, data, { merge: true });
         });
+        
+        // Mark match as completed
+        const matchDocRef = doc(firestore, 'matches', match.id);
+        batch.update(matchDocRef, { status: 'Completed' });
         
         await batch.commit();
 
         toast({
             title: 'Success!',
-            description: 'All weigh-in data has been saved.',
+            description: 'All weigh-in data has been saved and the match is marked as complete.',
+        });
+        
+        // Update local state to reflect ranks
+        setAnglers(prevAnglers => {
+            const newAnglers = [...prevAnglers];
+            resultsToProcess.forEach((result, index) => {
+                const anglerIndex = newAnglers.findIndex(a => a.id === result.userId);
+                if (anglerIndex !== -1) {
+                    newAnglers[anglerIndex].rank = (index + 1).toString();
+                }
+            });
+            return newAnglers;
         });
 
     } catch (error: any) {
