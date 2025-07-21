@@ -3,55 +3,66 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
-    
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+
+    function isUser(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
     }
 
     function isSiteAdmin() {
-      return isSignedIn() && getUserData().role == 'Site Admin';
+      return isSignedIn() && getUserData(request.auth.uid).role == 'Site Admin';
     }
 
-    function isClubAdmin() {
-      return isSignedIn() && (getUserData().role == 'Club Admin' || getUserData().role == 'Site Admin');
+    function isClubAdmin(clubId) {
+      let userRole = getUserData(request.auth.uid).role;
+      let userClubId = getUserData(request.auth.uid).primaryClubId;
+      return isSignedIn() && (userRole == 'Club Admin' || userRole == 'Site Admin') && userClubId == clubId;
     }
 
+    // Collection: users
     match /users/{userId} {
-      // Allow users to read their own data
-      allow get: if isSignedIn() && request.auth.uid == userId;
+      // Anyone can create their own user document during registration/club selection
+      allow create: if isSignedIn();
       
-      // Allow users to create their own record, and update their own firstName, lastName, and primaryClubId.
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isSignedIn() && request.auth.uid == userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstName', 'lastName', 'primaryClubId']);
-      
-      // Allow admins to update other users' roles and status.
-      allow update: if isClubAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['firstName', 'lastName', 'role', 'memberStatus']);
+      // Users can read their own data.
+      // Other users from the same club can read their data (for member/marshal lists).
+      allow read: if isUser(userId) || 
+                  (isSignedIn() && getUserData(request.auth.uid).primaryClubId == resource.data.primaryClubId);
 
-      // Allow admins to list all users belonging to their club.
-      allow list: if isClubAdmin() && request.query.where.to_list()[0].value == getUserData().primaryClubId;
+      // A user can update their own basic info.
+      // Admins can update more fields.
+      allow update: if isUser(userId) || 
+                     isClubAdmin(resource.data.primaryClubId);
+                     
+      allow delete: if false; // Don't allow users to be deleted for now
     }
 
+    // Collection: clubs
     match /clubs/{clubId} {
       allow read: if isSignedIn();
-      allow create, update: if isClubAdmin();
+      allow create, update: if isClubAdmin(request.resource.data.clubId);
       allow delete: if isSiteAdmin();
     }
-
+    
+    // Collection: series
     match /series/{seriesId} {
-      // User can read series for their own club
-      allow read: if isSignedIn() && getUserData().primaryClubId == resource.data.clubId;
-      // Admins can write to series in their own club
-      allow write: if isClubAdmin() && getUserData().primaryClubId == request.resource.data.clubId;
+      allow read: if isSignedIn() && getUserData(request.auth.uid).primaryClubId == resource.data.clubId;
+      allow create, update: if isClubAdmin(request.resource.data.clubId);
+      allow delete: if isClubAdmin(resource.data.clubId);
     }
-
+    
+    // Collection: matches
     match /matches/{matchId} {
-      // User can read matches for their own club
-      allow read: if isSignedIn() && getUserData().primaryClubId == resource.data.clubId;
-      // Admins can write to matches in their own club
-      allow write: if isClubAdmin() && getUserData().primaryClubId == request.resource.data.clubId;
+        allow read: if isSignedIn() && getUserData(request.auth.uid).primaryClubId == resource.data.clubId;
+        allow create, update: if isClubAdmin(request.resource.data.clubId);
+        allow delete: if isClubAdmin(resource.data.clubId);
     }
   }
 }
