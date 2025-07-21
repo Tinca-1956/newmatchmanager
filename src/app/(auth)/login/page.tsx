@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Fish } from 'lucide-react';
 import { useState } from 'react';
-import { signInWithEmailAndPassword, sendEmailVerification, AuthError } from 'firebase/auth';
+import { signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { auth, firestore } from '@/lib/firebase-client';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -52,7 +52,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent, isResendAttempt = false) => {
     e.preventDefault();
     setShowResend(false); // Reset on new login attempt
     if (!auth || !firestore) {
@@ -69,12 +69,16 @@ export default function LoginPage() {
       const user = userCredential.user;
 
       if (!user.emailVerified) {
+        // Send verification email on the first failed login attempt or on resend click
+        await sendEmailVerification(user);
+        
         toast({
           variant: 'destructive',
           title: 'Email Not Verified',
-          description: 'Please verify your email address before logging in. Check your inbox for a verification link.',
+          description: `A new verification link has been sent to ${user.email}. Please check your inbox.`,
         });
-        setShowResend(true); // Show the resend link
+        
+        setShowResend(true); // Show the resend button
         await auth.signOut(); // Log out the user until they are verified
         return;
       }
@@ -90,6 +94,16 @@ export default function LoginPage() {
         router.push('/select-club');
       }
     } catch (error: unknown) {
+      // if it's a resend attempt and the password is wrong, that's okay.
+      // we still want to show the resend toast
+      if(isResendAttempt && (error as any)?.code?.includes('auth/wrong-password')){
+        toast({
+          title: 'Verification Email Sent',
+          description: `A new verification link has been sent to ${email}.`,
+        });
+        return;
+      }
+
       toast({
         variant: 'destructive',
         title: 'Login Failed',
@@ -98,48 +112,11 @@ export default function LoginPage() {
     }
   };
   
-  const handleResendVerification = async () => {
-    if (!auth || !email) {
-       toast({ variant: 'destructive', title: 'Error', description: 'Email address is required.' });
-       return;
-    }
-    try {
-      // To resend, we need a user object. We get this by signing in briefly.
-      // We must provide a password, but it doesn't have to be correct to get the user object
-      // if the user exists. We'll catch the wrong-password error.
-      await sendEmailVerification(auth.currentUser!);
-       toast({
-        title: 'Verification Email Sent',
-        description: 'A new verification link has been sent to your email address.',
-      });
-    } catch (error) {
-        // This is a bit of a workaround. We sign in the user to get the user object,
-        // send the email, and then sign out. The password can be fake.
-        if ((error as AuthError).code === 'auth/wrong-password' || (error as AuthError).code === 'auth/invalid-credential') {
-             try {
-                // We don't have the user object, so we can't call sendEmailVerification directly.
-                // We'll have to rely on the toast message from the original login attempt.
-                // This logic is tricky with Firebase limitations. The best way is to send it when user is briefly logged in.
-                toast({
-                    title: 'Action Needed',
-                    description: 'Please attempt to log in first to enable the resend functionality.'
-                });
-             } catch (resendError) {
-                 toast({ variant: 'destructive', title: 'Error', description: 'Could not resend verification email. Please contact support.' });
-             }
-        } else if (auth.currentUser && !auth.currentUser.emailVerified) {
-            // This case handles when the login succeeds but email is not verified.
-            await sendEmailVerification(auth.currentUser);
-            await auth.signOut();
-            toast({
-                title: 'Verification Email Sent',
-                description: 'A new verification link has been sent to your email address.',
-            });
-        }
-        else {
-             toast({ variant: 'destructive', title: 'Error', description: getErrorMessage(error) });
-        }
-    }
+  const handleResendClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    // To resend, we need the user object, which we only get after a sign-in attempt.
+    // So, we re-run the login handler. If password is wrong, the catch block
+    // will show a toast. If email is unverified, the logic inside the `try` block handles it.
+     handleLogin(e as any, true);
   }
 
   return (
@@ -191,7 +168,7 @@ export default function LoginPage() {
                     type="button"
                     variant="link"
                     className="p-0 h-auto"
-                    onClick={handleResendVerification}
+                    onClick={handleResendClick}
                 >
                     Resend verification
                 </Button>
