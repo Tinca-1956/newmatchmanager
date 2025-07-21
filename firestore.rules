@@ -3,45 +3,76 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper functions
-    function isUserAuthenticated() {
-      return request.auth != null && request.auth.uid != null;
+
+    // Helper Functions
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function getUserRole(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+    }
+
+    function isSiteAdmin(userId) {
+      return getUserRole(userId) == 'Site Admin';
+    }
+
+    function isClubAdmin(userId) {
+      return getUserRole(userId) == 'Club Admin';
+    }
+
+    function isClubOrSiteAdmin(userId) {
+      let role = getUserRole(userId);
+      return role == 'Club Admin' || role == 'Site Admin';
     }
     
-    function isSiteAdmin() {
-      return isUserAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
-    }
-
-    function isClubAdmin() {
-       return isUserAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin';
-    }
-
-    // Rules for the 'users' collection
+    // Rules for 'users' collection
     match /users/{userId} {
-      allow read: if isUserAuthenticated();
-      
-      // A user can update their own profile's non-critical fields
-      allow update: if request.auth.uid == userId &&
-                      request.resource.data.diff(resource.data).affectedKeys()
-                        .hasOnly(['firstName', 'lastName', 'primaryClubId']);
+      // Allow users to read their own data.
+      allow read: if isAuth() && request.auth.uid == userId;
 
-      // Admins can update more fields on other users' documents
-      allow update: if (isSiteAdmin() || isClubAdmin()) &&
-                      request.resource.data.diff(resource.data).affectedKeys()
-                        .hasOnly(['firstName', 'lastName', 'role', 'memberStatus']);
+      // Allow site/club admins to read other users' data.
+      allow read: if isAuth() && isClubOrSiteAdmin(request.auth.uid);
+
+      // Allow users to update their own non-critical data.
+      allow update: if isAuth() && request.auth.uid == userId
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['firstName', 'lastName', 'primaryClubId']);
+      
+      // Allow Admins to update user roles and status.
+      allow update: if isAuth() && isClubOrSiteAdmin(request.auth.uid)
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['firstName', 'lastName', 'role', 'memberStatus']);
+
+      // Allow users to create their own user document (e.g. on first profile save).
+      allow create: if isAuth() && request.auth.uid == userId;
     }
 
-    // Rules for the 'clubs' collection
+    // Rules for 'clubs' collection
     match /clubs/{clubId} {
-      allow read: if isUserAuthenticated();
-      allow create: if isUserAuthenticated(); // Allow any authenticated user to create a club
+      // Anyone authenticated can view the list of clubs.
+      allow read: if isAuth();
+
+      // Only Site Admins can create clubs.
+      allow create: if isAuth() && isSiteAdmin(request.auth.uid);
       
-      // Only Site Admins can update or delete clubs
-      allow update: if isSiteAdmin();
-      allow delete: if isSiteAdmin();
+      // Only Site Admins can update clubs.
+      allow update: if isAuth() && isSiteAdmin(request.auth.uid);
+
+      // Only Site Admins can delete clubs.
+      allow delete: if isAuth() && isSiteAdmin(request.auth.uid);
+    }
+    
+    // Rules for 'series' collection
+    match /series/{seriesId} {
+        // Any authenticated user can read series data.
+        allow read: if isAuth();
+
+        // Only Club or Site Admins can create or update a series.
+        allow create, update: if isAuth() && isClubOrSiteAdmin(request.auth.uid);
+
+        // Only Site Admins can delete a series.
+        allow delete: if isAuth() && isSiteAdmin(request.auth.uid);
     }
   }
 }
-
-    
