@@ -1,12 +1,24 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
 } from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Trash2, Edit } from 'lucide-react';
+import { PlusCircle, Edit } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Dialog,
@@ -15,6 +27,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogClose,
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -25,7 +38,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -47,6 +59,7 @@ export default function ClubsPage() {
   const [clubs, setClubs] = useState<Club[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedClub, setSelectedClub] = useState<Club | null>(null);
   const [newClubName, setNewClubName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -65,7 +78,6 @@ export default function ClubsPage() {
       (snapshot) => {
         const clubsData = snapshot.docs.map(doc => {
             const data = doc.data();
-            // Convert Firestore Timestamp to JS Date
             const expiryDate = data.subscriptionExpiryDate instanceof Timestamp 
                 ? data.subscriptionExpiryDate.toDate() 
                 : data.subscriptionExpiryDate;
@@ -89,7 +101,6 @@ export default function ClubsPage() {
       }
     );
 
-    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, [toast, user]);
   
@@ -156,7 +167,7 @@ export default function ClubsPage() {
     try {
       await addDoc(collection(firestore, 'clubs'), {
         name: newClubName,
-        description: 'A new fantastic club!', // Default description
+        description: 'A new fantastic club!',
         imageUrl: `https://placehold.co/40x40`,
         country: '',
         state: '',
@@ -180,21 +191,24 @@ export default function ClubsPage() {
     }
   };
 
-  const handleDeleteClub = async (clubId: string, clubName: string) => {
-    if (!firestore) {
+  const handleDeleteClub = async () => {
+    if (!firestore || !selectedClub) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Firestore is not initialized.',
+        description: 'No club selected or Firestore is not initialized.',
       });
       return;
     }
     try {
-      await deleteDoc(doc(firestore, 'clubs', clubId));
+      await deleteDoc(doc(firestore, 'clubs', selectedClub.id));
       toast({
         title: 'Club Deleted',
-        description: `Club "${clubName}" has been removed.`,
+        description: `Club "${selectedClub.name}" has been removed.`,
       });
+      setIsDeleteDialogOpen(false);
+      setIsEditDialogOpen(false);
+      setSelectedClub(null);
     } catch (error) {
       console.error('Error deleting document: ', error);
       toast({
@@ -208,79 +222,58 @@ export default function ClubsPage() {
   const renderClubList = () => {
     if (isLoading) {
       return Array.from({ length: 3 }).map((_, i) => (
-         <div key={i} className="flex items-center justify-between p-4 border-b last:border-b-0">
-            <div className="flex items-center gap-4">
-              <Skeleton className="h-12 w-12 rounded-full" />
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-[200px]" />
-                <Skeleton className="h-4 w-[250px]" />
+         <TableRow key={i}>
+            <TableCell>
+              <div className="flex items-center gap-4">
+                <Skeleton className="h-12 w-12 rounded-full" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-[200px]" />
+                  <Skeleton className="h-4 w-[250px]" />
+                </div>
               </div>
-            </div>
-            <Skeleton className="h-10 w-[120px]" />
-          </div>
+            </TableCell>
+            <TableCell className="text-right">
+              <Skeleton className="h-10 w-[120px]" />
+            </TableCell>
+          </TableRow>
       ));
     }
 
     if (clubs.length === 0) {
       return (
-        <div className="text-center p-8 text-muted-foreground">
-          No clubs found. Create the first one!
-        </div>
+        <TableRow>
+          <TableCell colSpan={2} className="h-24 text-center">
+            No clubs found. Create the first one!
+          </TableCell>
+        </TableRow>
       );
     }
 
     return clubs.map((club) => (
-       <div
-          key={club.id}
-          className="flex items-center justify-between p-4 border-b last:border-b-0"
-        >
-          <div className="flex items-center gap-4">
-            <Avatar className="h-12 w-12" data-ai-hint="fishing club">
-              <AvatarImage src={club.imageUrl} alt={club.name} />
-              <AvatarFallback>{club.name.charAt(0)}</AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="font-semibold">{club.name}</p>
-              <p className="text-sm text-muted-foreground">
-                {club.description}
-              </p>
+       <TableRow key={club.id}>
+          <TableCell>
+            <div className="flex items-center gap-4">
+              <Avatar className="h-12 w-12" data-ai-hint="fishing club">
+                <AvatarImage src={club.imageUrl} alt={club.name} />
+                <AvatarFallback>{club.name.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="font-semibold">{club.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {club.description}
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
+          </TableCell>
+          <TableCell className="text-right">
             <Button variant="outline" onClick={() => handleEditClick(club)}>
                 <Edit className="mr-2 h-4 w-4"/>
                 View Details
             </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="icon">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete the 
-                    <span className="font-bold"> {club.name}</span> club and all of its data.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() => handleDeleteClub(club.id, club.name)}
-                    className="bg-destructive hover:bg-destructive/90"
-                  >
-                    Continue
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        </div>
+          </TableCell>
+        </TableRow>
     ));
   }
-
 
   return (
     <div className="flex flex-col gap-8">
@@ -298,10 +291,22 @@ export default function ClubsPage() {
       </div>
 
       <Card>
-        <CardContent className="p-0">
-          <div className="space-y-0">
-            {renderClubList()}
-          </div>
+        <CardHeader>
+            <CardTitle>All Clubs</CardTitle>
+            <CardDescription>A list of all clubs in the system.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Club Details</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {renderClubList()}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
 
@@ -340,7 +345,12 @@ export default function ClubsPage() {
       </Dialog>
       
       {selectedClub && (
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <Dialog open={isEditDialogOpen} onOpenChange={(isOpen) => {
+            if (!isOpen) {
+                setIsDeleteDialogOpen(false); // Close delete dialog if edit dialog is closed
+            }
+            setIsEditDialogOpen(isOpen);
+        }}>
             <DialogContent className="sm:max-w-md">
                 <form onSubmit={handleUpdateClub}>
                     <DialogHeader>
@@ -430,11 +440,38 @@ export default function ClubsPage() {
                             </Popover>
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button type="button" variant="ghost" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
-                        <Button type="submit" disabled={isSaving}>
-                            {isSaving ? 'Saving...' : 'Save Changes'}
-                        </Button>
+                    <DialogFooter className="sm:justify-between">
+                         <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                            <AlertDialogTrigger asChild>
+                                <Button type="button" variant="destructive">Delete Club</Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This action cannot be undone. This will permanently delete the 
+                                        <span className="font-bold"> {selectedClub.name}</span> club and all of its data.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                        onClick={handleDeleteClub}
+                                        className="bg-destructive hover:bg-destructive/90"
+                                    >
+                                        Continue
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                        <div className="flex gap-2">
+                            <DialogClose asChild>
+                                <Button type="button" variant="ghost">Cancel</Button>
+                            </DialogClose>
+                            <Button type="submit" disabled={isSaving}>
+                                {isSaving ? 'Saving...' : 'Save Changes'}
+                            </Button>
+                        </div>
                     </DialogFooter>
                 </form>
             </DialogContent>
