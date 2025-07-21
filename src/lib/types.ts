@@ -1,3 +1,4 @@
+import type { Timestamp } from 'firebase/firestore';
 
 export type UserRole = 'Site Admin' | 'Club Admin' | 'Marshal' | 'Angler';
 export type MembershipStatus = 'Pending' | 'Member' | 'Suspended' | 'Blocked';
@@ -20,7 +21,7 @@ export interface Club {
   imageUrl: string;
   country?: string;
   state?: string;
-  subscriptionExpiryDate?: Date;
+  subscriptionExpiryDate?: Date | Timestamp;
 }
 
 export interface Membership {
@@ -44,7 +45,7 @@ export interface Match {
   seriesName: string;
   name: string;
   location: string;
-  date: Date;
+  date: Date | Timestamp;
   status: MatchStatus;
   drawTime: string;
   startTime: string;
@@ -56,9 +57,12 @@ export interface Match {
 
 export interface Result {
   matchId: string;
+  seriesId: string;
+  clubId: string;
   userId: string;
   userName: string;
   position: number;
   weight: number; // in oz
   points: number;
+  date: Date | Timestamp;
 }
