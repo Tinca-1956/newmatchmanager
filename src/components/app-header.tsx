@@ -78,9 +78,9 @@ export default function AppHeader() {
         <div className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-sidebar-foreground/70" />
             {isLoading ? (
-                <Skeleton className="h-5 w-48 bg-sidebar-accent" />
+                <Skeleton className="h-6 w-48 bg-sidebar-accent" />
             ) : (
-                <span className="font-medium">{primaryClubName}</span>
+                <span className="font-bold text-lg">{primaryClubName}</span>
             )}
         </div>
       </div>
