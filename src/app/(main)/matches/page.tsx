@@ -50,7 +50,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, Timestamp, arrayUnion, increment, getDocs, getDoc } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, Timestamp, arrayUnion, increment, getDocs, getDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import type { Match, Series, User, MatchStatus } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
@@ -93,6 +93,7 @@ export default function MatchesPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
   const [isViewRegisteredDialogOpen, setIsViewRegisteredDialogOpen] = useState(false);
+  const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
   
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [registeredAnglersDetails, setRegisteredAnglersDetails] = useState<AnglerDetails[]>([]);
@@ -261,6 +262,11 @@ export default function MatchesPage() {
         return;
     }
 
+    if (selectedMatch && formState.status === 'Cancelled') {
+        setIsCancelConfirmOpen(true);
+        return;
+    }
+
     setIsSaving(true);
     
     const series = seriesList.find(s => s.id === formState.seriesId);
@@ -313,6 +319,42 @@ export default function MatchesPage() {
         toast({ variant: 'destructive', title: 'Registration Failed', description: 'Could not register for the match. Please try again.' });
     } finally {
         setIsSaving(false);
+    }
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!selectedMatch || !firestore) {
+      toast({ variant: 'destructive', title: 'Error', description: 'No match selected to cancel.' });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const batch = writeBatch(firestore);
+
+      // 1. Delete the match document
+      const matchDocRef = doc(firestore, 'matches', selectedMatch.id);
+      batch.delete(matchDocRef);
+
+      // 2. Find and delete all associated results
+      const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', selectedMatch.id));
+      const resultsSnapshot = await getDocs(resultsQuery);
+      resultsSnapshot.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+
+      await batch.commit();
+
+      toast({ title: 'Success', description: `Match "${selectedMatch.name}" and all its results have been cancelled.` });
+
+      setIsEditDialogOpen(false);
+      setIsCancelConfirmOpen(false);
+      setSelectedMatch(null);
+    } catch (error) {
+      console.error('Error cancelling match:', error);
+      toast({ variant: 'destructive', title: 'Cancellation Failed', description: 'Could not cancel the match. Please try again.' });
+    } finally {
+      setIsSaving(false);
     }
   };
   
@@ -652,6 +694,30 @@ export default function MatchesPage() {
                     <AlertDialogCancel onClick={() => setSelectedMatch(null)}>Cancel</AlertDialogCancel>
                     <AlertDialogAction onClick={handleRegister} disabled={isSaving}>
                         {isSaving ? 'Registering...' : 'Yes, Register'}
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {selectedMatch && (
+        <AlertDialog open={isCancelConfirmOpen} onOpenChange={setIsCancelConfirmOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will cancel the match: <strong>{selectedMatch.name}</strong>.
+                        This action cannot be undone and will remove the match and all associated results permanently.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Go Back</AlertDialogCancel>
+                    <AlertDialogAction
+                        onClick={handleConfirmCancel}
+                        disabled={isSaving}
+                        className="bg-destructive hover:bg-destructive/90"
+                    >
+                        {isSaving ? 'Cancelling...' : 'Yes, Cancel Match'}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
