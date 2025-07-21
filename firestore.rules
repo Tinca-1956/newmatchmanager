@@ -4,53 +4,44 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
   
-    // Helper function to get user data
-    function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
+    // Helper functions
+    function isUserAuthenticated() {
+      return request.auth != null && request.auth.uid != null;
     }
     
-    // Helper function to check if a user is an admin
-    function isSiteAdmin(userId) {
-      return getUserData(userId).role == 'Site Admin';
-    }
-    
-    function isClubAdmin(userId) {
-      return getUserData(userId).role == 'Club Admin';
+    function isSiteAdmin() {
+      return isUserAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
     }
 
-    // CLUBS
-    match /clubs/{clubId} {
-      // Anyone can see the list of clubs
-      allow read: if request.auth != null;
-      
-      // Only Site Admins can create or update clubs
-      allow create, update: if request.auth != null && isSiteAdmin(request.auth.uid);
-
-      // Only Site Admins can delete clubs
-      allow delete: if request.auth != null && isSiteAdmin(request.auth.uid);
+    function isClubAdmin() {
+       return isUserAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin';
     }
 
-    // USERS
+    // Rules for the 'users' collection
     match /users/{userId} {
-      // A user can be created during sign-up process
-      allow create: if request.auth.uid != null;
+      allow read: if isUserAuthenticated();
       
-      // A user can read their own data, Admins can read anyone's data
-      allow read: if request.auth.uid == userId 
-                  || isSiteAdmin(request.auth.uid) 
-                  || isClubAdmin(request.auth.uid);
-                  
-      // A user can update their own first name, last name, and primary club.
-      // Admins can update other users' roles and statuses.
-      allow update: if request.auth.uid == userId && (
-                      request.resource.data.keys().hasOnly(['firstName', 'lastName', 'primaryClubId', 'email', 'role']))
-                   || (isSiteAdmin(request.auth.uid) || isClubAdmin(request.auth.uid)) && (
-                      request.resource.data.keys().hasOnly(['firstName', 'lastName', 'role', 'memberStatus']));
+      // A user can update their own profile's non-critical fields
+      allow update: if request.auth.uid == userId &&
+                      request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['firstName', 'lastName', 'primaryClubId']);
+
+      // Admins can update more fields on other users' documents
+      allow update: if (isSiteAdmin() || isClubAdmin()) &&
+                      request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['firstName', 'lastName', 'role', 'memberStatus']);
     }
-    
-    // Default deny all other reads/writes
-    match /{document=**} {
-      allow read, write: if false;
+
+    // Rules for the 'clubs' collection
+    match /clubs/{clubId} {
+      allow read: if isUserAuthenticated();
+      allow create: if isUserAuthenticated(); // Allow any authenticated user to create a club
+      
+      // Only Site Admins can update or delete clubs
+      allow update: if isSiteAdmin();
+      allow delete: if isSiteAdmin();
     }
   }
 }
+
+    
