@@ -3,6 +3,7 @@ import type { Timestamp } from 'firebase/firestore';
 export type UserRole = 'Site Admin' | 'Club Admin' | 'Marshal' | 'Angler';
 export type MembershipStatus = 'Pending' | 'Member' | 'Suspended' | 'Blocked';
 export type MatchStatus = 'Upcoming' | 'In Progress' | 'Completed' | 'Cancelled';
+export type WeighInStatus = 'NYW' | 'OK' | 'DNF' | 'DNW' | 'DSQ';
 
 export interface User {
   id: string;
@@ -65,4 +66,5 @@ export interface Result {
   weight: number; // in oz
   points: number;
   date: Date | Timestamp;
+  status?: WeighInStatus;
 }
