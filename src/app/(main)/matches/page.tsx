@@ -253,6 +253,7 @@ export default function MatchesPage() {
             <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
             <TableCell className="text-right"><Skeleton className="h-10 w-[180px]" /></TableCell>
           </TableRow>
@@ -262,7 +263,7 @@ export default function MatchesPage() {
     if (matches.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={7} className="h-24 text-center">
+          <TableCell colSpan={8} className="h-24 text-center">
             No matches found. Create the first one!
           </TableCell>
         </TableRow>
@@ -284,6 +285,7 @@ export default function MatchesPage() {
           <TableCell>{match.location}</TableCell>
           <TableCell>{format(match.date, 'EEE, dd MMM yyyy')}</TableCell>
           <TableCell>{match.capacity}</TableCell>
+          <TableCell>{match.registeredCount}</TableCell>
           <TableCell>{match.status}</TableCell>
           <TableCell className="text-right space-x-2">
              <Button 
@@ -333,6 +335,7 @@ export default function MatchesPage() {
                 <TableHead>Location</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Capacity</TableHead>
+                <TableHead>Registered</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
