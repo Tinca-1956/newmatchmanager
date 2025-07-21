@@ -350,6 +350,7 @@ export default function MatchesPage() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="Upcoming">Upcoming</SelectItem>
+                                <SelectItem value="In Progress">In Progress</SelectItem>
                                 <SelectItem value="Completed">Completed</SelectItem>
                                 <SelectItem value="Cancelled">Cancelled</SelectItem>
                             </SelectContent>
@@ -396,5 +397,3 @@ export default function MatchesPage() {
     </div>
   );
 }
-
-    

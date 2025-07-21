@@ -1,7 +1,7 @@
 
 export type UserRole = 'Site Admin' | 'Club Admin' | 'Marshal' | 'Angler';
 export type MembershipStatus = 'Pending' | 'Member' | 'Suspended' | 'Blocked';
-export type MatchStatus = 'Upcoming' | 'Completed' | 'Cancelled';
+export type MatchStatus = 'Upcoming' | 'In Progress' | 'Completed' | 'Cancelled';
 
 export interface User {
   id: string;
@@ -61,5 +61,3 @@ export interface Result {
   weight: number; // in oz
   points: number;
 }
-
-    
