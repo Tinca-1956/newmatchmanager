@@ -161,15 +161,11 @@ export default function WeighInPage() {
             batch.set(resultDocRef, data, { merge: true });
         });
         
-        // Mark match as completed
-        const matchDocRef = doc(firestore, 'matches', match.id);
-        batch.update(matchDocRef, { status: 'Completed' });
-        
         await batch.commit();
 
         toast({
             title: 'Success!',
-            description: 'All weigh-in data has been saved and the match is marked as complete.',
+            description: 'All weigh-in data has been saved.',
         });
         
         // Update local state to reflect ranks
