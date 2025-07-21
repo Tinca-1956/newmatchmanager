@@ -75,7 +75,7 @@ const EMPTY_MATCH: Omit<Match, 'id' | 'clubId' | 'seriesName'> = {
     registeredAnglers: [],
 };
 
-type AnglerDetails = Pick<User, 'id' | 'firstName' | 'lastName'>;
+type AnglerDetails = Pick<User, 'id' | 'firstName' | 'lastName' | 'email'>;
 
 export default function MatchesPage() {
   const { user } = useAuth();
@@ -224,6 +224,7 @@ export default function MatchesPage() {
               id: doc.id,
               firstName: data.firstName || 'N/A',
               lastName: data.lastName || 'N/A',
+              email: data.email || 'N/A',
             } as AnglerDetails;
          });
          anglersData.push(...chunkData);
@@ -378,7 +379,10 @@ export default function MatchesPage() {
       return Array.from({ length: 5 }).map((_, i) => (
         <div key={i} className="flex items-center gap-3 p-2">
             <Skeleton className="h-9 w-9 rounded-full" />
-            <Skeleton className="h-4 w-40" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-48" />
+            </div>
         </div>
       ));
     }
@@ -392,7 +396,10 @@ export default function MatchesPage() {
             <Avatar className="h-9 w-9">
                 <AvatarFallback><UserIcon className="h-5 w-5"/></AvatarFallback>
             </Avatar>
-            <span>{angler.firstName} {angler.lastName}</span>
+            <div>
+              <span>{angler.firstName} {angler.lastName}</span>
+              <p className="text-sm text-muted-foreground">{angler.email}</p>
+            </div>
         </div>
     ));
   }
