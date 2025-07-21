@@ -215,8 +215,18 @@ export default function ProfilePage() {
                 <Input id="email" value={user?.email || ''} disabled />
             </div>
             <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
-                <Input id="role" value={role} disabled />
+              <Label htmlFor="role">Role</Label>
+              <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
+                <SelectTrigger id="role">
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Site Admin">Site Admin</SelectItem>
+                  <SelectItem value="Club Admin">Club Admin</SelectItem>
+                  <SelectItem value="Marshal">Marshal</SelectItem>
+                  <SelectItem value="Angler">Angler</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
           <CardFooter>
