@@ -349,11 +349,9 @@ export default function MatchesPage() {
           <TableCell>{match.registeredCount}</TableCell>
           <TableCell>{match.status}</TableCell>
           <TableCell className="text-right space-x-2" onClick={(e) => e.stopPropagation()}>
-             {match.status === 'Completed' && (
-                <Button variant="outline" size="sm">
-                    <Medal className="h-4 w-4"/>
-                </Button>
-             )}
+            <Button variant="outline" size="sm">
+                <Medal className="h-4 w-4"/>
+            </Button>
              <Button 
                 variant="outline" 
                 size="sm" 
