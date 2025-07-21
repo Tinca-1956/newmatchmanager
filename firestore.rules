@@ -2,47 +2,56 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper functions
-    function isAuth() {
+
+    function isSignedIn() {
       return request.auth != null;
     }
-
-    function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
-    }
     
-    function isUserRole(userId, roles) {
-      let userData = getUserData(userId);
-      return isAuth() && userData.role in roles;
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    // Rules for 'users' collection
+    function isSiteAdmin() {
+      return isSignedIn() && getUserData().role == 'Site Admin';
+    }
+
+    function isClubAdmin() {
+      return isSignedIn() && (getUserData().role == 'Club Admin' || getUserData().role == 'Site Admin');
+    }
+
     match /users/{userId} {
-      allow read: if isAuth();
-      allow create: if isAuth();
-      allow update: if isAuth() && request.auth.uid == userId // Can update own doc
-                       || isUserRole(request.auth.uid, ['Site Admin', 'Club Admin']); // Admins can update docs
+      // Allow users to read their own data
+      allow get: if isSignedIn() && request.auth.uid == userId;
+      
+      // Allow users to create their own record, and update their own firstName, lastName, and primaryClubId.
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn() && request.auth.uid == userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstName', 'lastName', 'primaryClubId']);
+      
+      // Allow admins to update other users' roles and status.
+      allow update: if isClubAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['firstName', 'lastName', 'role', 'memberStatus']);
+
+      // Allow admins to list all users belonging to their club.
+      allow list: if isClubAdmin() && request.query.where.to_list()[0].value == getUserData().primaryClubId;
     }
 
-    // Rules for 'clubs' collection
     match /clubs/{clubId} {
-      allow read: if isAuth();
-      allow create: if isUserRole(request.auth.uid, ['Site Admin', 'Club Admin']);
-      allow update: if isUserRole(request.auth.uid, ['Site Admin', 'Club Admin']);
-      allow delete: if isUserRole(request.auth.uid, ['Site Admin']);
+      allow read: if isSignedIn();
+      allow create, update: if isClubAdmin();
+      allow delete: if isSiteAdmin();
     }
-    
-    // Rules for 'series' collection
+
     match /series/{seriesId} {
-      allow read: if isAuth();
-      allow create, update: if isUserRole(request.auth.uid, ['Site Admin', 'Club Admin']);
+      // User can read series for their own club
+      allow read: if isSignedIn() && getUserData().primaryClubId == resource.data.clubId;
+      // Admins can write to series in their own club
+      allow write: if isClubAdmin() && getUserData().primaryClubId == request.resource.data.clubId;
     }
-    
-    // Rules for 'matches' collection
+
     match /matches/{matchId} {
-      allow get, list: if isAuth();
-      allow create, update: if isUserRole(request.auth.uid, ['Site Admin', 'Club Admin']);
+      // User can read matches for their own club
+      allow read: if isSignedIn() && getUserData().primaryClubId == resource.data.clubId;
+      // Admins can write to matches in their own club
+      allow write: if isClubAdmin() && getUserData().primaryClubId == request.resource.data.clubId;
     }
   }
 }
