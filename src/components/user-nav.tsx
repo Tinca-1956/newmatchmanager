@@ -25,8 +25,7 @@ import Link from 'next/link';
 import { doc, getDoc } from 'firebase/firestore';
 
 interface UserProfile {
-    firstName: string;
-    lastName: string;
+    displayName: string;
     role: string;
 }
 
@@ -46,23 +45,19 @@ export function UserNav() {
           if (userDoc.exists()) {
             const data = userDoc.data();
             setProfile({
-                firstName: data.firstName || '',
-                lastName: data.lastName || '',
+                displayName: data.displayName || '',
                 role: data.role || 'Angler'
             });
           } else {
             // Fallback for user doc not created yet
-            const displayName = user.displayName || '';
-            const nameParts = displayName.split(' ');
             setProfile({
-                firstName: nameParts[0] || '',
-                lastName: nameParts.slice(1).join(' ') || '',
+                displayName: user.displayName || '',
                 role: 'Angler'
             })
           }
         } catch (error) {
           console.error("Error fetching user profile: ", error);
-          setProfile({ firstName: 'User', lastName: '', role: 'Angler'}); // Fallback role
+          setProfile({ displayName: 'User', role: 'Angler'}); // Fallback role
         } finally {
           setIsFetchingProfile(false);
         }
@@ -114,7 +109,7 @@ export function UserNav() {
                 </>
             ) : (
                 <>
-                    <p className="text-sm font-medium leading-none">{profile?.firstName} {profile?.lastName}</p>
+                    <p className="text-sm font-medium leading-none">{profile?.displayName}</p>
                     <p className="text-xs leading-none text-muted-foreground">
                     {user.email} {profile?.role && `(${profile.role})`}
                     </p>

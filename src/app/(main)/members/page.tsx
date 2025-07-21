@@ -76,10 +76,14 @@ export default function MembersPage() {
         unsubscribeMembers = onSnapshot(membersQuery, (snapshot) => {
           const membersData = snapshot.docs.map(doc => {
             const data = doc.data();
+            const nameParts = (data.displayName || '').split(' ');
+            const firstName = nameParts[0] || '';
+            const lastName = nameParts.slice(1).join(' ') || '';
             return {
               id: doc.id,
-              firstName: data.firstName || '',
-              lastName: data.lastName || '',
+              name: data.displayName || '',
+              firstName: firstName,
+              lastName: lastName,
               email: data.email || '',
               role: data.role || 'Angler',
               primaryClubId: data.primaryClubId,
@@ -126,7 +130,6 @@ export default function MembersPage() {
               </div>
             </TableCell>
             <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
-            <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
           </TableRow>
@@ -136,7 +139,7 @@ export default function MembersPage() {
     if (members.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={5} className="h-24 text-center">
+          <TableCell colSpan={4} className="h-24 text-center">
             No members found for this club.
           </TableCell>
         </TableRow>
@@ -151,12 +154,11 @@ export default function MembersPage() {
                  <AvatarFallback><UserIcon className="h-5 w-5"/></AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-medium">{member.firstName}</p>
+                <p className="font-medium">{member.name}</p>
                  <p className="text-sm text-muted-foreground">{member.email}</p>
               </div>
             </div>
           </TableCell>
-          <TableCell>{member.lastName}</TableCell>
           <TableCell>{member.clubName}</TableCell>
           <TableCell>{member.role}</TableCell>
         </TableRow>
@@ -182,8 +184,7 @@ export default function MembersPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>First Name</TableHead>
-                <TableHead>Last Name</TableHead>
+                <TableHead>Name</TableHead>
                 <TableHead>Primary Club</TableHead>
                 <TableHead>Role</TableHead>
               </TableRow>
