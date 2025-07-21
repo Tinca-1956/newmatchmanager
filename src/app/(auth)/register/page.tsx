@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Fish } from 'lucide-react';
 import { useState } from 'react';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
 import { auth } from '@/lib/firebase-client';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -67,12 +67,25 @@ export default function RegisterPage() {
         email,
         password
       );
-      if (userCredential.user) {
-        await updateProfile(userCredential.user, {
-          displayName: `${firstName} ${lastName}`,
+
+      const user = userCredential.user;
+
+      if (user) {
+        await updateProfile(user, {
+          displayName: `${firstName} ${lastName}`.trim(),
         });
+
+        await sendEmailVerification(user);
+
+        toast({
+          title: 'Registration Successful!',
+          description: 'A verification email has been sent. Please check your inbox and click the link to activate your account before logging in.',
+        });
+        
+        await auth.signOut();
+        router.push('/login');
       }
-      router.push('/select-club');
+
     } catch (error: unknown) {
       toast({
         variant: 'destructive',

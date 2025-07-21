@@ -15,13 +15,13 @@ import { Label } from '@/components/ui/label';
 import { Fish } from 'lucide-react';
 import { useState } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase-client';
+import { auth, firestore } from '@/lib/firebase-client';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { doc, getDoc } from 'firebase/firestore';
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) {
-    // Check for specific Firebase error codes
     if ('code' in error) {
       switch ((error as any).code) {
         case 'auth/user-not-found':
@@ -53,7 +53,7 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth) {
+    if (!auth || !firestore) {
        toast({
         variant: 'destructive',
         title: 'Configuration Error',
@@ -63,8 +63,29 @@ export default function LoginPage() {
     }
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      router.push('/dashboard');
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      if (!user.emailVerified) {
+        toast({
+          variant: 'destructive',
+          title: 'Email Not Verified',
+          description: 'Please verify your email address before logging in. Check your inbox for a verification link.',
+        });
+        await auth.signOut(); // Log out the user until they are verified
+        return;
+      }
+      
+      // Check if user document exists in Firestore
+      const userDocRef = doc(firestore, 'users', user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+         router.push('/dashboard');
+      } else {
+        // This is a first-time login for a registered user
+        router.push('/select-club');
+      }
     } catch (error: unknown) {
       toast({
         variant: 'destructive',
