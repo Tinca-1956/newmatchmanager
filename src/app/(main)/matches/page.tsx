@@ -18,7 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, CalendarIcon, User as UserIcon, Medal, HelpCircle, Scale } from 'lucide-react';
+import { PlusCircle, Edit, CalendarIcon, User as UserIcon, HelpCircle, Scale, Trophy } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -438,7 +438,7 @@ export default function MatchesPage() {
               <Tooltip>
                 <TooltipTrigger asChild>
                     <Button variant="outline" size="icon" className="h-9 w-9">
-                        <Medal className="h-4 w-4"/>
+                        <Trophy className="h-4 w-4"/>
                     </Button>
                 </TooltipTrigger>
                 <TooltipContent side="right">
