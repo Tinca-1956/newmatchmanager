@@ -37,8 +37,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { Textarea } from '@/components/ui/textarea';
 
 export default function ClubsPage() {
   const [clubs, setClubs] = useState<Club[]>([]);
@@ -103,12 +104,13 @@ export default function ClubsPage() {
         const clubDocRef = doc(firestore, 'clubs', selectedClub.id);
         const dataToUpdate: Partial<Club> = {
             name: selectedClub.name,
+            description: selectedClub.description,
             country: selectedClub.country,
             state: selectedClub.state,
             subscriptionExpiryDate: selectedClub.subscriptionExpiryDate,
         };
 
-        await updateDoc(clubDocRef, dataToUpdate);
+        await updateDoc(clubDocRef, dataToUpdate as { [x: string]: any });
 
         toast({
             title: 'Success!',
@@ -345,8 +347,8 @@ export default function ClubsPage() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="edit-club-name" className="text-right">
+                        <div className="grid grid-cols-4 items-start gap-4">
+                            <Label htmlFor="edit-club-name" className="text-right pt-2">
                                 Club Name
                             </Label>
                             <Input
@@ -355,6 +357,18 @@ export default function ClubsPage() {
                                 onChange={(e) => setSelectedClub({ ...selectedClub, name: e.target.value })}
                                 className="col-span-3"
                                 required
+                            />
+                        </div>
+                        <div className="grid grid-cols-4 items-start gap-4">
+                            <Label htmlFor="edit-description" className="text-right pt-2">
+                                Description
+                            </Label>
+                            <Textarea
+                                id="edit-description"
+                                value={selectedClub.description}
+                                onChange={(e) => setSelectedClub({ ...selectedClub, description: e.target.value })}
+                                className="col-span-3"
+                                placeholder="A brief description of the club."
                             />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
@@ -405,7 +419,7 @@ export default function ClubsPage() {
                                 <PopoverContent className="w-auto p-0">
                                     <Calendar
                                         mode="single"
-                                        selected={selectedClub.subscriptionExpiryDate}
+                                        selected={new Date(selectedClub.subscriptionExpiryDate || '')}
                                         onSelect={(date) => setSelectedClub({ ...selectedClub, subscriptionExpiryDate: date || undefined })}
                                         initialFocus
                                     />
