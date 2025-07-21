@@ -120,7 +120,7 @@ export default function RegisterPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="last-name">Last Name</Label>
+              <Label htmlFor="last-name">Last name</Label>
               <Input
                 id="last-name"
                 placeholder="Angler"

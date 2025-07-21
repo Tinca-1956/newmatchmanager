@@ -25,7 +25,8 @@ import Link from 'next/link';
 import { doc, getDoc } from 'firebase/firestore';
 
 interface UserProfile {
-    displayName: string;
+    firstName: string;
+    lastName: string;
     role: string;
 }
 
@@ -45,19 +46,24 @@ export function UserNav() {
           if (userDoc.exists()) {
             const data = userDoc.data();
             setProfile({
-                displayName: data.displayName || '',
+                firstName: data.firstName || '',
+                lastName: data.lastName || '',
                 role: data.role || 'Angler'
             });
           } else {
-            // Fallback for user doc not created yet
+             // Fallback for user doc not created yet, get from auth displayName
+            const nameParts = (user.displayName || '').split(' ');
+            const firstName = nameParts[0] || '';
+            const lastName = nameParts.slice(1).join(' ') || '';
             setProfile({
-                displayName: user.displayName || '',
+                firstName,
+                lastName,
                 role: 'Angler'
             })
           }
         } catch (error) {
           console.error("Error fetching user profile: ", error);
-          setProfile({ displayName: 'User', role: 'Angler'}); // Fallback role
+          setProfile({ firstName: 'User', lastName: '', role: 'Angler'}); // Fallback profile
         } finally {
           setIsFetchingProfile(false);
         }
@@ -109,7 +115,7 @@ export function UserNav() {
                 </>
             ) : (
                 <>
-                    <p className="text-sm font-medium leading-none">{profile?.displayName}</p>
+                    <p className="text-sm font-medium leading-none">{`${profile?.firstName} ${profile?.lastName}`}</p>
                     <p className="text-xs leading-none text-muted-foreground">
                     {user.email} {profile?.role && `(${profile.role})`}
                     </p>

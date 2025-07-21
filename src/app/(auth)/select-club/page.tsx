@@ -84,10 +84,14 @@ export default function SelectClubPage() {
     setIsSaving(true);
     try {
       const userDocRef = doc(firestore, 'users', user.uid);
+      const nameParts = (user.displayName || '').split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
 
       await setDoc(userDocRef, {
         primaryClubId: selectedClubId,
-        displayName: user.displayName,
+        firstName: firstName,
+        lastName: lastName,
         email: user.email,
         role: 'Angler', // Set default role
       }, { merge: true });

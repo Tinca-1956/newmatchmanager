@@ -76,14 +76,10 @@ export default function MembersPage() {
         unsubscribeMembers = onSnapshot(membersQuery, (snapshot) => {
           const membersData = snapshot.docs.map(doc => {
             const data = doc.data();
-            const nameParts = (data.displayName || '').split(' ');
-            const firstName = nameParts[0] || '';
-            const lastName = nameParts.slice(1).join(' ') || '';
             return {
               id: doc.id,
-              name: data.displayName || '',
-              firstName: firstName,
-              lastName: lastName,
+              firstName: data.firstName || '',
+              lastName: data.lastName || '',
               email: data.email || '',
               role: data.role || 'Angler',
               primaryClubId: data.primaryClubId,
@@ -154,7 +150,7 @@ export default function MembersPage() {
                  <AvatarFallback><UserIcon className="h-5 w-5"/></AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-medium">{member.name}</p>
+                <p className="font-medium">{`${member.firstName} ${member.lastName}`}</p>
                  <p className="text-sm text-muted-foreground">{member.email}</p>
               </div>
             </div>
