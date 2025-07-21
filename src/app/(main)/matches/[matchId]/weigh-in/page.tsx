@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -15,10 +16,17 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+type WeighInStatus = 'Weighed' | 'Did Not Weigh' | 'Pending';
 
 type AnglerDetails = Pick<User, 'id' | 'firstName' | 'lastName'> & {
-  lbs: string;
-  oz: string;
+  peg: string;
+  section: string;
+  weightLbs: string;
+  weightOz: string;
+  status: WeighInStatus;
+  rank: string;
 };
 
 export default function WeighInPage() {
@@ -68,7 +76,7 @@ export default function WeighInPage() {
         setMatch({ ...matchData, date: (matchData.date as any).toDate() });
 
         if (matchData.registeredAnglers && matchData.registeredAnglers.length > 0) {
-            const anglersData: Omit<AnglerDetails, 'lbs' | 'oz'>[] = [];
+            const anglersData: Omit<AnglerDetails, 'peg' | 'section' | 'weightLbs' | 'weightOz' | 'status' | 'rank'>[] = [];
             const chunks: string[][] = [];
             for (let i = 0; i < matchData.registeredAnglers.length; i += 30) {
                 chunks.push(matchData.registeredAnglers.slice(i, i + 30));
@@ -84,11 +92,11 @@ export default function WeighInPage() {
                         id: doc.id,
                         firstName: data.firstName || 'N/A',
                         lastName: data.lastName || 'N/A',
-                    } as Omit<AnglerDetails, 'lbs' | 'oz'>;
+                    } as Omit<AnglerDetails, 'peg' | 'section' | 'weightLbs' | 'weightOz' | 'status' | 'rank'>;
                 });
                 anglersData.push(...chunkData);
             }
-            setAnglers(anglersData.map(a => ({ ...a, lbs: '', oz: '' })));
+            setAnglers(anglersData.map(a => ({ ...a, peg: '', section: '', weightLbs: '', weightOz: '', status: 'Pending', rank: '' })));
         }
 
       } catch (error: any) {
@@ -109,10 +117,10 @@ export default function WeighInPage() {
     checkAuthorizationAndFetchData();
   }, [user, matchId, router, toast]);
 
-  const handleWeightChange = (anglerId: string, unit: 'lbs' | 'oz', value: string) => {
+  const handleFieldChange = (anglerId: string, field: keyof Omit<AnglerDetails, 'id' | 'firstName' | 'lastName'>, value: string) => {
     setAnglers(prev => 
       prev.map(angler => 
-        angler.id === anglerId ? { ...angler, [unit]: value } : angler
+        angler.id === anglerId ? { ...angler, [field]: value } : angler
       )
     );
   };
@@ -125,9 +133,9 @@ export default function WeighInPage() {
         const batch = writeBatch(firestore);
         
         const results: Omit<Result, 'position' | 'points'>[] = anglers
-            .filter(angler => (parseInt(angler.lbs) > 0 || parseInt(angler.oz) > 0))
+            .filter(angler => angler.status === 'Weighed' && (parseInt(angler.weightLbs) > 0 || parseInt(angler.weightOz) > 0))
             .map(angler => {
-                const totalOz = (parseInt(angler.lbs || '0') * 16) + parseInt(angler.oz || '0');
+                const totalOz = (parseInt(angler.weightLbs || '0') * 16) + parseInt(angler.weightOz || '0');
                 return {
                     matchId: match.id,
                     userId: angler.id,
@@ -227,29 +235,77 @@ export default function WeighInPage() {
             {anglers.map((angler) => (
             <Card key={angler.id}>
                 <CardHeader>
-                <CardTitle className="text-lg">WEIGH-IN for {angler.firstName} {angler.lastName}</CardTitle>
+                    <CardTitle className="text-lg">WEIGH-IN for {angler.firstName} {angler.lastName}</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor={`lbs-${angler.id}`}>Lbs</Label>
+                         <div className="space-y-2">
+                            <Label htmlFor={`peg-${angler.id}`}>Peg</Label>
                             <Input
-                                id={`lbs-${angler.id}`}
-                                type="number"
-                                placeholder="0"
-                                value={angler.lbs}
-                                onChange={(e) => handleWeightChange(angler.id, 'lbs', e.target.value)}
+                                id={`peg-${angler.id}`}
+                                type="text"
+                                placeholder="e.g. 14"
+                                value={angler.peg}
+                                onChange={(e) => handleFieldChange(angler.id, 'peg', e.target.value)}
                             />
                         </div>
                          <div className="space-y-2">
-                            <Label htmlFor={`oz-${angler.id}`}>Oz</Label>
+                            <Label htmlFor={`section-${angler.id}`}>Section</Label>
                             <Input
-                                id={`oz-${angler.id}`}
+                                id={`section-${angler.id}`}
+                                type="text"
+                                placeholder="e.g. A"
+                                value={angler.section}
+                                onChange={(e) => handleFieldChange(angler.id, 'section', e.target.value)}
+                            />
+                        </div>
+                    </div>
+                     <div className="space-y-2">
+                        <Label>Weight</Label>
+                        <div className="grid grid-cols-2 gap-4">
+                            <Input
+                                id={`weightLbs-${angler.id}`}
                                 type="number"
-                                placeholder="0"
+                                placeholder="Lbs"
+                                value={angler.weightLbs}
+                                onChange={(e) => handleFieldChange(angler.id, 'weightLbs', e.target.value)}
+                            />
+                            <Input
+                                id={`weightOz-${angler.id}`}
+                                type="number"
+                                placeholder="Oz"
                                 max="15"
-                                value={angler.oz}
-                                onChange={(e) => handleWeightChange(angler.id, 'oz', e.target.value)}
+                                value={angler.weightOz}
+                                onChange={(e) => handleFieldChange(angler.id, 'weightOz', e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                         <div className="space-y-2">
+                            <Label htmlFor={`status-${angler.id}`}>Status</Label>
+                            <Select 
+                                value={angler.status}
+                                onValueChange={(value) => handleFieldChange(angler.id, 'status', value)}
+                            >
+                                <SelectTrigger id={`status-${angler.id}`}>
+                                    <SelectValue placeholder="Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Pending">Pending</SelectItem>
+                                    <SelectItem value="Weighed">Weighed</SelectItem>
+                                    <SelectItem value="Did Not Weigh">Did Not Weigh</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor={`rank-${angler.id}`}>Rank</Label>
+                             <Input
+                                id={`rank-${angler.id}`}
+                                type="number"
+                                placeholder="-"
+                                value={angler.rank}
+                                onChange={(e) => handleFieldChange(angler.id, 'rank', e.target.value)}
+                                disabled
                             />
                         </div>
                     </div>
