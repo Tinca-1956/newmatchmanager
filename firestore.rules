@@ -1,16 +1,33 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can read their own user document
-    // Users can be created by anyone (for registration)
-    match /users/{userId} {
-      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null;
+
+    // Helper function to check if a user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
     }
-    
-    // Any authenticated user can read and write to the clubs collection
+
+    // Rules for the 'users' collection
+    match /users/{userId} {
+      // Any authenticated user can see the list of users (for Members page)
+      allow list, get: if isAuthenticated();
+      
+      // A user can create their own profile document
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      
+      // A user can only read and update their own document
+      allow read, update: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Rules for the 'clubs' collection
     match /clubs/{clubId} {
-      allow read, write: if request.auth != null;
+      // Any authenticated user can read club data
+      allow read: if isAuthenticated();
+      
+      // For now, allow any authenticated user to create, update, delete.
+      // We can restrict this to 'Club Admin' or 'Site Admin' roles later.
+      allow write: if isAuthenticated();
     }
   }
 }
