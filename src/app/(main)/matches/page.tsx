@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -18,7 +17,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, CalendarIcon, User as UserIcon, Medal, HelpCircle } from 'lucide-react';
+import { PlusCircle, Edit, CalendarIcon, User as UserIcon, Medal, HelpCircle, Scale } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -61,6 +60,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { RegisterIcon } from '@/components/icons/register-icon';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import Link from 'next/link';
 
 const EMPTY_MATCH: Omit<Match, 'id' | 'clubId' | 'seriesName'> = {
     seriesId: '',
@@ -316,6 +316,7 @@ export default function MatchesPage() {
   };
   
   const canEdit = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
+  const canWeighIn = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin' || currentUserProfile?.role === 'Marshal';
 
   const renderMatchList = () => {
     if (isLoading) {
@@ -364,7 +365,7 @@ export default function MatchesPage() {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="icon" className="h-9 w-9">
                         <Medal className="h-4 w-4"/>
                     </Button>
                 </TooltipTrigger>
@@ -372,6 +373,20 @@ export default function MatchesPage() {
                     <p>Display realtime results</p>
                 </TooltipContent>
               </Tooltip>
+               {canWeighIn && (
+                 <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button asChild variant="outline" size="icon" className="h-9 w-9">
+                      <Link href={`/matches/${match.id}/weigh-in`}>
+                        <Scale className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">
+                    <p>Weigh-in</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
