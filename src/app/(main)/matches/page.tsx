@@ -18,7 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, CalendarIcon, ClockIcon } from 'lucide-react';
+import { PlusCircle, Edit, CalendarIcon } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,17 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -40,14 +51,13 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDoc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, Timestamp, arrayUnion, increment } from 'firebase/firestore';
 import type { Match, Series, User, MatchStatus } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { Textarea } from '@/components/ui/textarea';
 
 const EMPTY_MATCH: Omit<Match, 'id' | 'clubId' | 'seriesName'> = {
     seriesId: '',
@@ -60,6 +70,7 @@ const EMPTY_MATCH: Omit<Match, 'id' | 'clubId' | 'seriesName'> = {
     endTime: '15:00',
     capacity: 20,
     registeredCount: 0,
+    registeredAnglers: [],
 };
 
 
@@ -73,10 +84,12 @@ export default function MatchesPage() {
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
   
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
-  const [formState, setFormState] = useState(EMPTY_MATCH);
+  const [formState, setFormState] = useState<Omit<Match, 'id' | 'clubId' | 'seriesName'>>(EMPTY_MATCH);
 
 
   useEffect(() => {
@@ -117,6 +130,7 @@ export default function MatchesPage() {
                             id: doc.id,
                             ...data,
                             date: (data.date as Timestamp).toDate(),
+                            registeredAnglers: data.registeredAnglers || [],
                          } as Match
                     });
                     setMatches(matchesData);
@@ -144,15 +158,22 @@ export default function MatchesPage() {
     };
   }, [user, toast]);
 
-   const handleOpenDialog = (match: Match | null) => {
-    if (match) {
-        setSelectedMatch(match);
-        setFormState(match);
-    } else {
-        setSelectedMatch(null);
-        setFormState(EMPTY_MATCH);
-    }
-    setIsDialogOpen(true);
+   const handleOpenEditDialog = (match: Match) => {
+    setSelectedMatch(match);
+    const { id, clubId, seriesName, ...rest } = match;
+    setFormState(rest);
+    setIsEditDialogOpen(true);
+  };
+  
+   const handleOpenCreateDialog = () => {
+    setSelectedMatch(null);
+    setFormState(EMPTY_MATCH);
+    setIsEditDialogOpen(true);
+  }
+
+  const handleOpenRegisterDialog = (match: Match) => {
+    setSelectedMatch(match);
+    setIsRegisterDialogOpen(true);
   };
   
   const handleFormChange = (field: keyof typeof formState, value: any) => {
@@ -188,10 +209,34 @@ export default function MatchesPage() {
             await addDoc(collection(firestore, 'matches'), dataToSave);
             toast({ title: 'Success!', description: `Match "${dataToSave.name}" created.` });
         }
-        setIsDialogOpen(false);
+        setIsEditDialogOpen(false);
     } catch (error) {
         console.error('Error saving match:', error);
         toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the match. Please try again.' });
+    } finally {
+        setIsSaving(false);
+    }
+  };
+
+  const handleRegister = async () => {
+    if (!user || !selectedMatch || !firestore) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Cannot register at this time.' });
+        return;
+    }
+
+    setIsSaving(true);
+    try {
+        const matchDocRef = doc(firestore, 'matches', selectedMatch.id);
+        await updateDoc(matchDocRef, {
+            registeredAnglers: arrayUnion(user.uid),
+            registeredCount: increment(1)
+        });
+        toast({ title: 'Registered!', description: `You have been registered for ${selectedMatch.name}.` });
+        setIsRegisterDialogOpen(false);
+        setSelectedMatch(null);
+    } catch (error) {
+        console.error('Error registering for match:', error);
+        toast({ variant: 'destructive', title: 'Registration Failed', description: 'Could not register for the match. Please try again.' });
     } finally {
         setIsSaving(false);
     }
@@ -209,7 +254,7 @@ export default function MatchesPage() {
             <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
-            <TableCell className="text-right"><Skeleton className="h-10 w-[80px]" /></TableCell>
+            <TableCell className="text-right"><Skeleton className="h-10 w-[180px]" /></TableCell>
           </TableRow>
       ));
     }
@@ -224,7 +269,11 @@ export default function MatchesPage() {
       );
     }
 
-    return matches.map((match) => (
+    return matches.map((match) => {
+      const isRegistered = user ? match.registeredAnglers.includes(user.uid) : false;
+      const isFull = match.registeredCount >= match.capacity;
+
+      return (
        <TableRow key={match.id}>
           <TableCell>
             <div className="text-sm text-muted-foreground">{match.seriesName}</div>
@@ -236,16 +285,23 @@ export default function MatchesPage() {
           <TableCell>{format(match.date, 'EEE, dd MMM yyyy')}</TableCell>
           <TableCell>{match.capacity}</TableCell>
           <TableCell>{match.status}</TableCell>
-          <TableCell className="text-right">
+          <TableCell className="text-right space-x-2">
+             <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleOpenRegisterDialog(match)}
+                disabled={isRegistered || isFull || match.status !== 'Upcoming'}
+              >
+                {isRegistered ? 'Registered' : 'Register'}
+              </Button>
              {canEdit && (
-                <Button variant="outline" size="sm" onClick={() => handleOpenDialog(match)}>
-                    <Edit className="mr-2 h-4 w-4"/>
-                    Edit
+                <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(match)}>
+                    <Edit className="h-4 w-4"/>
                 </Button>
             )}
           </TableCell>
         </TableRow>
-    ));
+    )});
   }
 
   return (
@@ -256,7 +312,7 @@ export default function MatchesPage() {
           <p className="text-muted-foreground">Manage your club's matches here.</p>
         </div>
         {canEdit && (
-            <Button onClick={() => handleOpenDialog(null)}>
+            <Button onClick={handleOpenCreateDialog}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Create Match
             </Button>
@@ -288,7 +344,7 @@ export default function MatchesPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <form onSubmit={handleSaveMatch}>
             <DialogHeader>
@@ -343,7 +399,7 @@ export default function MatchesPage() {
                                 <Calendar
                                     mode="single"
                                     selected={formState.date}
-                                    onSelect={(date) => handleFormChange('date', date)}
+                                    onSelect={(date) => date && handleFormChange('date', date)}
                                     initialFocus
                                 />
                             </PopoverContent>
@@ -401,6 +457,25 @@ export default function MatchesPage() {
           </form>
         </DialogContent>
       </Dialog>
+      
+      {selectedMatch && (
+        <AlertDialog open={isRegisterDialogOpen} onOpenChange={setIsRegisterDialogOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Confirm Registration</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Do you want to register for the <strong>{selectedMatch.seriesName}</strong> match: <strong>{selectedMatch.name}</strong> on <strong>{format(selectedMatch.date, 'PPP')}</strong>?
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setSelectedMatch(null)}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleRegister} disabled={isSaving}>
+                        {isSaving ? 'Registering...' : 'Yes, Register'}
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }

@@ -50,7 +50,8 @@ export interface Match {
   startTime: string;
   endTime: string;
   capacity: number;
-  registeredCount: number; // Initially, just a count. Could be an array of user IDs later.
+  registeredCount: number;
+  registeredAnglers: string[];
 }
 
 export interface Result {
