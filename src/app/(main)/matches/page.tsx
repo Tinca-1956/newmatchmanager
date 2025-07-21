@@ -617,7 +617,10 @@ export default function MatchesPage() {
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                                <div className="flex items-center gap-2 text-muted-foreground cursor-help">
+                                    <HelpCircle className="h-4 w-4" />
+                                    <span className="text-xs">Unregister for match</span>
+                                </div>
                             </TooltipTrigger>
                             <TooltipContent side="top" align="start">
                                 <p>Go to the Profile page to unregister.</p>
