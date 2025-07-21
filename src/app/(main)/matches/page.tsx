@@ -379,12 +379,19 @@ export default function MatchesPage() {
                       <p>{isRegistered ? 'Already Registered' : 'Register for this match'}</p>
                   </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
              {canEdit && (
-                <Button variant="outline" size="sm" onClick={(e) => handleOpenEditDialog(e, match)}>
-                    <Edit className="h-4 w-4"/>
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="sm" onClick={(e) => handleOpenEditDialog(e, match)}>
+                        <Edit className="h-4 w-4"/>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">
+                    <p>Edit match details</p>
+                  </TooltipContent>
+                </Tooltip>
             )}
+            </TooltipProvider>
           </TableCell>
         </TableRow>
     )});
