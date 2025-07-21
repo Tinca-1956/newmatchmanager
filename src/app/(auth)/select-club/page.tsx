@@ -88,6 +88,7 @@ export default function SelectClubPage() {
         primaryClubId: selectedClubId,
         displayName: user.displayName,
         email: user.email,
+        role: 'Angler', // Set default role
       }, { merge: true });
 
       toast({

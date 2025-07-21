@@ -24,7 +24,7 @@ import { useToast } from '@/hooks/use-toast';
 import { updateProfile } from 'firebase/auth';
 import { auth, firestore } from '@/lib/firebase-client';
 import { collection, doc, getDoc, getDocs, setDoc } from 'firebase/firestore';
-import type { Club } from '@/lib/types';
+import type { Club, UserRole } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ProfilePage() {
@@ -33,6 +33,7 @@ export default function ProfilePage() {
 
   const [displayName, setDisplayName] = useState('');
   const [primaryClubId, setPrimaryClubId] = useState('');
+  const [role, setRole] = useState<UserRole | ''>('');
   const [clubs, setClubs] = useState<Club[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -61,6 +62,9 @@ export default function ProfilePage() {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           setPrimaryClubId(userData.primaryClubId || '');
+          setRole(userData.role || 'Angler');
+        } else {
+          setRole('Angler');
         }
 
         setDisplayName(user.displayName || '');
@@ -104,6 +108,7 @@ export default function ProfilePage() {
         primaryClubId,
         displayName,
         email: user.email,
+        role: role,
       }, { merge: true });
 
       toast({
@@ -149,6 +154,10 @@ export default function ProfilePage() {
             </div>
              <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
+                <Skeleton className="h-10 w-full" />
+            </div>
+             <div className="space-y-2">
+                <Label htmlFor="role">Role</Label>
                 <Skeleton className="h-10 w-full" />
             </div>
           </CardContent>
@@ -204,6 +213,10 @@ export default function ProfilePage() {
              <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input id="email" value={user?.email || ''} disabled />
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="role">Role</Label>
+                <Input id="role" value={role} disabled />
             </div>
           </CardContent>
           <CardFooter>
