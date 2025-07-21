@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
-import { doc, getDoc, collection, query, where, getDocs, writeBatch, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, writeBatch, Timestamp, setDoc } from 'firebase/firestore';
 import type { Match, User, Result } from '@/lib/types';
 import { format } from 'date-fns';
 import { ArrowLeft, Save } from 'lucide-react';
@@ -26,6 +26,7 @@ type AnglerDetails = Pick<User, 'id' | 'firstName' | 'lastName'> & {
   weight: string;
   status: WeighInStatus;
   rank: string;
+  isSaving: boolean;
 };
 
 export default function WeighInPage() {
@@ -39,7 +40,6 @@ export default function WeighInPage() {
   const [match, setMatch] = useState<Match | null>(null);
   const [anglers, setAnglers] = useState<AnglerDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
@@ -73,9 +73,18 @@ export default function WeighInPage() {
         }
         const matchData = { id: matchDoc.id, ...matchDoc.data() } as Match;
         setMatch({ ...matchData, date: (matchData.date as any).toDate() });
+        
+        // Fetch existing results to populate the form
+        const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', matchId));
+        const resultsSnapshot = await getDocs(resultsQuery);
+        const existingResults = new Map<string, Result>();
+        resultsSnapshot.forEach(doc => {
+            const result = doc.data() as Result;
+            existingResults.set(result.userId, result);
+        });
 
         if (matchData.registeredAnglers && matchData.registeredAnglers.length > 0) {
-            const anglersData: Omit<AnglerDetails, 'peg' | 'section' | 'weight' | 'status' | 'rank'>[] = [];
+            const anglersData: Omit<AnglerDetails, 'peg' | 'section' | 'weight' | 'status' | 'rank' | 'isSaving'>[] = [];
             const chunks: string[][] = [];
             for (let i = 0; i < matchData.registeredAnglers.length; i += 30) {
                 chunks.push(matchData.registeredAnglers.slice(i, i + 30));
@@ -91,11 +100,22 @@ export default function WeighInPage() {
                         id: doc.id,
                         firstName: data.firstName || 'N/A',
                         lastName: data.lastName || 'N/A',
-                    } as Omit<AnglerDetails, 'peg' | 'section' | 'weight' | 'status' | 'rank'>;
+                    } as Omit<AnglerDetails, 'peg' | 'section' | 'weight' | 'status' | 'rank' | 'isSaving'>;
                 });
                 anglersData.push(...chunkData);
             }
-            const initialAnglers = anglersData.map(a => ({ ...a, peg: '', section: '', weight: '', status: 'NYW' as WeighInStatus, rank: '' }));
+            const initialAnglers = anglersData.map(a => {
+                const result = existingResults.get(a.id);
+                return { 
+                    ...a, 
+                    peg: '', // Future feature: save peg/section to result
+                    section: '', // Future feature: save peg/section to result
+                    weight: result?.weight?.toString() || '', 
+                    status: (result ? 'OK' : 'NYW') as WeighInStatus, 
+                    rank: result?.position?.toString() || '',
+                    isSaving: false
+                }
+            });
             setAnglers(initialAnglers);
         }
 
@@ -117,7 +137,7 @@ export default function WeighInPage() {
     checkAuthorizationAndFetchData();
   }, [user, matchId, router, toast]);
 
-  const handleFieldChange = (anglerId: string, field: keyof Omit<AnglerDetails, 'id' | 'firstName' | 'lastName'>, value: string) => {
+  const handleFieldChange = (anglerId: string, field: keyof Omit<AnglerDetails, 'id' | 'firstName' | 'lastName' | 'isSaving'>, value: string) => {
     setAnglers(prev => 
       prev.map(angler => 
         angler.id === anglerId ? { ...angler, [field]: value } : angler
@@ -125,50 +145,53 @@ export default function WeighInPage() {
     );
   };
   
-  const handleSaveAll = async () => {
+  const handleSaveAngler = async (anglerId: string) => {
     if (!firestore || !match) return;
+    
+    const angler = anglers.find(a => a.id === anglerId);
+    if (!angler) return;
 
-    setIsSaving(true);
+    setAnglers(prev => prev.map(a => a.id === anglerId ? { ...a, isSaving: true } : a));
+
     try {
-        const batch = writeBatch(firestore);
+        const resultId = `${match.id}_${angler.id}`;
+        const resultDocRef = doc(firestore, 'results', resultId);
         
-        const resultsToProcess: Omit<Result, 'position' | 'points'>[] = anglers
-            .filter(angler => angler.status === 'OK' && parseInt(angler.weight, 10) > 0)
-            .map(angler => {
-                const totalOz = parseInt(angler.weight || '0', 10);
-                return {
-                    matchId: match.id,
-                    userId: angler.id,
-                    userName: `${angler.firstName} ${angler.lastName}`,
-                    weight: totalOz,
-                    date: match.date,
-                    seriesId: match.seriesId,
-                    clubId: match.clubId,
-                };
-            });
-            
+        const totalOz = parseInt(angler.weight || '0', 10);
+        
+        // Save the individual angler's result
+        const dataToSave: Omit<Result, 'position' | 'points'> = {
+            matchId: match.id,
+            userId: angler.id,
+            userName: `${angler.firstName} ${angler.lastName}`,
+            weight: totalOz,
+            date: match.date,
+            seriesId: match.seriesId,
+            clubId: match.clubId,
+        };
+        await setDoc(resultDocRef, dataToSave, { merge: true });
+
+        // Now, fetch all results for the match to recalculate ranks
+        const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', matchId));
+        const resultsSnapshot = await getDocs(resultsQuery);
+        
+        const resultsToProcess: Result[] = [];
+        resultsSnapshot.forEach(doc => {
+            resultsToProcess.push(doc.data() as Result);
+        });
+
         // Sort by weight descending to assign positions
         resultsToProcess.sort((a, b) => b.weight - a.weight);
-        
+
+        // Update all result documents with new ranks in a batch
+        const batch = writeBatch(firestore);
         resultsToProcess.forEach((result, index) => {
-            const resultId = `${match.id}_${result.userId}`;
-            const resultDocRef = doc(firestore, 'results', resultId);
-            const data: Result = {
-                ...result,
-                position: index + 1,
-                points: index + 1, // Simplified points system for now
-            }
-            batch.set(resultDocRef, data, { merge: true });
+            const docRef = doc(firestore, 'results', `${match.id}_${result.userId}`);
+            batch.update(docRef, { position: index + 1, points: index + 1 });
         });
-        
         await batch.commit();
 
-        toast({
-            title: 'Success!',
-            description: 'All weigh-in data has been saved.',
-        });
-        
-        // Update local state to reflect ranks
+        // Update local state to reflect new ranks for all anglers
         setAnglers(prevAnglers => {
             const newAnglers = [...prevAnglers];
             resultsToProcess.forEach((result, index) => {
@@ -177,19 +200,31 @@ export default function WeighInPage() {
                     newAnglers[anglerIndex].rank = (index + 1).toString();
                 }
             });
+            // Also reset ranks for those not in the results (e.g., DNW)
+            newAnglers.forEach(a => {
+                if (!resultsToProcess.some(r => r.userId === a.id)) {
+                    a.rank = '';
+                }
+            });
             return newAnglers;
+        });
+
+        toast({
+            title: 'Success!',
+            description: `${angler.firstName}'s weigh-in data saved. Ranks updated.`,
         });
 
     } catch (error: any) {
         toast({
             variant: 'destructive',
             title: 'Save Failed',
-            description: error.message || 'An unexpected error occurred while saving results.',
+            description: error.message || 'An unexpected error occurred while saving.',
         });
     } finally {
-        setIsSaving(false);
+        setAnglers(prev => prev.map(a => a.id === anglerId ? { ...a, isSaving: false } : a));
     }
   };
+
 
   if (isLoading) {
     return (
@@ -230,10 +265,6 @@ export default function WeighInPage() {
                 </p>
             </div>
         </div>
-        <Button onClick={handleSaveAll} disabled={isSaving}>
-            <Save className="mr-2 h-4 w-4" />
-            {isSaving ? 'Saving...' : 'Save All Results'}
-        </Button>
       </div>
       
       {anglers.length === 0 ? (
@@ -314,6 +345,16 @@ export default function WeighInPage() {
                         </div>
                     </div>
                 </CardContent>
+                <CardFooter>
+                    <Button 
+                        className="w-full"
+                        onClick={() => handleSaveAngler(angler.id)}
+                        disabled={angler.isSaving}
+                    >
+                        <Save className="mr-2 h-4 w-4" />
+                        {angler.isSaving ? 'Saving...' : 'Save'}
+                    </Button>
+                </CardFooter>
             </Card>
             ))}
         </div>
