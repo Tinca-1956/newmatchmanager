@@ -1,4 +1,5 @@
 export type UserRole = 'Site Admin' | 'Club Admin' | 'Marshal' | 'Angler';
+export type MembershipStatus = 'Pending' | 'Member' | 'Suspended' | 'Blocked';
 
 export interface User {
   id: string;
@@ -6,6 +7,7 @@ export interface User {
   lastName: string;
   email: string;
   role: UserRole;
+  memberStatus: MembershipStatus;
   primaryClubId?: string;
   avatarUrl?: string;
 }
@@ -19,8 +21,6 @@ export interface Club {
   state?: string;
   subscriptionExpiryDate?: Date;
 }
-
-export type MembershipStatus = 'Pending' | 'Member' | 'Guest' | 'Suspended' | 'Blocked';
 
 export interface Membership {
   userId: string;

@@ -20,7 +20,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
 import { collection, doc, getDoc, onSnapshot, query, where, updateDoc } from 'firebase/firestore';
-import type { User, UserRole } from '@/lib/types';
+import type { User, UserRole, MembershipStatus } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { User as UserIcon, Edit } from 'lucide-react';
@@ -109,6 +109,7 @@ export default function MembersPage() {
             lastName: data.lastName || '',
             email: data.email || '',
             role: data.role || 'Angler',
+            memberStatus: data.memberStatus || 'Pending',
             primaryClubId: data.primaryClubId,
             clubName: currentClubName,
           } as Member;
@@ -168,6 +169,7 @@ export default function MembersPage() {
         firstName: selectedMember.firstName,
         lastName: selectedMember.lastName,
         role: selectedMember.role,
+        memberStatus: selectedMember.memberStatus,
       });
 
       toast({
@@ -204,7 +206,8 @@ export default function MembersPage() {
               </div>
             </TableCell>
             <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
-            <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
             {canEdit && <TableCell><Skeleton className="h-10 w-20" /></TableCell>}
           </TableRow>
       ));
@@ -213,7 +216,7 @@ export default function MembersPage() {
     if (members.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={canEdit ? 4 : 3} className="h-24 text-center">
+          <TableCell colSpan={canEdit ? 5 : 4} className="h-24 text-center">
             No members found for this club.
           </TableCell>
         </TableRow>
@@ -234,6 +237,7 @@ export default function MembersPage() {
             </div>
           </TableCell>
           <TableCell>{member.clubName}</TableCell>
+          <TableCell>{member.memberStatus}</TableCell>
           <TableCell>{member.role}</TableCell>
           {canEdit && (
             <TableCell className="text-right">
@@ -268,6 +272,7 @@ export default function MembersPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Primary Club</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Role</TableHead>
                 {canEdit && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
@@ -313,6 +318,23 @@ export default function MembersPage() {
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input id="email" value={selectedMember.email} disabled />
+                </div>
+                 <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={selectedMember.memberStatus}
+                    onValueChange={(value) => setSelectedMember({...selectedMember, memberStatus: value as MembershipStatus})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Pending">Pending</SelectItem>
+                      <SelectItem value="Member">Member</SelectItem>
+                      <SelectItem value="Suspended">Suspended</SelectItem>
+                      <SelectItem value="Blocked">Blocked</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">Role</Label>

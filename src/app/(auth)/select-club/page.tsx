@@ -94,6 +94,7 @@ export default function SelectClubPage() {
         lastName: lastName,
         email: user.email,
         role: 'Angler', // Set default role
+        memberStatus: 'Pending', // Set default status
       }, { merge: true });
 
       toast({
