@@ -24,14 +24,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, onSnapshot, doc, getDoc, getDocs, QueryConstraint, Timestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, getDocs, QueryConstraint, Timestamp, orderBy } from 'firebase/firestore';
 import type { Club, User, Result, Series, Match } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+
 
 interface MatchResultSummary {
   matchId: string;
@@ -64,6 +75,12 @@ export default function ResultsPage() {
 
   const [results, setResults] = useState<MatchResultSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // For modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalResults, setModalResults] = useState<Result[]>([]);
+  const [isModalLoading, setIsModalLoading] = useState(false);
+  const [selectedMatchForModal, setSelectedMatchForModal] = useState<MatchResultSummary | null>(null);
 
   // Fetch all clubs for the dropdown
   useEffect(() => {
@@ -191,11 +208,20 @@ export default function ResultsPage() {
         
         const matchDetailsMap = new Map();
         if(matchIds.length > 0) {
-            const matchesQuery = query(collection(firestore, 'matches'), where('__name__', 'in', matchIds));
-            const matchesSnapshot = await getDocs(matchesQuery);
-            matchesSnapshot.forEach(doc => {
-                matchDetailsMap.set(doc.id, doc.data());
-            });
+            // Firestore 'in' query supports up to 30 elements. Chunking is needed for more.
+            const chunks = [];
+            for (let i = 0; i < matchIds.length; i += 30) {
+                chunks.push(matchIds.slice(i, i + 30));
+            }
+
+            for (const chunk of chunks) {
+                 if (chunk.length === 0) continue;
+                 const matchesQuery = query(collection(firestore, 'matches'), where('__name__', 'in', chunk));
+                 const matchesSnapshot = await getDocs(matchesQuery);
+                 matchesSnapshot.forEach(doc => {
+                    matchDetailsMap.set(doc.id, doc.data());
+                 });
+            }
         }
 
         const summarizedResults: MatchResultSummary[] = winnerResults.map(result => {
@@ -225,6 +251,35 @@ export default function ResultsPage() {
     return () => unsubscribe();
   }, [selectedClubId, selectedSeriesId, selectedMatchId, toast]);
 
+  const handleRowClick = async (result: MatchResultSummary) => {
+    if (!firestore) return;
+    
+    setSelectedMatchForModal(result);
+    setIsModalOpen(true);
+    setIsModalLoading(true);
+    setModalResults([]);
+    
+    try {
+      const resultsQuery = query(
+        collection(firestore, 'results'),
+        where('matchId', '==', result.matchId),
+        orderBy('position', 'asc') // Sort by rank
+      );
+      const snapshot = await getDocs(resultsQuery);
+      const fullResults = snapshot.docs.map(doc => doc.data() as Result);
+      setModalResults(fullResults);
+    } catch (error) {
+      console.error("Error fetching full results:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not fetch the full results for this match.'
+      });
+    } finally {
+      setIsModalLoading(false);
+    }
+  };
+
   const renderResultsList = () => {
     if (isLoading) {
       return Array.from({ length: 4 }).map((_, i) => (
@@ -248,7 +303,7 @@ export default function ResultsPage() {
     }
     
     return results.map((result) => (
-       <TableRow key={result.matchId}>
+       <TableRow key={result.matchId} onClick={() => handleRowClick(result)} className="cursor-pointer">
           <TableCell>{format(result.date, 'PPP')}</TableCell>
           <TableCell className="font-medium">{result.seriesName}</TableCell>
           <TableCell>{result.matchName}</TableCell>
@@ -256,6 +311,41 @@ export default function ResultsPage() {
         </TableRow>
     ))
   }
+  
+  const renderModalResults = () => {
+    if (isModalLoading) {
+        return Array.from({ length: 5 }).map((_, i) => (
+            <TableRow key={i}>
+                <TableCell><Skeleton className="h-4 w-10" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+            </TableRow>
+        ));
+    }
+    
+    if (modalResults.length === 0) {
+      return (
+        <TableRow>
+          <TableCell colSpan={4} className="h-24 text-center">
+            No results recorded for this match.
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    return modalResults.map((result) => (
+      <TableRow key={result.userId}>
+        <TableCell>
+          {result.position ? <Badge variant="outline">{result.position}</Badge> : '-'}
+        </TableCell>
+        <TableCell className="font-medium">{result.userName}</TableCell>
+        <TableCell>{weightLbsOz(result.weight)}</TableCell>
+        <TableCell>{result.status || 'OK'}</TableCell>
+      </TableRow>
+    ));
+  };
+
 
   return (
     <div className="flex flex-col gap-8">
@@ -319,7 +409,7 @@ export default function ResultsPage() {
         <CardHeader>
           <CardTitle>Completed Match Results</CardTitle>
           <CardDescription>
-            A summary of results for the selected filters.
+            A summary of results for the selected filters. Click a row to see full results.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -338,6 +428,39 @@ export default function ResultsPage() {
           </Table>
         </CardContent>
       </Card>
+      
+      {selectedMatchForModal && (
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+            <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>Full Results: {selectedMatchForModal.matchName}</DialogTitle>
+                    <DialogDescription>
+                       {selectedMatchForModal.seriesName} - {format(selectedMatchForModal.date, 'PPP')}
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="mt-4 max-h-[60vh] overflow-y-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Rank</TableHead>
+                                <TableHead>Name</TableHead>
+                                <TableHead>Weight</TableHead>
+                                <TableHead>Status</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {renderModalResults()}
+                        </TableBody>
+                    </Table>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsModalOpen(false)}>Close</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
+
+    
