@@ -44,6 +44,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { ArrowUpDown } from 'lucide-react';
 
 
 interface MatchResultSummary {
@@ -60,6 +61,8 @@ const ozToKg = (oz: number): string => {
   if (typeof oz !== 'number' || isNaN(oz)) return '0.000';
   return (oz / 35.274).toFixed(3);
 };
+
+type SortKey = 'rank' | 'weight';
 
 export default function ResultsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -83,6 +86,7 @@ export default function ResultsPage() {
   const [modalResults, setModalResults] = useState<Result[]>([]);
   const [isModalLoading, setIsModalLoading] = useState(false);
   const [selectedMatchForModal, setSelectedMatchForModal] = useState<MatchResultSummary | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>('rank');
 
   // Fetch all clubs for the dropdown
   useEffect(() => {
@@ -259,8 +263,11 @@ export default function ResultsPage() {
         
         const viewModal = searchParams.get('view') === 'modal';
         const urlMatchId = searchParams.get('matchId');
-        if (viewModal && urlMatchId && summarizedResults.length === 1 && summarizedResults[0].matchId === urlMatchId) {
-          handleRowClick(summarizedResults[0]);
+        if (viewModal && urlMatchId && summarizedResults.length > 0) {
+            const targetMatch = summarizedResults.find(r => r.matchId === urlMatchId);
+            if (targetMatch) {
+                handleRowClick(targetMatch);
+            }
         }
 
     }, (error) => {
@@ -276,10 +283,29 @@ export default function ResultsPage() {
     return () => unsubscribe();
   }, [selectedClubId, selectedSeriesId, selectedMatchId, toast, searchParams]);
 
+  useEffect(() => {
+    if (modalResults.length > 0) {
+      setModalResults(prevResults => {
+        const sorted = [...prevResults];
+        if (sortKey === 'rank') {
+          sorted.sort((a, b) => {
+            if (a.position === null || a.position === undefined) return 1;
+            if (b.position === null || b.position === undefined) return -1;
+            return a.position - b.position;
+          });
+        } else if (sortKey === 'weight') {
+          sorted.sort((a, b) => b.weight - a.weight);
+        }
+        return sorted;
+      });
+    }
+  }, [sortKey, modalResults.length]); // Re-sort when key changes or new data arrives
+
   const handleRowClick = async (result: MatchResultSummary) => {
     if (!firestore) return;
     
     setSelectedMatchForModal(result);
+    setSortKey('rank'); // Reset to default sort on new modal open
     setIsModalOpen(true);
     setIsModalLoading(true);
     setModalResults([]);
@@ -291,13 +317,6 @@ export default function ResultsPage() {
       );
       const snapshot = await getDocs(resultsQuery);
       const fullResults = snapshot.docs.map(doc => doc.data() as Result);
-      
-      fullResults.sort((a, b) => {
-          if (a.position === null || a.position === undefined) return 1;
-          if (b.position === null || b.position === undefined) return -1;
-          return a.position - b.position;
-      });
-      
       setModalResults(fullResults);
     } catch (error) {
       console.error("Error fetching full results:", error);
@@ -377,6 +396,9 @@ export default function ResultsPage() {
     ));
   };
 
+  const handleSort = (key: SortKey) => {
+    setSortKey(key);
+  };
 
   return (
     <div className="flex flex-col gap-8">
@@ -473,9 +495,19 @@ export default function ResultsPage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Rank</TableHead>
+                                <TableHead>
+                                   <Button variant="ghost" onClick={() => handleSort('rank')}>
+                                        Rank
+                                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                                    </Button>
+                                </TableHead>
                                 <TableHead>Name</TableHead>
-                                <TableHead>Kg</TableHead>
+                                <TableHead>
+                                    <Button variant="ghost" onClick={() => handleSort('weight')}>
+                                        Kg
+                                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                                    </Button>
+                                </TableHead>
                                 <TableHead>Status</TableHead>
                             </TableRow>
                         </TableHeader>
