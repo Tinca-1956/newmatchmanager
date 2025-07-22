@@ -58,6 +58,12 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  const getClubName = (clubId: string | undefined) => {
+    if (!clubId) return 'N/A';
+    const club = clubs.find(c => c.id === clubId);
+    return club ? club.name : clubId;
+  };
+
   useEffect(() => {
     if (authLoading) return;
     if (!user || !firestore) {
@@ -65,25 +71,41 @@ export default function UsersPage() {
       return;
     }
 
-    const userDocRef = doc(firestore, 'users', user.uid);
-    const unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
+    let unsubscribeUser: () => void = () => {};
+    let unsubscribeClubs: () => void = () => {};
+    let unsubscribeAllUsers: () => void = () => {};
+
+    unsubscribeUser = onSnapshot(doc(firestore, 'users', user.uid), (userDoc) => {
       if (userDoc.exists() && userDoc.data().role === 'Site Admin') {
         setCurrentUserProfile({ id: userDoc.id, ...userDoc.data() } as User);
         
         // Fetch all clubs
-        const clubsCollection = collection(firestore, 'clubs');
-        const unsubscribeClubs = onSnapshot(clubsCollection, (snapshot) => {
+        unsubscribeClubs = onSnapshot(collection(firestore, 'clubs'), (snapshot) => {
             const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
             setClubs(clubsData);
         });
         
         // Fetch all users
-        const usersCollection = collection(firestore, 'users');
-        const unsubscribeAllUsers = onSnapshot(usersCollection, (snapshot) => {
+        unsubscribeAllUsers = onSnapshot(collection(firestore, 'users'), (snapshot) => {
           const usersData = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
           } as User));
+
+          // Sort users
+          usersData.sort((a, b) => {
+            const clubNameA = getClubName(a.primaryClubId);
+            const clubNameB = getClubName(b.primaryClubId);
+
+            if (clubNameA < clubNameB) return -1;
+            if (clubNameA > clubNameB) return 1;
+            
+            // If club names are the same, sort by last name
+            const lastNameA = a.lastName || '';
+            const lastNameB = b.lastName || '';
+            return lastNameA.localeCompare(lastNameB);
+          });
+          
           setUsers(usersData);
           setIsLoading(false);
         }, (error) => {
@@ -92,18 +114,18 @@ export default function UsersPage() {
           setIsLoading(false);
         });
 
-        return () => {
-            unsubscribeClubs();
-            unsubscribeAllUsers();
-        };
       } else {
         toast({ variant: 'destructive', title: 'Unauthorized', description: 'You do not have permission to view this page.' });
         router.push('/dashboard');
       }
     });
 
-    return () => unsubscribeUser();
-  }, [user, authLoading, router, toast]);
+    return () => {
+        unsubscribeUser();
+        unsubscribeClubs();
+        unsubscribeAllUsers();
+    };
+  }, [user, authLoading, router, toast, clubs]);
   
   const handleEditClick = (userToEdit: User) => {
     setSelectedUser(userToEdit);
@@ -141,12 +163,6 @@ export default function UsersPage() {
       setIsSaving(false);
     }
   };
-
-  const getClubName = (clubId: string | undefined) => {
-    if (!clubId) return 'N/A';
-    const club = clubs.find(c => c.id === clubId);
-    return club ? club.name : clubId;
-  }
 
   const renderUserList = () => {
     if (isLoading) {
