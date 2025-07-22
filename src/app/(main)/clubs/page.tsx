@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -230,6 +231,8 @@ export default function ClubsPage() {
       });
     }
   };
+
+  const canEdit = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
   
   const renderClubList = () => {
     if (isLoading) {
@@ -244,9 +247,11 @@ export default function ClubsPage() {
                 </div>
               </div>
             </TableCell>
-            <TableCell className="text-right">
-              <Skeleton className="h-10 w-[120px]" />
-            </TableCell>
+            {canEdit && (
+                <TableCell className="text-right">
+                <Skeleton className="h-10 w-[80px]" />
+                </TableCell>
+            )}
           </TableRow>
       ));
     }
@@ -254,7 +259,7 @@ export default function ClubsPage() {
     if (clubs.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={2} className="h-24 text-center">
+          <TableCell colSpan={canEdit ? 2 : 1} className="h-24 text-center">
             No clubs found. Create the first one!
           </TableCell>
         </TableRow>
@@ -277,11 +282,13 @@ export default function ClubsPage() {
               </div>
             </div>
           </TableCell>
-          <TableCell className="text-right">
-            <Button variant="outline" size="icon" onClick={() => handleEditClick(club)}>
-                <Edit className="h-4 w-4"/>
-            </Button>
-          </TableCell>
+          {canEdit && (
+            <TableCell className="text-right">
+                <Button variant="outline" size="icon" onClick={() => handleEditClick(club)}>
+                    <Edit className="h-4 w-4"/>
+                </Button>
+            </TableCell>
+          )}
         </TableRow>
     ));
   }
@@ -313,7 +320,7 @@ export default function ClubsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Club Details</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                {canEdit && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
