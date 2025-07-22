@@ -24,7 +24,7 @@ import { collection, doc, onSnapshot, updateDoc, getDocs } from 'firebase/firest
 import type { User, UserRole, Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { User as UserIcon, Edit } from 'lucide-react';
+import { User as UserIcon, Edit, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -57,6 +57,8 @@ export default function UsersPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedClubIdFilter, setSelectedClubIdFilter] = useState<string>('all');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>('all');
 
@@ -156,7 +158,13 @@ export default function UsersPage() {
                       (selectedClubIdFilter === 'none' && !u.primaryClubId) || 
                       u.primaryClubId === selectedClubIdFilter;
     const roleMatch = selectedRoleFilter === 'all' || u.role === selectedRoleFilter;
-    return clubMatch && roleMatch;
+    
+    const searchMatch = searchTerm.trim() === '' ||
+                        (u.firstName?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                        (u.lastName?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                        (u.email?.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    return clubMatch && roleMatch && searchMatch;
   });
 
   const renderUserList = () => {
@@ -226,13 +234,27 @@ export default function UsersPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Users</h1>
           <p className="text-muted-foreground">Manage all application users here.</p>
         </div>
-        <div className="flex items-end gap-4">
-            <div className="grid w-52 gap-1.5">
+        <div className="flex flex-col md:flex-row md:items-end gap-4">
+            <div className="grid w-full md:w-auto gap-1.5">
+                <Label htmlFor="search-users">Search</Label>
+                 <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        id="search-users"
+                        type="search"
+                        placeholder="Search by name or email..."
+                        className="pl-8 sm:w-[300px]"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+            </div>
+            <div className="grid w-full md:w-52 gap-1.5">
                 <Label htmlFor="club-filter">Club</Label>
                 <Select value={selectedClubIdFilter} onValueChange={setSelectedClubIdFilter} disabled={clubs.length === 0}>
                     <SelectTrigger id="club-filter">
@@ -249,7 +271,7 @@ export default function UsersPage() {
                     </SelectContent>
                 </Select>
             </div>
-            <div className="grid w-52 gap-1.5">
+            <div className="grid w-full md:w-52 gap-1.5">
                 <Label htmlFor="role-filter">Role</Label>
                 <Select value={selectedRoleFilter} onValueChange={setSelectedRoleFilter}>
                     <SelectTrigger id="role-filter">
@@ -378,3 +400,5 @@ export default function UsersPage() {
     </div>
   );
 }
+
+    
