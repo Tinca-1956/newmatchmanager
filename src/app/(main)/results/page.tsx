@@ -40,7 +40,6 @@ interface MatchResultSummary {
   date: Date;
   venue: string;
   winnerName: string;
-  winnerWeight: number; // in oz
 }
 
 function weightLbsOz(totalOz: number) {
@@ -208,7 +207,6 @@ export default function ResultsPage() {
                 venue: match?.location || 'Unknown Venue',
                 date: (result.date as any).toDate(),
                 winnerName: result.userName,
-                winnerWeight: result.weight,
             };
         }).sort((a,b) => b.date.getTime() - a.date.getTime()); // Sort by most recent date
 
@@ -235,7 +233,6 @@ export default function ResultsPage() {
             <TableCell><Skeleton className="h-4 w-40" /></TableCell>
             <TableCell><Skeleton className="h-4 w-32" /></TableCell>
             <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-            <TableCell><Skeleton className="h-4 w-20" /></TableCell>
           </TableRow>
       ));
     }
@@ -243,7 +240,7 @@ export default function ResultsPage() {
     if (results.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={5} className="h-24 text-center">
+          <TableCell colSpan={4} className="h-24 text-center">
             No results found for this selection.
           </TableCell>
         </TableRow>
@@ -256,7 +253,6 @@ export default function ResultsPage() {
           <TableCell className="font-medium">{result.seriesName}</TableCell>
           <TableCell>{result.matchName}</TableCell>
           <TableCell>{result.winnerName}</TableCell>
-          <TableCell>{weightLbsOz(result.winnerWeight)}</TableCell>
         </TableRow>
     ))
   }
@@ -334,7 +330,6 @@ export default function ResultsPage() {
                 <TableHead>Series</TableHead>
                 <TableHead>Match</TableHead>
                 <TableHead>Winner</TableHead>
-                <TableHead>Winning Weight</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
