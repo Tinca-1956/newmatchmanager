@@ -36,7 +36,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, onSnapshot, doc, getDoc, getDocs, QueryConstraint, Timestamp, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, getDocs, QueryConstraint, Timestamp } from 'firebase/firestore';
 import type { Club, User, Result, Series, Match } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
@@ -262,11 +262,18 @@ export default function ResultsPage() {
     try {
       const resultsQuery = query(
         collection(firestore, 'results'),
-        where('matchId', '==', result.matchId),
-        orderBy('position', 'asc') // Sort by rank
+        where('matchId', '==', result.matchId)
       );
       const snapshot = await getDocs(resultsQuery);
       const fullResults = snapshot.docs.map(doc => doc.data() as Result);
+      
+      // Sort by position client-side
+      fullResults.sort((a, b) => {
+          if (a.position === null) return 1; // places nulls at the end
+          if (b.position === null) return -1;
+          return a.position - b.position;
+      });
+      
       setModalResults(fullResults);
     } catch (error) {
       console.error("Error fetching full results:", error);
@@ -462,5 +469,3 @@ export default function ResultsPage() {
     </div>
   );
 }
-
-    
