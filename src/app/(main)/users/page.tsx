@@ -153,6 +153,12 @@ export default function UsersPage() {
     }
   };
   
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setSelectedClubIdFilter('all');
+    setSelectedRoleFilter('all');
+  };
+
   const filteredUsers = users.filter(u => {
     const clubMatch = selectedClubIdFilter === 'all' || 
                       (selectedClubIdFilter === 'none' && !u.primaryClubId) || 
@@ -239,20 +245,23 @@ export default function UsersPage() {
           <h1 className="text-3xl font-bold tracking-tight">Users</h1>
           <p className="text-muted-foreground">Manage all application users here.</p>
         </div>
-        <div className="flex flex-col md:flex-row md:items-end gap-4">
+        <div className="flex flex-col md:flex-row md:items-end gap-2">
             <div className="grid w-full md:w-auto gap-1.5">
                 <Label htmlFor="search-users">Search</Label>
-                 <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        id="search-users"
-                        type="search"
-                        placeholder="Search by name or email..."
-                        className="pl-8 sm:w-[300px]"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
+                 <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={handleResetFilters}>Reset</Button>
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                          id="search-users"
+                          type="search"
+                          placeholder="Search..."
+                          className="pl-8 sm:w-[250px]"
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                 </div>
             </div>
             <div className="grid w-full md:w-52 gap-1.5">
                 <Label htmlFor="club-filter">Club</Label>
@@ -400,5 +409,3 @@ export default function UsersPage() {
     </div>
   );
 }
-
-    
