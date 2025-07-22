@@ -401,29 +401,34 @@ export default function MatchesPage() {
   };
   
   const getMatchDisplayStatus = (match: Match): MatchStatus => {
-    // If status is manually set to Cancelled, always show that.
     if (match.status === 'Cancelled') {
       return 'Cancelled';
     }
 
     const now = new Date();
     const matchDate = match.date instanceof Date ? match.date : (match.date as Timestamp).toDate();
+    
+    const copyMatchDate = (d: Date) => new Date(d.getTime());
 
+    const drawTime = copyMatchDate(matchDate);
     const [drawHours, drawMinutes] = match.drawTime.split(':').map(Number);
-    const drawTime = new Date(matchDate);
     drawTime.setHours(drawHours, drawMinutes, 0, 0);
 
+    const endTime = copyMatchDate(matchDate);
     const [endHours, endMinutes] = match.endTime.split(':').map(Number);
-    const endTime = new Date(matchDate);
     endTime.setHours(endHours, endMinutes, 0, 0);
 
-    const completedTime = new Date(endTime.getTime() + 90 * 60000); // Add 90 minutes
+    const weighInEndTime = new Date(endTime.getTime() + 60 * 60000); // 60 minutes after end time
+    const completedTime = new Date(endTime.getTime() + 90 * 60000); // 90 minutes after end time for completion buffer
 
     if (now > completedTime) {
-        return 'Completed';
+      return 'Completed';
+    }
+    if (now > endTime && now <= weighInEndTime) {
+      return 'Weigh-in';
     }
     if (now > drawTime) {
-        return 'In Progress';
+      return 'In Progress';
     }
     return 'Upcoming';
   };
@@ -716,6 +721,7 @@ export default function MatchesPage() {
                             <SelectContent>
                                 <SelectItem value="Upcoming">Upcoming</SelectItem>
                                 <SelectItem value="In Progress">In Progress</SelectItem>
+                                <SelectItem value="Weigh-in">Weigh-in</SelectItem>
                                 <SelectItem value="Completed">Completed</SelectItem>
                                 <SelectItem value="Cancelled">Cancelled</SelectItem>
                             </SelectContent>
