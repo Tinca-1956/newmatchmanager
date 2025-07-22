@@ -347,7 +347,8 @@ export default function ResultsPage() {
       pdf.text(`${seriesName} - ${matchName}`, pdfWidth / 2, 30, { align: 'center' });
 
       pdf.setFontSize(10);
-      pdf.text(`${format(date, 'PPP')} - Status: ${status}`, pdfWidth / 2, 38, { align: 'center' });
+      pdf.text(`${format(date, 'PPP')} - Status: ${status} - Results Sorted by ${sortOption}`, pdfWidth / 2, 38, { align: 'center' });
+
 
       // Add table image
       const tableYPosition = 50; // Y position to start the table image
@@ -596,6 +597,7 @@ export default function ResultsPage() {
     </div>
   );
 }
+
 
 
 
