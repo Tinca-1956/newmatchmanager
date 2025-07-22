@@ -19,7 +19,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, CalendarIcon, User as UserIcon, HelpCircle, Scale, Trophy } from 'lucide-react';
+import { PlusCircle, Edit, CalendarIcon, User as UserIcon, HelpCircle, Scale, Trophy, FileText } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -202,7 +202,8 @@ export default function MatchesPage() {
     setFormState(prev => ({...prev, [field]: value}));
   };
 
-  const handleViewRegisteredClick = async (match: Match) => {
+  const handleViewRegisteredClick = async (e: React.MouseEvent, match: Match) => {
+    e.stopPropagation();
     if (!firestore) return;
     setSelectedMatch(match);
     setIsViewRegisteredDialogOpen(true);
@@ -363,6 +364,9 @@ export default function MatchesPage() {
     if (match.status === 'Cancelled') {
       return 'Cancelled';
     }
+    if (match.status === 'Completed') {
+      return 'Completed';
+    }
 
     const now = new Date();
     const matchDate = match.date instanceof Date ? match.date : (match.date as Timestamp).toDate();
@@ -378,13 +382,12 @@ export default function MatchesPage() {
     endTime.setHours(endHours, endMinutes, 0, 0);
 
     const weighInEndTime = new Date(endTime.getTime() + 60 * 60000); // 60 minutes after end time
-    const completedTime = new Date(endTime.getTime() + 90 * 60000); // 90 minutes after end time for completion buffer
 
-    if (now > completedTime) {
-      return 'Completed';
-    }
     if (now > endTime && now <= weighInEndTime) {
       return 'Weigh-in';
+    }
+     if (now > weighInEndTime) {
+      return 'Completed';
     }
     if (now > drawTime) {
       return 'In Progress';
@@ -427,7 +430,7 @@ export default function MatchesPage() {
       const isFull = match.registeredCount >= match.capacity;
 
       return (
-       <TableRow key={match.id} onClick={() => handleViewRegisteredClick(match)} className="cursor-pointer">
+       <TableRow key={match.id}>
           <TableCell>
             <div className="text-sm text-muted-foreground">{match.seriesName}</div>
           </TableCell>
@@ -441,6 +444,21 @@ export default function MatchesPage() {
           <TableCell>{displayStatus}</TableCell>
           <TableCell className="text-right space-x-2" onClick={(e) => e.stopPropagation()}>
             <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={(e) => handleViewRegisteredClick(e, match)}
+                  >
+                    <FileText className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left">
+                  <p>Display angler list</p>
+                </TooltipContent>
+              </Tooltip>
               <Tooltip>
                   <TooltipTrigger asChild>
                     <Button asChild variant="outline" size="icon" className="h-9 w-9">
