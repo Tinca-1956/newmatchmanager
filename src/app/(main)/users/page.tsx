@@ -290,14 +290,17 @@ export default function UsersPage() {
                  <div className="space-y-2">
                     <Label htmlFor="primaryClubId">Primary Club</Label>
                      <Select
-                        value={selectedUser.primaryClubId || ''}
-                        onValueChange={(value) => setSelectedUser({...selectedUser, primaryClubId: value})}
+                        value={selectedUser.primaryClubId || 'no-club'}
+                        onValueChange={(value) => {
+                            const newClubId = value === 'no-club' ? '' : value;
+                            setSelectedUser({...selectedUser, primaryClubId: newClubId})
+                        }}
                     >
                         <SelectTrigger>
                             <SelectValue placeholder="Select a club" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">None</SelectItem>
+                            <SelectItem value="no-club">None</SelectItem>
                             {clubs.map(club => (
                                 <SelectItem key={club.id} value={club.id}>{club.name}</SelectItem>
                             ))}
