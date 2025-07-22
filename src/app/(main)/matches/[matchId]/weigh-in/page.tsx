@@ -29,6 +29,18 @@ type AnglerDetails = Pick<User, 'id' | 'firstName' | 'lastName'> & {
   isSaving: boolean;
 };
 
+// Function to convert kg to oz
+const kgToOz = (kg: number): number => {
+  return Math.round(kg * 35.274);
+};
+
+// Function to convert oz to kg for display
+const ozToKg = (oz: number): string => {
+  if (!oz) return '';
+  return (oz / 35.274).toFixed(3);
+};
+
+
 export default function WeighInPage() {
   const { user } = useAuth();
   const router = useRouter();
@@ -110,7 +122,7 @@ export default function WeighInPage() {
                     ...a, 
                     peg: result?.peg || '',
                     section: result?.section || '',
-                    weight: result?.weight?.toString() || '', 
+                    weight: result?.weight ? ozToKg(result.weight) : '', 
                     status: (result?.status || 'NYW') as WeighInStatus, 
                     rank: result?.position?.toString() || '',
                     isSaving: false
@@ -157,7 +169,8 @@ export default function WeighInPage() {
         const resultId = `${match.id}_${angler.id}`;
         const resultDocRef = doc(firestore, 'results', resultId);
         
-        const totalOz = parseInt(angler.weight || '0', 10);
+        const weightInKg = parseFloat(angler.weight || '0');
+        const totalOz = kgToOz(weightInKg);
         
         // Save the individual angler's result
         const dataToSave: Partial<Result> = {
@@ -320,13 +333,14 @@ export default function WeighInPage() {
                         </div>
                     </div>
                      <div className="space-y-2">
-                        <Label htmlFor={`weight-${angler.id}`}>Weight (oz)</Label>
+                        <Label htmlFor={`weight-${angler.id}`}>Weight (Kg)</Label>
                         <Input
                             id={`weight-${angler.id}`}
                             type="number"
-                            placeholder="e.g. 256"
+                            placeholder="e.g. 8.5"
                             value={angler.weight}
                             onChange={(e) => handleFieldChange(angler.id, 'weight', e.target.value)}
+                            step="0.001"
                         />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -378,3 +392,5 @@ export default function WeighInPage() {
     </div>
   );
 }
+
+    
