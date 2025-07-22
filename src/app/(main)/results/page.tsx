@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   Card,
@@ -44,6 +44,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 
 interface MatchResultSummary {
@@ -88,6 +90,7 @@ export default function ResultsPage() {
   const [isModalLoading, setIsModalLoading] = useState(false);
   const [selectedMatchForModal, setSelectedMatchForModal] = useState<MatchResultSummary | null>(null);
   const [sortOption, setSortOption] = useState<SortOption>('Overall');
+  const resultsTableRef = useRef<HTMLDivElement>(null);
 
   // Fetch all clubs for the dropdown
   useEffect(() => {
@@ -315,6 +318,37 @@ export default function ResultsPage() {
     }
   };
 
+  const handleDownloadPdf = async () => {
+    const input = resultsTableRef.current;
+    if (!input || !selectedMatchForModal) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not generate PDF. The results table was not found.',
+      });
+      return;
+    }
+
+    try {
+      const canvas = await html2canvas(input);
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`results-${selectedMatchForModal.matchName.replace(/ /g, '_')}.pdf`);
+
+    } catch (error) {
+       console.error("Error generating PDF:", error);
+       toast({
+        variant: 'destructive',
+        title: 'PDF Generation Failed',
+        description: 'An unexpected error occurred while creating the PDF.',
+      });
+    }
+  };
+
   const sortedModalResults = useMemo(() => {
     const resultsCopy = [...modalResults];
     switch (sortOption) {
@@ -517,7 +551,7 @@ export default function ResultsPage() {
                         </SelectContent>
                     </Select>
                 </div>
-                <div className="mt-4 max-h-[60vh] overflow-y-auto">
+                <div ref={resultsTableRef} className="mt-4 max-h-[60vh] overflow-y-auto bg-background p-4">
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -535,6 +569,7 @@ export default function ResultsPage() {
                     </Table>
                 </div>
                 <DialogFooter>
+                    <Button variant="secondary" onClick={handleDownloadPdf}>Download as PDF</Button>
                     <Button variant="outline" onClick={() => setIsModalOpen(false)}>Close</Button>
                 </DialogFooter>
             </DialogContent>
@@ -543,4 +578,5 @@ export default function ResultsPage() {
     </div>
   );
 }
+
 
