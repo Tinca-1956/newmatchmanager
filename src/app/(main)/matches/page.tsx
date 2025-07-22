@@ -428,6 +428,7 @@ export default function MatchesPage() {
       const isRegistered = user ? match.registeredAnglers.includes(user.uid) : false;
       const displayStatus = getMatchDisplayStatus(match);
       const isFull = match.registeredCount >= match.capacity;
+      const isRegisterDisabled = isRegistered || displayStatus !== 'Upcoming';
 
       return (
        <TableRow key={match.id}>
@@ -487,19 +488,23 @@ export default function MatchesPage() {
               )}
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9"
-                    onClick={(e) => handleOpenRegisterDialog(e, match)}
-                    disabled={isRegistered || match.status !== 'Upcoming'}
-                  >
-                    <RegisterIcon className="h-5 w-5" />
-                  </Button>
+                  <span tabIndex={isRegisterDisabled ? 0 : -1}>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9"
+                      onClick={(e) => handleOpenRegisterDialog(e, match)}
+                      disabled={isRegisterDisabled}
+                    >
+                      <RegisterIcon className="h-5 w-5" />
+                    </Button>
+                  </span>
                 </TooltipTrigger>
                 <TooltipContent side="left">
                     {isRegistered 
-                        ? <p>You are registered for this match. To unregister go your PROFILE page</p> 
+                        ? <p>You are registered for this match. To unregister go to your PROFILE page.</p> 
+                        : displayStatus !== 'Upcoming'
+                        ? <p>Registration is closed for this match.</p>
                         : <p>Register for this match</p>
                     }
                 </TooltipContent>
