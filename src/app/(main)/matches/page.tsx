@@ -412,6 +412,7 @@ export default function MatchesPage() {
     return 'Upcoming';
   };
   
+  const canCreate = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
   const canEdit = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
   const canWeighIn = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin' || currentUserProfile?.role === 'Marshal';
 
@@ -605,7 +606,7 @@ export default function MatchesPage() {
           <h1 className="text-3xl font-bold tracking-tight">Matches</h1>
           <p className="text-muted-foreground">Manage your club's matches here.</p>
         </div>
-        {canEdit && (
+        {canCreate && (
             <Button onClick={handleOpenCreateDialog}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Create Match
@@ -831,4 +832,5 @@ export default function MatchesPage() {
     </div>
   );
 }
+
 
