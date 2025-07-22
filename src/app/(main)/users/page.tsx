@@ -57,6 +57,7 @@ export default function UsersPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedClubIdFilter, setSelectedClubIdFilter] = useState<string>('all');
 
   const getClubName = (clubId: string | undefined) => {
     if (!clubId) return 'N/A';
@@ -148,6 +149,12 @@ export default function UsersPage() {
       setIsSaving(false);
     }
   };
+  
+  const filteredUsers = users.filter(u => {
+    if (selectedClubIdFilter === 'all') return true;
+    if (selectedClubIdFilter === 'none') return !u.primaryClubId;
+    return u.primaryClubId === selectedClubIdFilter;
+  });
 
   const renderUserList = () => {
     if (isLoading) {
@@ -170,7 +177,17 @@ export default function UsersPage() {
       ));
     }
     
-    return users.map((u) => (
+    if (filteredUsers.length === 0) {
+      return (
+        <TableRow>
+          <TableCell colSpan={6} className="h-24 text-center">
+            No users found for this filter.
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    return filteredUsers.map((u) => (
        <TableRow key={u.id}>
           <TableCell>
             <div className="flex items-center gap-3">
@@ -206,9 +223,30 @@ export default function UsersPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Users</h1>
-        <p className="text-muted-foreground">Manage all application users here.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Users</h1>
+          <p className="text-muted-foreground">Manage all application users here.</p>
+        </div>
+        <div className="flex items-end gap-4">
+            <div className="grid w-52 gap-1.5">
+                <Label htmlFor="club-filter">Club</Label>
+                <Select value={selectedClubIdFilter} onValueChange={setSelectedClubIdFilter} disabled={clubs.length === 0}>
+                    <SelectTrigger id="club-filter">
+                        <SelectValue placeholder="Filter by club..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Clubs</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
+                        {clubs.map((club) => (
+                            <SelectItem key={club.id} value={club.id}>
+                                {club.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+        </div>
       </div>
       <Card>
         <CardHeader>
