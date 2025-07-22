@@ -91,21 +91,6 @@ export default function UsersPage() {
             id: doc.id,
             ...doc.data()
           } as User));
-
-          // Sort users
-          usersData.sort((a, b) => {
-            const clubNameA = getClubName(a.primaryClubId);
-            const clubNameB = getClubName(b.primaryClubId);
-
-            if (clubNameA < clubNameB) return -1;
-            if (clubNameA > clubNameB) return 1;
-            
-            // If club names are the same, sort by last name
-            const lastNameA = a.lastName || '';
-            const lastNameB = b.lastName || '';
-            return lastNameA.localeCompare(lastNameB);
-          });
-          
           setUsers(usersData);
           setIsLoading(false);
         }, (error) => {
@@ -125,7 +110,7 @@ export default function UsersPage() {
         unsubscribeClubs();
         unsubscribeAllUsers();
     };
-  }, [user, authLoading, router, toast, clubs]);
+  }, [user, authLoading, router, toast]);
   
   const handleEditClick = (userToEdit: User) => {
     setSelectedUser(userToEdit);
