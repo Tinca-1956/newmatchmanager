@@ -313,6 +313,10 @@ export default function MembersPage() {
                     />
                   </div>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" value={selectedMember.email} disabled />
+                </div>
                  <div className="space-y-2">
                   <Label htmlFor="status">Status</Label>
                   <Select
