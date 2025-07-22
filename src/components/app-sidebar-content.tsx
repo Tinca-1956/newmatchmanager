@@ -1,5 +1,7 @@
+
 'use client';
 
+import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -13,15 +15,18 @@ import {
   UserCog,
   Info,
   Fish,
-  User,
-  Database,
+  User as UserIcon,
 } from 'lucide-react';
 import { SheetClose } from './ui/sheet';
 import { useAuth } from '@/hooks/use-auth';
+import type { User } from '@/lib/types';
+import { firestore } from '@/lib/firebase-client';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { Skeleton } from './ui/skeleton';
 
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { href: '/profile', icon: User, label: 'Profile' },
+  { href: '/profile', icon: UserIcon, label: 'Profile' },
   { href: '/clubs', icon: Shield, label: 'Clubs' },
   { href: '/members', icon: Users, label: 'Members' },
   { href: '/marshals', icon: CircleUserRound, label: 'Marshals' },
@@ -38,18 +43,44 @@ interface AppSidebarContentProps {
 
 function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
   const pathname = usePathname();
-  // We'll add role-based logic later. For now, assume a non-admin user.
-  const userRole = 'Angler'; 
+  const { user } = useAuth();
+  const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user || !firestore) {
+      setIsLoading(false);
+      return;
+    }
+    const userDocRef = doc(firestore, 'users', user.uid);
+    const unsubscribe = onSnapshot(userDocRef, (doc) => {
+      if (doc.exists()) {
+        setCurrentUserProfile({ id: doc.id, ...doc.data() } as User);
+      }
+      setIsLoading(false);
+    }, () => setIsLoading(false));
+
+    return () => unsubscribe();
+  }, [user]);
+
+  if (isLoading) {
+    return (
+       <div className="grid items-start px-2 text-sm font-medium lg:px-4 space-y-2">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <Skeleton key={i} className="h-9 w-full" />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
       {navItems.map((item) => {
-        if (item.adminOnly && userRole !== 'Site Admin') {
+        if (item.adminOnly && currentUserProfile?.role !== 'Site Admin') {
           return null;
         }
         const isActive =
-          pathname === item.href ||
-          (item.href !== '/dashboard' && pathname.startsWith(item.href));
+          (item.href !== '/' && pathname.startsWith(item.href)) || pathname === item.href;
 
         const linkContent = (
           <Link
@@ -92,7 +123,7 @@ export default function AppSidebarContent({ isMobile }: AppSidebarContentProps) 
           <span className="">Match Manager</span>
         </Link>
       </div>
-      <div className="flex-1">
+      <div className="flex-1 overflow-y-auto">
         <NavMenu onLinkClick={isMobile ? () => {} : undefined} />
       </div>
     </div>
