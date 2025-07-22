@@ -414,7 +414,6 @@ export default function MatchesPage() {
   
   const canCreate = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
   const canEdit = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
-  const canWeighIn = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin' || currentUserProfile?.role === 'Marshal';
 
   const renderMatchList = () => {
     if (isLoading) {
@@ -447,6 +446,21 @@ export default function MatchesPage() {
       const displayStatus = getMatchDisplayStatus(match);
       const isFull = match.registeredCount >= match.capacity;
       const isRegisterDisabled = isRegistered || displayStatus !== 'Upcoming';
+      
+      const now = new Date();
+      const matchDate = match.date instanceof Date ? match.date : (match.date as Timestamp).toDate();
+      const endTime = new Date(matchDate);
+      const [endHours, endMinutes] = match.endTime.split(':').map(Number);
+      endTime.setHours(endHours, endMinutes, 0, 0);
+      
+      const weighInEndTime = new Date(endTime.getTime() + 90 * 60000); // 90 minutes after end time
+
+      let showWeighIn = false;
+      if (currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin') {
+        showWeighIn = true;
+      } else if (currentUserProfile?.role === 'Marshal' && now > endTime && now <= weighInEndTime) {
+        showWeighIn = true;
+      }
 
       return (
        <TableRow key={match.id}>
@@ -490,7 +504,7 @@ export default function MatchesPage() {
                       <p>View full results</p>
                   </TooltipContent>
               </Tooltip>
-               {canWeighIn && (
+               {showWeighIn && (
                  <Tooltip>
                   <TooltipTrigger asChild>
                     <Button asChild variant="outline" size="icon" className="h-9 w-9">
