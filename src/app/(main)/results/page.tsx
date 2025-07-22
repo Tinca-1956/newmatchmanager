@@ -53,12 +53,11 @@ interface MatchResultSummary {
   winnerName: string;
 }
 
-function weightLbsOz(totalOz: number) {
-    if (typeof totalOz !== 'number' || isNaN(totalOz)) return '0lbs 0oz';
-    const lbs = Math.floor(totalOz / 16);
-    const oz = totalOz % 16;
-    return `${lbs}lbs ${oz}oz`;
-}
+// Function to convert oz to kg for display
+const ozToKg = (oz: number): string => {
+  if (typeof oz !== 'number' || isNaN(oz)) return '0.000';
+  return (oz / 35.274).toFixed(3);
+};
 
 export default function ResultsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -347,7 +346,7 @@ export default function ResultsPage() {
           {result.position ? <Badge variant="outline">{result.position}</Badge> : '-'}
         </TableCell>
         <TableCell className="font-medium">{result.userName}</TableCell>
-        <TableCell>{weightLbsOz(result.weight)}</TableCell>
+        <TableCell>{ozToKg(result.weight)}</TableCell>
         <TableCell>{result.status || 'OK'}</TableCell>
       </TableRow>
     ));
@@ -451,7 +450,7 @@ export default function ResultsPage() {
                             <TableRow>
                                 <TableHead>Rank</TableHead>
                                 <TableHead>Name</TableHead>
-                                <TableHead>Weight</TableHead>
+                                <TableHead>Kg</TableHead>
                                 <TableHead>Status</TableHead>
                             </TableRow>
                         </TableHeader>
