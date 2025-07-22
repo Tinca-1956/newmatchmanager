@@ -27,8 +27,8 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, onSnapshot, doc, getDoc, getDocs, QueryConstraint } from 'firebase/firestore';
-import type { Club, User, Result, Series } from '@/lib/types';
+import { collection, query, where, onSnapshot, doc, getDoc, getDocs, QueryConstraint, Timestamp } from 'firebase/firestore';
+import type { Club, User, Result, Series, Match } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 
@@ -55,8 +55,13 @@ export default function ResultsPage() {
 
   const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
+  
   const [seriesList, setSeriesList] = useState<Series[]>([]);
   const [selectedSeriesId, setSelectedSeriesId] = useState<string>('all');
+  
+  const [matchesList, setMatchesList] = useState<Match[]>([]);
+  const [selectedMatchId, setSelectedMatchId] = useState<string>('all');
+
   const [results, setResults] = useState<MatchResultSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -104,6 +109,8 @@ export default function ResultsPage() {
       const seriesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Series));
       setSeriesList(seriesData);
       setSelectedSeriesId('all'); // Reset to all series when club changes
+      setMatchesList([]); // Clear matches list
+      setSelectedMatchId('all'); // Reset match selection
     }, (error) => {
         console.error("Error fetching series: ", error);
         toast({
@@ -115,8 +122,39 @@ export default function ResultsPage() {
 
     return () => unsubscribe();
   }, [selectedClubId, toast]);
+  
+  // Fetch matches for the selected series
+  useEffect(() => {
+    if (selectedSeriesId === 'all' || !firestore) {
+      setMatchesList([]);
+      return;
+    }
+    const matchesQuery = query(collection(firestore, 'matches'), where('seriesId', '==', selectedSeriesId));
+    const unsubscribe = onSnapshot(matchesQuery, (snapshot) => {
+      const matchesData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            date: (data.date as Timestamp).toDate(),
+        } as Match
+      });
+      setMatchesList(matchesData);
+      setSelectedMatchId('all'); // Reset match selection
+    }, (error) => {
+        console.error("Error fetching matches: ", error);
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Could not fetch matches for the selected series.'
+        });
+    });
 
-  // Fetch results for the selected club and series
+    return () => unsubscribe();
+  }, [selectedSeriesId, toast]);
+
+
+  // Fetch results based on filters
   useEffect(() => {
     if (!selectedClubId || !firestore) {
         setResults([]);
@@ -133,6 +171,9 @@ export default function ResultsPage() {
 
     if (selectedSeriesId !== 'all') {
         queryConstraints.push(where('seriesId', '==', selectedSeriesId));
+    }
+    if (selectedMatchId !== 'all') {
+        queryConstraints.push(where('matchId', '==', selectedMatchId));
     }
     
     const resultsQuery = query(collection(firestore, 'results'), ...queryConstraints);
@@ -183,7 +224,7 @@ export default function ResultsPage() {
     });
 
     return () => unsubscribe();
-  }, [selectedClubId, selectedSeriesId, toast]);
+  }, [selectedClubId, selectedSeriesId, selectedMatchId, toast]);
 
   const renderResultsList = () => {
     if (isLoading) {
@@ -227,7 +268,7 @@ export default function ResultsPage() {
           <p className="text-muted-foreground">View match results here.</p>
         </div>
         <div className="flex gap-4">
-            <div className="w-64">
+            <div className="w-52">
                 <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={clubs.length === 0}>
                     <SelectTrigger>
                         <SelectValue placeholder="Select a club..." />
@@ -241,7 +282,7 @@ export default function ResultsPage() {
                     </SelectContent>
                 </Select>
             </div>
-            <div className="w-64">
+            <div className="w-52">
                 <Select value={selectedSeriesId} onValueChange={setSelectedSeriesId} disabled={seriesList.length === 0}>
                     <SelectTrigger>
                         <SelectValue placeholder="Select a series..." />
@@ -256,6 +297,21 @@ export default function ResultsPage() {
                     </SelectContent>
                 </Select>
             </div>
+             <div className="w-52">
+                <Select value={selectedMatchId} onValueChange={setSelectedMatchId} disabled={matchesList.length === 0}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select a match..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Matches</SelectItem>
+                        {matchesList.map((match) => (
+                            <SelectItem key={match.id} value={match.id}>
+                                {match.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
         </div>
       </div>
       
@@ -263,7 +319,7 @@ export default function ResultsPage() {
         <CardHeader>
           <CardTitle>Completed Match Results</CardTitle>
           <CardDescription>
-            A summary of results for the selected club and series.
+            A summary of results for the selected filters.
           </CardDescription>
         </CardHeader>
         <CardContent>
