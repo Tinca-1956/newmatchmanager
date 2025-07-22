@@ -336,8 +336,24 @@ export default function ResultsPage() {
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`results-${selectedMatchForModal.matchName.replace(/ /g, '_')}.pdf`);
+      const clubName = clubs.find(c => c.id === selectedClubId)?.name || 'Match Results';
+      const { seriesName, matchName, date, status } = selectedMatchForModal;
+
+      // Header
+      pdf.setFontSize(22);
+      pdf.text(clubName, pdfWidth / 2, 20, { align: 'center' });
+
+      pdf.setFontSize(14);
+      pdf.text(`${seriesName} - ${matchName}`, pdfWidth / 2, 30, { align: 'center' });
+
+      pdf.setFontSize(10);
+      pdf.text(`${format(date, 'PPP')} - Status: ${status}`, pdfWidth / 2, 38, { align: 'center' });
+
+      // Add table image
+      const tableYPosition = 50; // Y position to start the table image
+      pdf.addImage(imgData, 'PNG', 10, tableYPosition, pdfWidth - 20, pdfHeight * ((pdfWidth - 20) / pdfWidth));
+
+      pdf.save(`results-${matchName.replace(/ /g, '_')}.pdf`);
 
     } catch (error) {
        console.error("Error generating PDF:", error);
@@ -551,22 +567,24 @@ export default function ResultsPage() {
                         </SelectContent>
                     </Select>
                 </div>
-                <div ref={resultsTableRef} className="mt-4 max-h-[60vh] overflow-y-auto bg-background p-4">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Rank</TableHead>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Kg</TableHead>
-                                <TableHead>Peg</TableHead>
-                                <TableHead>Section</TableHead>
-                                <TableHead>Status</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {renderModalResults()}
-                        </TableBody>
-                    </Table>
+                <div className="mt-4 max-h-[60vh] overflow-y-auto bg-background">
+                    <div ref={resultsTableRef} className="p-4">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Rank</TableHead>
+                                    <TableHead>Name</TableHead>
+                                    <TableHead>Kg</TableHead>
+                                    <TableHead>Peg</TableHead>
+                                    <TableHead>Section</TableHead>
+                                    <TableHead>Status</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {renderModalResults()}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </div>
                 <DialogFooter>
                     <Button variant="secondary" onClick={handleDownloadPdf}>Download as PDF</Button>
@@ -578,5 +596,6 @@ export default function ResultsPage() {
     </div>
   );
 }
+
 
 
