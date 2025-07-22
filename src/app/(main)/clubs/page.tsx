@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -520,7 +519,7 @@ export default function ClubsPage() {
                                         <AlertDialogDescription>
                                             This action cannot be undone. This will permanently delete the 
                                             <span className="font-bold"> {selectedClub.name}</span> club and all of its data.
-                                        </DialogDescription>
+                                        </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                         <AlertDialogCancel>Cancel</AlertDialogCancel>
