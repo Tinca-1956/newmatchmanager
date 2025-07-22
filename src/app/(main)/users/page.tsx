@@ -21,7 +21,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
 import { collection, doc, onSnapshot, updateDoc, getDocs } from 'firebase/firestore';
-import type { User, UserRole } from '@/lib/types';
+import type { User, UserRole, Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { User as UserIcon, Edit } from 'lucide-react';
@@ -51,6 +51,7 @@ export default function UsersPage() {
   const { toast } = useToast();
   
   const [users, setUsers] = useState<User[]>([]);
+  const [clubs, setClubs] = useState<Club[]>([]);
   const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -69,7 +70,14 @@ export default function UsersPage() {
       if (userDoc.exists() && userDoc.data().role === 'Site Admin') {
         setCurrentUserProfile({ id: userDoc.id, ...userDoc.data() } as User);
         
-        // Now fetch all users
+        // Fetch all clubs
+        const clubsCollection = collection(firestore, 'clubs');
+        const unsubscribeClubs = onSnapshot(clubsCollection, (snapshot) => {
+            const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+            setClubs(clubsData);
+        });
+        
+        // Fetch all users
         const usersCollection = collection(firestore, 'users');
         const unsubscribeAllUsers = onSnapshot(usersCollection, (snapshot) => {
           const usersData = snapshot.docs.map(doc => ({
@@ -84,7 +92,10 @@ export default function UsersPage() {
           setIsLoading(false);
         });
 
-        return () => unsubscribeAllUsers();
+        return () => {
+            unsubscribeClubs();
+            unsubscribeAllUsers();
+        };
       } else {
         toast({ variant: 'destructive', title: 'Unauthorized', description: 'You do not have permission to view this page.' });
         router.push('/dashboard');
@@ -131,6 +142,12 @@ export default function UsersPage() {
     }
   };
 
+  const getClubName = (clubId: string | undefined) => {
+    if (!clubId) return 'N/A';
+    const club = clubs.find(c => c.id === clubId);
+    return club ? club.name : clubId;
+  }
+
   const renderUserList = () => {
     if (isLoading) {
       return Array.from({ length: 5 }).map((_, i) => (
@@ -140,12 +157,13 @@ export default function UsersPage() {
                 <Skeleton className="h-10 w-10 rounded-full" />
                 <div className="space-y-2">
                   <Skeleton className="h-4 w-[150px]" />
-                  <Skeleton className="h-4 w-[200px]" />
                 </div>
               </div>
             </TableCell>
             <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
             <TableCell className="text-right"><Skeleton className="h-10 w-20" /></TableCell>
           </TableRow>
       ));
@@ -159,13 +177,14 @@ export default function UsersPage() {
                  <AvatarFallback><UserIcon className="h-5 w-5"/></AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-medium">{`${u.firstName} ${u.lastName}`}</p>
-                 <p className="text-sm text-muted-foreground">{u.email}</p>
+                <p className="font-medium">{u.firstName}</p>
               </div>
             </div>
           </TableCell>
+          <TableCell>{u.lastName}</TableCell>
+          <TableCell>{getClubName(u.primaryClubId)}</TableCell>
+          <TableCell>{u.email}</TableCell>
           <TableCell>{u.role}</TableCell>
-          <TableCell>{u.primaryClubId || 'N/A'}</TableCell>
           <TableCell className="text-right">
             <Button variant="outline" size="sm" onClick={() => handleEditClick(u)}>
               <Edit className="h-4 w-4" />
@@ -201,9 +220,11 @@ export default function UsersPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
+                <TableHead>First Name</TableHead>
+                <TableHead>Last Name</TableHead>
+                <TableHead>Club</TableHead>
+                <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
-                <TableHead>Primary Club ID</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -267,12 +288,21 @@ export default function UsersPage() {
                   </Select>
                 </div>
                  <div className="space-y-2">
-                    <Label htmlFor="primaryClubId">Primary Club ID</Label>
-                    <Input 
-                      id="primaryClubId" 
-                      value={selectedUser.primaryClubId || ''} 
-                      onChange={(e) => setSelectedUser({...selectedUser, primaryClubId: e.target.value })}
-                    />
+                    <Label htmlFor="primaryClubId">Primary Club</Label>
+                     <Select
+                        value={selectedUser.primaryClubId || ''}
+                        onValueChange={(value) => setSelectedUser({...selectedUser, primaryClubId: value})}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select a club" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">None</SelectItem>
+                            {clubs.map(club => (
+                                <SelectItem key={club.id} value={club.id}>{club.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                   </div>
               </div>
               <DialogFooter>

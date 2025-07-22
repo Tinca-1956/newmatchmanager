@@ -206,7 +206,6 @@ export default function MembersPage() {
             </TableCell>
             <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
-            <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
             {canEdit && <TableCell><Skeleton className="h-10 w-20" /></TableCell>}
           </TableRow>
       ));
@@ -215,7 +214,7 @@ export default function MembersPage() {
     if (members.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={canEdit ? 5 : 4} className="h-24 text-center">
+          <TableCell colSpan={canEdit ? 4 : 3} className="h-24 text-center">
             No members found for this club.
           </TableCell>
         </TableRow>
@@ -234,7 +233,6 @@ export default function MembersPage() {
               </div>
             </div>
           </TableCell>
-          <TableCell>{member.clubName}</TableCell>
           <TableCell>{member.memberStatus}</TableCell>
           <TableCell>{member.role}</TableCell>
           {canEdit && (
@@ -269,7 +267,6 @@ export default function MembersPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Primary Club</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Role</TableHead>
                 {canEdit && <TableHead className="text-right">Actions</TableHead>}
