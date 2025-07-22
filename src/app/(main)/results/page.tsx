@@ -39,7 +39,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
 import { collection, query, where, onSnapshot, doc, getDoc, getDocs, QueryConstraint, Timestamp } from 'firebase/firestore';
-import type { Club, User, Result, Series, Match } from '@/lib/types';
+import type { Club, User, Result, Series, Match, MatchStatus } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { Label } from '@/components/ui/label';
@@ -53,6 +53,7 @@ interface MatchResultSummary {
   date: Date;
   venue: string;
   winnerName: string;
+  status: MatchStatus;
 }
 
 type SortOption = 'Overall' | 'Section' | 'Peg';
@@ -255,6 +256,7 @@ export default function ResultsPage() {
                 venue: match?.location || 'Unknown Venue',
                 date: (result.date as any).toDate(),
                 winnerName: result.userName,
+                status: match?.status || 'Completed',
             };
         }).sort((a,b) => b.date.getTime() - a.date.getTime()); 
 
@@ -345,6 +347,7 @@ export default function ResultsPage() {
             <TableCell><Skeleton className="h-4 w-40" /></TableCell>
             <TableCell><Skeleton className="h-4 w-32" /></TableCell>
             <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-20" /></TableCell>
           </TableRow>
       ));
     }
@@ -352,7 +355,7 @@ export default function ResultsPage() {
     if (results.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={4} className="h-24 text-center">
+          <TableCell colSpan={5} className="h-24 text-center">
             No results found for this selection.
           </TableCell>
         </TableRow>
@@ -365,6 +368,7 @@ export default function ResultsPage() {
           <TableCell className="font-medium">{result.seriesName}</TableCell>
           <TableCell>{result.matchName}</TableCell>
           <TableCell>{result.winnerName}</TableCell>
+          <TableCell>{result.status}</TableCell>
         </TableRow>
     ))
   }
@@ -481,6 +485,7 @@ export default function ResultsPage() {
                 <TableHead>Series</TableHead>
                 <TableHead>Match</TableHead>
                 <TableHead>Winner</TableHead>
+                <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -538,3 +543,4 @@ export default function ResultsPage() {
     </div>
   );
 }
+
