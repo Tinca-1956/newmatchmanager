@@ -4,6 +4,14 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
@@ -19,6 +27,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type WeighInStatus = 'NYW' | 'OK' | 'DNF' | 'DNW' | 'DSQ';
+type ViewMode = 'card' | 'list';
 
 type AnglerDetails = Pick<User, 'id' | 'firstName' | 'lastName'> & {
   peg: string;
@@ -53,6 +62,7 @@ export default function WeighInPage() {
   const [anglers, setAnglers] = useState<AnglerDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('card');
 
   useEffect(() => {
     async function checkAuthorizationAndFetchData() {
@@ -278,6 +288,186 @@ export default function WeighInPage() {
     return null;
   }
 
+  const renderCardView = () => (
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {anglers.map((angler) => (
+        <Card key={angler.id}>
+            <CardHeader>
+                <CardTitle className="text-lg">WEIGH-IN for {angler.firstName} {angler.lastName}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-2">
+                        <Label htmlFor={`peg-${angler.id}`}>Peg</Label>
+                        <Input
+                            id={`peg-${angler.id}`}
+                            type="text"
+                            placeholder="e.g. 14"
+                            value={angler.peg}
+                            onChange={(e) => handleFieldChange(angler.id, 'peg', e.target.value)}
+                        />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor={`section-${angler.id}`}>Section</Label>
+                        <Input
+                            id={`section-${angler.id}`}
+                            type="text"
+                            placeholder="e.g. A"
+                            value={angler.section}
+                            onChange={(e) => handleFieldChange(angler.id, 'section', e.target.value)}
+                        />
+                    </div>
+                </div>
+                 <div className="space-y-2">
+                    <Label htmlFor={`weight-${angler.id}`}>Weight (Kg)</Label>
+                    <Input
+                        id={`weight-${angler.id}`}
+                        type="number"
+                        placeholder="e.g. 8.5"
+                        value={angler.weight}
+                        onChange={(e) => handleFieldChange(angler.id, 'weight', e.target.value)}
+                        step="0.001"
+                    />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-2">
+                        <Label htmlFor={`status-${angler.id}`}>Status</Label>
+                        <Select 
+                            value={angler.status}
+                            onValueChange={(value) => handleFieldChange(angler.id, 'status', value)}
+                        >
+                            <SelectTrigger id={`status-${angler.id}`}>
+                                <SelectValue placeholder="Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="NYW">NYW</SelectItem>
+                                <SelectItem value="OK">OK</SelectItem>
+                                <SelectItem value="DNF">DNF</SelectItem>
+                                <SelectItem value="DNW">DNW</SelectItem>
+                                <SelectItem value="DSQ">DSQ</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor={`rank-${angler.id}`}>Rank</Label>
+                         <Input
+                            id={`rank-${angler.id}`}
+                            type="number"
+                            placeholder="-"
+                            value={angler.rank}
+                            onChange={(e) => handleFieldChange(angler.id, 'rank', e.target.value)}
+                            disabled
+                        />
+                    </div>
+                </div>
+            </CardContent>
+            <CardFooter>
+                <Button 
+                    className="w-full"
+                    onClick={() => handleSaveAngler(angler.id)}
+                    disabled={angler.isSaving}
+                >
+                    <Save className="mr-2 h-4 w-4" />
+                    {angler.isSaving ? 'Saving...' : 'Save'}
+                </Button>
+            </CardFooter>
+        </Card>
+        ))}
+    </div>
+  );
+  
+  const renderListView = () => (
+     <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Angler</TableHead>
+                <TableHead>Peg</TableHead>
+                <TableHead>Section</TableHead>
+                <TableHead>Weight (Kg)</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Rank</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {anglers.map((angler) => (
+                <TableRow key={angler.id}>
+                  <TableCell className="font-medium">{angler.firstName} {angler.lastName}</TableCell>
+                  <TableCell>
+                    <Input
+                      className="h-8 w-20"
+                      type="text"
+                      placeholder="e.g. 14"
+                      value={angler.peg}
+                      onChange={(e) => handleFieldChange(angler.id, 'peg', e.target.value)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      className="h-8 w-20"
+                      type="text"
+                      placeholder="e.g. A"
+                      value={angler.section}
+                      onChange={(e) => handleFieldChange(angler.id, 'section', e.target.value)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      className="h-8 w-24"
+                      type="number"
+                      placeholder="e.g. 8.5"
+                      value={angler.weight}
+                      onChange={(e) => handleFieldChange(angler.id, 'weight', e.target.value)}
+                      step="0.001"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                        value={angler.status}
+                        onValueChange={(value) => handleFieldChange(angler.id, 'status', value)}
+                    >
+                        <SelectTrigger className="h-8 w-28">
+                            <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="NYW">NYW</SelectItem>
+                            <SelectItem value="OK">OK</SelectItem>
+                            <SelectItem value="DNF">DNF</SelectItem>
+                            <SelectItem value="DNW">DNW</SelectItem>
+                            <SelectItem value="DSQ">DSQ</SelectItem>
+                        </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      className="h-8 w-20"
+                      type="number"
+                      placeholder="-"
+                      value={angler.rank}
+                      onChange={(e) => handleFieldChange(angler.id, 'rank', e.target.value)}
+                      disabled
+                    />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      size="sm"
+                      onClick={() => handleSaveAngler(angler.id)}
+                      disabled={angler.isSaving}
+                    >
+                      <Save className="mr-2 h-4 w-4" />
+                      {angler.isSaving ? 'Saving...' : 'Save'}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+     </Card>
+  );
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -294,6 +484,18 @@ export default function WeighInPage() {
                 </p>
             </div>
         </div>
+        <div className="flex items-center gap-2">
+            <Label htmlFor="view-mode">Display</Label>
+            <Select value={viewMode} onValueChange={(value: ViewMode) => setViewMode(value)}>
+                <SelectTrigger id="view-mode" className="w-32">
+                    <SelectValue placeholder="Select view" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="card">Card</SelectItem>
+                    <SelectItem value="list">List</SelectItem>
+                </SelectContent>
+            </Select>
+        </div>
       </div>
       
       {anglers.length === 0 ? (
@@ -303,94 +505,8 @@ export default function WeighInPage() {
             </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {anglers.map((angler) => (
-            <Card key={angler.id}>
-                <CardHeader>
-                    <CardTitle className="text-lg">WEIGH-IN for {angler.firstName} {angler.lastName}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                         <div className="space-y-2">
-                            <Label htmlFor={`peg-${angler.id}`}>Peg</Label>
-                            <Input
-                                id={`peg-${angler.id}`}
-                                type="text"
-                                placeholder="e.g. 14"
-                                value={angler.peg}
-                                onChange={(e) => handleFieldChange(angler.id, 'peg', e.target.value)}
-                            />
-                        </div>
-                         <div className="space-y-2">
-                            <Label htmlFor={`section-${angler.id}`}>Section</Label>
-                            <Input
-                                id={`section-${angler.id}`}
-                                type="text"
-                                placeholder="e.g. A"
-                                value={angler.section}
-                                onChange={(e) => handleFieldChange(angler.id, 'section', e.target.value)}
-                            />
-                        </div>
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor={`weight-${angler.id}`}>Weight (Kg)</Label>
-                        <Input
-                            id={`weight-${angler.id}`}
-                            type="number"
-                            placeholder="e.g. 8.5"
-                            value={angler.weight}
-                            onChange={(e) => handleFieldChange(angler.id, 'weight', e.target.value)}
-                            step="0.001"
-                        />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                         <div className="space-y-2">
-                            <Label htmlFor={`status-${angler.id}`}>Status</Label>
-                            <Select 
-                                value={angler.status}
-                                onValueChange={(value) => handleFieldChange(angler.id, 'status', value)}
-                            >
-                                <SelectTrigger id={`status-${angler.id}`}>
-                                    <SelectValue placeholder="Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="NYW">NYW</SelectItem>
-                                    <SelectItem value="OK">OK</SelectItem>
-                                    <SelectItem value="DNF">DNF</SelectItem>
-                                    <SelectItem value="DNW">DNW</SelectItem>
-                                    <SelectItem value="DSQ">DSQ</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor={`rank-${angler.id}`}>Rank</Label>
-                             <Input
-                                id={`rank-${angler.id}`}
-                                type="number"
-                                placeholder="-"
-                                value={angler.rank}
-                                onChange={(e) => handleFieldChange(angler.id, 'rank', e.target.value)}
-                                disabled
-                            />
-                        </div>
-                    </div>
-                </CardContent>
-                <CardFooter>
-                    <Button 
-                        className="w-full"
-                        onClick={() => handleSaveAngler(angler.id)}
-                        disabled={angler.isSaving}
-                    >
-                        <Save className="mr-2 h-4 w-4" />
-                        {angler.isSaving ? 'Saving...' : 'Save'}
-                    </Button>
-                </CardFooter>
-            </Card>
-            ))}
-        </div>
+        viewMode === 'card' ? renderCardView() : renderListView()
       )}
     </div>
   );
 }
-
-    
