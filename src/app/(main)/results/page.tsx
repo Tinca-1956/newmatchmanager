@@ -31,6 +31,7 @@ import { collection, query, where, onSnapshot, doc, getDoc, getDocs, QueryConstr
 import type { Club, User, Result, Series, Match } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
+import { Label } from '@/components/ui/label';
 
 interface MatchResultSummary {
   matchId: string;
@@ -267,10 +268,11 @@ export default function ResultsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Results</h1>
           <p className="text-muted-foreground">View match results here.</p>
         </div>
-        <div className="flex gap-4">
-            <div className="w-52">
+        <div className="flex items-end gap-4">
+            <div className="grid w-52 gap-1.5">
+                <Label htmlFor="club-filter">Club</Label>
                 <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={clubs.length === 0}>
-                    <SelectTrigger>
+                    <SelectTrigger id="club-filter">
                         <SelectValue placeholder="Select a club..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -282,9 +284,10 @@ export default function ResultsPage() {
                     </SelectContent>
                 </Select>
             </div>
-            <div className="w-52">
+            <div className="grid w-52 gap-1.5">
+                <Label htmlFor="series-filter">Series</Label>
                 <Select value={selectedSeriesId} onValueChange={setSelectedSeriesId} disabled={seriesList.length === 0}>
-                    <SelectTrigger>
+                    <SelectTrigger id="series-filter">
                         <SelectValue placeholder="Select a series..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -297,9 +300,10 @@ export default function ResultsPage() {
                     </SelectContent>
                 </Select>
             </div>
-             <div className="w-52">
+             <div className="grid w-52 gap-1.5">
+                <Label htmlFor="match-filter">Match</Label>
                 <Select value={selectedMatchId} onValueChange={setSelectedMatchId} disabled={matchesList.length === 0}>
-                    <SelectTrigger>
+                    <SelectTrigger id="match-filter">
                         <SelectValue placeholder="Select a match..." />
                     </SelectTrigger>
                     <SelectContent>
