@@ -160,7 +160,7 @@ export default function SeriesPage() {
     }
   };
   
-  const canCreate = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
+  const canEdit = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
 
   const renderSeriesList = () => {
     if (isLoading) {
@@ -190,7 +190,7 @@ export default function SeriesPage() {
           <TableCell>{series.matchCount}</TableCell>
           <TableCell>{series.completedMatches}</TableCell>
           <TableCell className="text-right">
-             {canCreate && (
+             {canEdit && (
                 <Button variant="outline" size="sm" onClick={() => handleEditClick(series)}>
                     <Edit className="mr-2 h-4 w-4"/>
                     Edit
@@ -208,7 +208,7 @@ export default function SeriesPage() {
           <h1 className="text-3xl font-bold tracking-tight">Series</h1>
           <p className="text-muted-foreground">Manage your match series here.</p>
         </div>
-        {canCreate && (
+        {canEdit && (
             <Button onClick={() => setIsCreateDialogOpen(true)}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Create Series
