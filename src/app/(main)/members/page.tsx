@@ -201,7 +201,6 @@ export default function MembersPage() {
                 <Skeleton className="h-10 w-10 rounded-full" />
                 <div className="space-y-2">
                   <Skeleton className="h-4 w-[150px]" />
-                  <Skeleton className="h-4 w-[200px]" />
                 </div>
               </div>
             </TableCell>
@@ -232,7 +231,6 @@ export default function MembersPage() {
               </Avatar>
               <div>
                 <p className="font-medium">{`${member.firstName} ${member.lastName}`}</p>
-                 <p className="text-sm text-muted-foreground">{member.email}</p>
               </div>
             </div>
           </TableCell>
@@ -314,10 +312,6 @@ export default function MembersPage() {
                       required
                     />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" value={selectedMember.email} disabled />
                 </div>
                  <div className="space-y-2">
                   <Label htmlFor="status">Status</Label>
