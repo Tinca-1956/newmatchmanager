@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -61,6 +62,7 @@ export default function ClubsPage() {
   const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedClub, setSelectedClub] = useState<Club | null>(null);
   const [newClubName, setNewClubName] = useState('');
@@ -117,10 +119,16 @@ export default function ClubsPage() {
     };
   }, [toast, user]);
   
-  const handleEditClick = (club: Club) => {
+  const handleEditClick = (e: React.MouseEvent, club: Club) => {
+    e.stopPropagation();
     setSelectedClub(club);
     setIsEditDialogOpen(true);
-  }
+  };
+
+  const handleViewClick = (club: Club) => {
+    setSelectedClub(club);
+    setIsViewDialogOpen(true);
+  };
   
   const handleUpdateClub = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -267,7 +275,7 @@ export default function ClubsPage() {
     }
 
     return clubs.map((club) => (
-       <TableRow key={club.id}>
+       <TableRow key={club.id} onClick={() => handleViewClick(club)} className="cursor-pointer">
           <TableCell>
             <div className="flex items-center gap-4">
               <Avatar className="h-12 w-12" data-ai-hint="fishing club">
@@ -284,14 +292,14 @@ export default function ClubsPage() {
           </TableCell>
           {canEdit && (
             <TableCell className="text-right">
-                <Button variant="outline" size="icon" onClick={() => handleEditClick(club)}>
+                <Button variant="outline" size="icon" onClick={(e) => handleEditClick(e, club)}>
                     <Edit className="h-4 w-4"/>
                 </Button>
             </TableCell>
           )}
         </TableRow>
     ));
-  }
+  };
 
   return (
     <div className="flex flex-col gap-8">
@@ -365,9 +373,49 @@ export default function ClubsPage() {
       </Dialog>
       
       {selectedClub && (
+        <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>{selectedClub.name}</DialogTitle>
+                    <DialogDescription>
+                        Viewing club details.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4 text-sm">
+                   <div className="grid grid-cols-3 gap-4">
+                        <Label className="text-right font-semibold">Description</Label>
+                        <p className="col-span-2 text-muted-foreground">{selectedClub.description}</p>
+                   </div>
+                    <div className="grid grid-cols-3 gap-4">
+                        <Label className="text-right font-semibold">Country</Label>
+                        <p className="col-span-2 text-muted-foreground">{selectedClub.country || 'N/A'}</p>
+                    </div>
+                     <div className="grid grid-cols-3 gap-4">
+                        <Label className="text-right font-semibold">State/County</Label>
+                        <p className="col-span-2 text-muted-foreground">{selectedClub.state || 'N/A'}</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                        <Label className="text-right font-semibold">Subscription Ends</Label>
+                        <p className="col-span-2 text-muted-foreground">
+                            {selectedClub.subscriptionExpiryDate 
+                                ? format(new Date(selectedClub.subscriptionExpiryDate), 'PPP') 
+                                : 'N/A'}
+                        </p>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button type="button" variant="outline">Close</Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+      )}
+
+      {selectedClub && (
         <Dialog open={isEditDialogOpen} onOpenChange={(isOpen) => {
             if (!isOpen) {
-                setIsDeleteDialogOpen(false); // Close delete dialog if edit dialog is closed
+                setIsDeleteDialogOpen(false);
             }
             setIsEditDialogOpen(isOpen);
         }}>
@@ -443,7 +491,7 @@ export default function ClubsPage() {
                                     >
                                     <CalendarIcon className="mr-2 h-4 w-4" />
                                     {selectedClub.subscriptionExpiryDate ? (
-                                        format(selectedClub.subscriptionExpiryDate, "PPP")
+                                        format(new Date(selectedClub.subscriptionExpiryDate), "PPP")
                                     ) : (
                                         <span>Pick a date</span>
                                     )}
@@ -452,7 +500,7 @@ export default function ClubsPage() {
                                 <PopoverContent className="w-auto p-0">
                                     <Calendar
                                         mode="single"
-                                        selected={new Date(selectedClub.subscriptionExpiryDate || '')}
+                                        selected={selectedClub.subscriptionExpiryDate ? new Date(selectedClub.subscriptionExpiryDate) : undefined}
                                         onSelect={(date) => setSelectedClub({ ...selectedClub, subscriptionExpiryDate: date || undefined })}
                                         initialFocus
                                     />
@@ -472,7 +520,7 @@ export default function ClubsPage() {
                                         <AlertDialogDescription>
                                             This action cannot be undone. This will permanently delete the 
                                             <span className="font-bold"> {selectedClub.name}</span> club and all of its data.
-                                        </AlertDialogDescription>
+                                        </DialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                         <AlertDialogCancel>Cancel</AlertDialogCancel>
