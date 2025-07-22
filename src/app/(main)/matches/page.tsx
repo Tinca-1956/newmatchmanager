@@ -63,7 +63,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { RegisterIcon } from '@/components/icons/register-icon';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
 
 const EMPTY_MATCH: Omit<Match, 'id' | 'clubId' | 'seriesName'> = {
     seriesId: '',
@@ -81,13 +80,6 @@ const EMPTY_MATCH: Omit<Match, 'id' | 'clubId' | 'seriesName'> = {
 
 type AnglerDetails = Pick<User, 'id' | 'firstName' | 'lastName' | 'email'>;
 
-function weightLbsOz(totalOz: number) {
-    if (typeof totalOz !== 'number') return '0lbs 0oz';
-    const lbs = Math.floor(totalOz / 16);
-    const oz = totalOz % 16;
-    return `${lbs}lbs ${oz}oz`;
-}
-
 export default function MatchesPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -103,11 +95,8 @@ export default function MatchesPage() {
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
   const [isViewRegisteredDialogOpen, setIsViewRegisteredDialogOpen] = useState(false);
   const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
-  const [isResultsDialogOpen, setIsResultsDialogOpen] = useState(false);
   
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
-  const [matchResults, setMatchResults] = useState<Result[]>([]);
-  const [isLoadingResults, setIsLoadingResults] = useState(false);
   const [registeredAnglersDetails, setRegisteredAnglersDetails] = useState<AnglerDetails[]>([]);
   const [isLoadingAnglers, setIsLoadingAnglers] = useState(false);
   const [formState, setFormState] = useState<Omit<Match, 'id' | 'clubId' | 'seriesName'>>(EMPTY_MATCH);
@@ -369,36 +358,6 @@ export default function MatchesPage() {
       setIsSaving(false);
     }
   };
-
-   const handleViewResultsClick = (match: Match) => {
-    if (!firestore) return;
-    setSelectedMatch(match);
-    setIsResultsDialogOpen(true);
-    setIsLoadingResults(true);
-
-    const resultsQuery = query(
-      collection(firestore, 'results'),
-      where('matchId', '==', match.id),
-      orderBy('position', 'asc')
-    );
-
-    const unsubscribe = onSnapshot(resultsQuery, (snapshot) => {
-      const resultsData = snapshot.docs.map(doc => doc.data() as Result);
-      setMatchResults(resultsData);
-      setIsLoadingResults(false);
-    }, (error) => {
-      console.error("Error fetching results: ", error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Could not fetch live results.',
-      });
-      setIsLoadingResults(false);
-    });
-    
-    // We need to return the unsubscribe function to be called when the dialog closes.
-    return unsubscribe;
-  };
   
   const getMatchDisplayStatus = (match: Match): MatchStatus => {
     if (match.status === 'Cancelled') {
@@ -483,14 +442,16 @@ export default function MatchesPage() {
           <TableCell className="text-right space-x-2" onClick={(e) => e.stopPropagation()}>
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => handleViewResultsClick(match)}>
-                        <Trophy className="h-4 w-4"/>
+                  <TooltipTrigger asChild>
+                    <Button asChild variant="outline" size="icon" className="h-9 w-9">
+                      <Link href={`/results?clubId=${match.clubId}&seriesId=${match.seriesId}&matchId=${match.id}&view=modal`}>
+                        <Trophy className="h-4 w-4" />
+                      </Link>
                     </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                    <p>Display realtime results</p>
-                </TooltipContent>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                      <p>View full results</p>
+                  </TooltipContent>
               </Tooltip>
                {canWeighIn && (
                  <Tooltip>
@@ -572,43 +533,6 @@ export default function MatchesPage() {
         </div>
     ));
   }
-  
-  const renderResultsList = () => {
-    if (isLoadingResults) {
-      return Array.from({ length: 5 }).map((_, i) => (
-        <TableRow key={i}>
-            <TableCell><Skeleton className="h-4 w-10" /></TableCell>
-            <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-            <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-        </TableRow>
-      ));
-    }
-
-    if (matchResults.length === 0) {
-        return (
-            <TableRow>
-                <TableCell colSpan={4} className="text-center h-24">
-                    No results have been recorded yet.
-                </TableCell>
-            </TableRow>
-        );
-    }
-
-    return matchResults.map((result) => (
-      <TableRow key={result.userId}>
-          <TableCell>
-            <Badge variant="outline">{result.position}</Badge>
-          </TableCell>
-          <TableCell className="font-medium">{result.userName}</TableCell>
-          <TableCell>{weightLbsOz(result.weight)}</TableCell>
-          <TableCell>
-            {result.status || 'OK'}
-          </TableCell>
-      </TableRow>
-    ));
-  };
-
 
   return (
     <div className="flex flex-col gap-8">
@@ -836,43 +760,6 @@ export default function MatchesPage() {
                         </Tooltip>
                     </TooltipProvider>
                     <Button variant="outline" onClick={() => setIsViewRegisteredDialogOpen(false)}>Close</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-      )}
-
-      {selectedMatch && (
-        <Dialog open={isResultsDialogOpen} onOpenChange={(isOpen) => {
-            if (!isOpen) {
-                setMatchResults([]);
-                setSelectedMatch(null);
-            }
-            setIsResultsDialogOpen(isOpen);
-        }}>
-            <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                    <DialogTitle>Realtime Results: {selectedMatch.name}</DialogTitle>
-                    <DialogDescription>
-                       Results are updated automatically as the weigh-in progresses.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="mt-4">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Rank</TableHead>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Weight</TableHead>
-                                <TableHead>Status</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {renderResultsList()}
-                        </TableBody>
-                    </Table>
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsResultsDialogOpen(false)}>Close</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

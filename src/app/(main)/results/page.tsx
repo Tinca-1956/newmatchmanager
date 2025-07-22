@@ -1,7 +1,9 @@
 
+
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Card,
   CardContent,
@@ -61,6 +63,7 @@ const ozToKg = (oz: number): string => {
 
 export default function ResultsPage() {
   const { user, loading: authLoading } = useAuth();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
 
   const [clubs, setClubs] = useState<Club[]>([]);
@@ -94,6 +97,12 @@ export default function ResultsPage() {
 
   // Set default selected club once user data is available
   useEffect(() => {
+    const clubIdParam = searchParams.get('clubId');
+    if (clubIdParam) {
+      setSelectedClubId(clubIdParam);
+      return;
+    }
+
     if (user && !authLoading && !selectedClubId) {
       const userDocRef = doc(firestore, 'users', user.uid);
       getDoc(userDocRef).then(doc => {
@@ -112,7 +121,7 @@ export default function ResultsPage() {
      if (!user && !authLoading && clubs.length > 0 && !selectedClubId) {
         setSelectedClubId(clubs[0].id);
     }
-  }, [user, authLoading, clubs, selectedClubId]);
+  }, [user, authLoading, clubs, selectedClubId, searchParams]);
 
   // Fetch series for the selected club
   useEffect(() => {
@@ -124,9 +133,15 @@ export default function ResultsPage() {
     const unsubscribe = onSnapshot(seriesQuery, (snapshot) => {
       const seriesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Series));
       setSeriesList(seriesData);
-      setSelectedSeriesId('all'); // Reset to all series when club changes
-      setMatchesList([]); // Clear matches list
-      setSelectedMatchId('all'); // Reset match selection
+      
+      const seriesIdParam = searchParams.get('seriesId');
+      if (seriesData.some(s => s.id === seriesIdParam)) {
+        setSelectedSeriesId(seriesIdParam!);
+      } else {
+        setSelectedSeriesId('all'); 
+      }
+      setMatchesList([]); 
+      setSelectedMatchId('all');
     }, (error) => {
         console.error("Error fetching series: ", error);
         toast({
@@ -137,7 +152,7 @@ export default function ResultsPage() {
     });
 
     return () => unsubscribe();
-  }, [selectedClubId, toast]);
+  }, [selectedClubId, toast, searchParams]);
   
   // Fetch matches for the selected series
   useEffect(() => {
@@ -156,7 +171,12 @@ export default function ResultsPage() {
         } as Match
       });
       setMatchesList(matchesData);
-      setSelectedMatchId('all'); // Reset match selection
+      const matchIdParam = searchParams.get('matchId');
+      if (matchesData.some(m => m.id === matchIdParam)) {
+        setSelectedMatchId(matchIdParam!);
+      } else {
+         setSelectedMatchId('all');
+      }
     }, (error) => {
         console.error("Error fetching matches: ", error);
         toast({
@@ -167,7 +187,7 @@ export default function ResultsPage() {
     });
 
     return () => unsubscribe();
-  }, [selectedSeriesId, toast]);
+  }, [selectedSeriesId, toast, searchParams]);
 
 
   // Fetch results based on filters
@@ -207,7 +227,6 @@ export default function ResultsPage() {
         
         const matchDetailsMap = new Map();
         if(matchIds.length > 0) {
-            // Firestore 'in' query supports up to 30 elements. Chunking is needed for more.
             const chunks = [];
             for (let i = 0; i < matchIds.length; i += 30) {
                 chunks.push(matchIds.slice(i, i + 30));
@@ -233,10 +252,17 @@ export default function ResultsPage() {
                 date: (result.date as any).toDate(),
                 winnerName: result.userName,
             };
-        }).sort((a,b) => b.date.getTime() - a.date.getTime()); // Sort by most recent date
+        }).sort((a,b) => b.date.getTime() - a.date.getTime()); 
 
         setResults(summarizedResults);
         setIsLoading(false);
+        
+        const viewModal = searchParams.get('view') === 'modal';
+        const urlMatchId = searchParams.get('matchId');
+        if (viewModal && urlMatchId && summarizedResults.length === 1 && summarizedResults[0].matchId === urlMatchId) {
+          handleRowClick(summarizedResults[0]);
+        }
+
     }, (error) => {
         console.error("Error fetching results: ", error);
         toast({
@@ -248,7 +274,7 @@ export default function ResultsPage() {
     });
 
     return () => unsubscribe();
-  }, [selectedClubId, selectedSeriesId, selectedMatchId, toast]);
+  }, [selectedClubId, selectedSeriesId, selectedMatchId, toast, searchParams]);
 
   const handleRowClick = async (result: MatchResultSummary) => {
     if (!firestore) return;
@@ -266,10 +292,9 @@ export default function ResultsPage() {
       const snapshot = await getDocs(resultsQuery);
       const fullResults = snapshot.docs.map(doc => doc.data() as Result);
       
-      // Sort by position client-side
       fullResults.sort((a, b) => {
-          if (a.position === null) return 1; // places nulls at the end
-          if (b.position === null) return -1;
+          if (a.position === null || a.position === undefined) return 1;
+          if (b.position === null || b.position === undefined) return -1;
           return a.position - b.position;
       });
       
