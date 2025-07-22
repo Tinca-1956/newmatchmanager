@@ -173,6 +173,46 @@ export default function UsersPage() {
     return clubMatch && roleMatch && searchMatch;
   });
 
+  const handleExportCsv = () => {
+    if (filteredUsers.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'No Data to Export',
+        description: 'There are no users matching the current filters.',
+      });
+      return;
+    }
+
+    const headers = ['First Name', 'Last Name', 'Email', 'Club', 'Role'];
+    const csvContent = [
+      headers.join(','),
+      ...filteredUsers.map(user => [
+        user.firstName || '',
+        user.lastName || '',
+        user.email || '',
+        getClubName(user.primaryClubId) || 'N/A',
+        user.role || 'Angler',
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.href) {
+      URL.revokeObjectURL(link.href);
+    }
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.setAttribute('download', 'users_export.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+     toast({
+        title: 'Export Successful',
+        description: 'The user list has been downloaded as a CSV file.',
+      });
+  };
+
   const renderUserList = () => {
     if (isLoading) {
       return Array.from({ length: 5 }).map((_, i) => (
@@ -250,6 +290,7 @@ export default function UsersPage() {
                 <Label htmlFor="search-users">Search</Label>
                  <div className="flex items-center gap-2">
                     <Button variant="outline" onClick={handleResetFilters}>Reset</Button>
+                    <Button variant="outline" onClick={handleExportCsv}>Export</Button>
                     <div className="relative">
                       <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
