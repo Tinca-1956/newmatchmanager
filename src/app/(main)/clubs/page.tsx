@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -297,10 +298,12 @@ export default function ClubsPage() {
             Browse and manage your fishing clubs.
           </p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Create Club
-        </Button>
+        {currentUserProfile?.role === 'Site Admin' && (
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Create Club
+          </Button>
+        )}
       </div>
 
       <Card>
