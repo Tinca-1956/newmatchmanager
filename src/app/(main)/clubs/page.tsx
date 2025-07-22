@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -280,9 +278,8 @@ export default function ClubsPage() {
             </div>
           </TableCell>
           <TableCell className="text-right">
-            <Button variant="outline" onClick={() => handleEditClick(club)}>
-                <Edit className="mr-2 h-4 w-4"/>
-                View Details
+            <Button variant="outline" size="icon" onClick={() => handleEditClick(club)}>
+                <Edit className="h-4 w-4"/>
             </Button>
           </TableCell>
         </TableRow>
