@@ -58,6 +58,7 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedClubIdFilter, setSelectedClubIdFilter] = useState<string>('all');
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>('all');
 
   const getClubName = (clubId: string | undefined) => {
     if (!clubId) return 'N/A';
@@ -151,9 +152,11 @@ export default function UsersPage() {
   };
   
   const filteredUsers = users.filter(u => {
-    if (selectedClubIdFilter === 'all') return true;
-    if (selectedClubIdFilter === 'none') return !u.primaryClubId;
-    return u.primaryClubId === selectedClubIdFilter;
+    const clubMatch = selectedClubIdFilter === 'all' || 
+                      (selectedClubIdFilter === 'none' && !u.primaryClubId) || 
+                      u.primaryClubId === selectedClubIdFilter;
+    const roleMatch = selectedRoleFilter === 'all' || u.role === selectedRoleFilter;
+    return clubMatch && roleMatch;
   });
 
   const renderUserList = () => {
@@ -243,6 +246,21 @@ export default function UsersPage() {
                                 {club.name}
                             </SelectItem>
                         ))}
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="grid w-52 gap-1.5">
+                <Label htmlFor="role-filter">Role</Label>
+                <Select value={selectedRoleFilter} onValueChange={setSelectedRoleFilter}>
+                    <SelectTrigger id="role-filter">
+                        <SelectValue placeholder="Filter by role..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Roles</SelectItem>
+                        <SelectItem value="Site Admin">Site Admin</SelectItem>
+                        <SelectItem value="Club Admin">Club Admin</SelectItem>
+                        <SelectItem value="Marshal">Marshal</SelectItem>
+                        <SelectItem value="Angler">Angler</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
