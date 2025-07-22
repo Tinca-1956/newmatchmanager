@@ -3,6 +3,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import jsPDF from 'jspdf';
 import {
   Card,
   CardContent,
@@ -19,7 +20,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, CalendarIcon, HelpCircle, Scale, Trophy, FileText } from 'lucide-react';
+import { PlusCircle, Edit, CalendarIcon, HelpCircle, Scale, Trophy, FileText, Download } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -414,6 +415,86 @@ export default function MatchesPage() {
   
   const canCreate = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
   const canEdit = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
+
+  const handleDownloadAnglerListPdf = async () => {
+    if (!selectedMatch || !currentUserProfile?.primaryClubId || !firestore) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Cannot generate PDF. Data is missing.',
+      });
+      return;
+    }
+
+    try {
+        const clubDocRef = doc(firestore, 'clubs', currentUserProfile.primaryClubId);
+        const clubDoc = await getDoc(clubDocRef);
+        const clubName = clubDoc.exists() ? clubDoc.data().name : "Match Angler List";
+
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const margin = 15;
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        
+        // Header
+        pdf.setFontSize(22);
+        pdf.text(clubName, pageWidth / 2, margin, { align: 'center' });
+
+        pdf.setFontSize(12);
+        const secondLine = `${selectedMatch.seriesName} - ${selectedMatch.name} - ${format(selectedMatch.date as Date, 'PPP')}`;
+        pdf.text(secondLine, pageWidth / 2, margin + 10, { align: 'center' });
+        
+        // Table
+        const tableStartY = margin + 25;
+        const rowHeight = 10;
+        const colWidths = [60, 60, 30, 30]; // First, Last, Section, Peg
+        const tableHeaders = ['First Name', 'Last Name', 'Section', 'Peg'];
+
+        pdf.setLineWidth(0.5); // Thick lines
+        pdf.setDrawColor(0); // Black
+
+        let currentY = tableStartY;
+
+        // Draw Table Header
+        let currentX = margin;
+        pdf.setFont('helvetica', 'bold');
+        tableHeaders.forEach((header, i) => {
+            pdf.rect(currentX, currentY, colWidths[i], rowHeight);
+            pdf.text(header, currentX + 2, currentY + 7);
+            currentX += colWidths[i];
+        });
+        currentY += rowHeight;
+        
+        // Draw Table Rows
+        pdf.setFont('helvetica', 'normal');
+        registeredAnglersDetails.forEach((angler) => {
+            // Check for page break
+            if (currentY + rowHeight > pdf.internal.pageSize.getHeight() - margin) {
+                pdf.addPage();
+                currentY = margin;
+            }
+
+            currentX = margin;
+            const rowData = [angler.firstName, angler.lastName, angler.section, angler.peg];
+            rowData.forEach((cell, i) => {
+                pdf.rect(currentX, currentY, colWidths[i], rowHeight);
+                pdf.text(cell, currentX + 2, currentY + 7);
+                currentX += colWidths[i];
+            });
+            currentY += rowHeight;
+        });
+        
+        pdf.save(`angler_list-${selectedMatch.name.replace(/ /g, '_')}.pdf`);
+        toast({ title: 'Success', description: 'Angler list PDF has been downloaded.' });
+    } catch (error) {
+        console.error("Error generating PDF: ", error);
+        toast({
+            variant: 'destructive',
+            title: 'PDF Generation Failed',
+            description: 'Could not generate the PDF file.',
+        });
+    }
+  };
+
 
   const renderMatchList = () => {
     if (isLoading) {
@@ -838,7 +919,13 @@ export default function MatchesPage() {
                             </TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
-                    <Button variant="outline" onClick={() => setIsViewRegisteredDialogOpen(false)}>Close</Button>
+                     <div className="flex gap-2">
+                        <Button variant="secondary" onClick={handleDownloadAnglerListPdf}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Download PDF
+                        </Button>
+                        <Button variant="outline" onClick={() => setIsViewRegisteredDialogOpen(false)}>Close</Button>
+                    </div>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -846,3 +933,4 @@ export default function MatchesPage() {
     </div>
   );
 }
+
