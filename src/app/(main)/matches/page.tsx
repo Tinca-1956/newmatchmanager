@@ -19,7 +19,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, CalendarIcon, User as UserIcon, HelpCircle, Scale, Trophy, FileText } from 'lucide-react';
+import { PlusCircle, Edit, CalendarIcon, HelpCircle, Scale, Trophy, FileText } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -59,7 +59,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { RegisterIcon } from '@/components/icons/register-icon';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import Link from 'next/link';
@@ -78,7 +77,11 @@ const EMPTY_MATCH: Omit<Match, 'id' | 'clubId' | 'seriesName'> = {
     registeredAnglers: [],
 };
 
-type AnglerDetails = Pick<User, 'id' | 'firstName' | 'lastName' | 'email'>;
+type AnglerDetails = Pick<User, 'id' | 'firstName' | 'lastName'> & {
+  peg: string;
+  section: string;
+};
+
 
 export default function MatchesPage() {
   const { user } = useAuth();
@@ -216,33 +219,47 @@ export default function MatchesPage() {
     }
 
     try {
-      // Firestore 'in' query can take up to 30 elements at a time.
-      // Chunk the angler IDs to handle more than 30.
       const anglerIds = match.registeredAnglers;
-      const anglersData: AnglerDetails[] = [];
-      const chunks = [];
-
+      
+      const userChunks: string[][] = [];
       for (let i = 0; i < anglerIds.length; i += 30) {
-        chunks.push(anglerIds.slice(i, i + 30));
+        userChunks.push(anglerIds.slice(i, i + 30));
       }
       
-      for (const chunk of chunks) {
+      const usersMap = new Map<string, Pick<User, 'id' | 'firstName' | 'lastName'>>();
+      for (const chunk of userChunks) {
          if (chunk.length === 0) continue;
-         const usersCollection = collection(firestore, 'users');
-         const q = query(usersCollection, where('__name__', 'in', chunk));
-         const querySnapshot = await getDocs(q);
-
-         const chunkData = querySnapshot.docs.map(doc => {
+         const usersQuery = query(collection(firestore, 'users'), where('__name__', 'in', chunk));
+         const querySnapshot = await getDocs(usersQuery);
+         querySnapshot.forEach(doc => {
             const data = doc.data();
-            return {
+            usersMap.set(doc.id, {
               id: doc.id,
               firstName: data.firstName || 'N/A',
               lastName: data.lastName || 'N/A',
-              email: data.email || 'N/A',
-            } as AnglerDetails;
+            });
          });
-         anglersData.push(...chunkData);
       }
+
+      const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', match.id));
+      const resultsSnapshot = await getDocs(resultsQuery);
+      const resultsMap = new Map<string, Result>();
+      resultsSnapshot.forEach(doc => {
+        const result = doc.data() as Result;
+        resultsMap.set(result.userId, result);
+      });
+      
+      const anglersData: AnglerDetails[] = anglerIds.map(id => {
+        const user = usersMap.get(id);
+        const result = resultsMap.get(id);
+        return {
+          id: id,
+          firstName: user?.firstName || 'Unknown',
+          lastName: user?.lastName || 'Angler',
+          peg: result?.peg || '-',
+          section: result?.section || '-',
+        };
+      }).sort((a, b) => a.lastName.localeCompare(b.lastName));
       
       setRegisteredAnglersDetails(anglersData);
     } catch (error) {
@@ -529,32 +546,56 @@ export default function MatchesPage() {
 
   const renderAnglerList = () => {
     if (isLoadingAnglers) {
-      return Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 p-2">
-            <Skeleton className="h-9 w-9 rounded-full" />
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-3 w-48" />
-            </div>
-        </div>
-      ));
+      return (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead><Skeleton className="h-4 w-24" /></TableHead>
+              <TableHead><Skeleton className="h-4 w-24" /></TableHead>
+              <TableHead><Skeleton className="h-4 w-16" /></TableHead>
+              <TableHead><Skeleton className="h-4 w-16" /></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <TableRow key={i}>
+                <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      );
     }
 
     if (registeredAnglersDetails.length === 0) {
         return <p className="text-muted-foreground p-4 text-center">No anglers registered yet.</p>;
     }
 
-    return registeredAnglersDetails.map((angler) => (
-        <div key={angler.id} className="flex items-center gap-3 p-2 border-b">
-            <Avatar className="h-9 w-9">
-                <AvatarFallback><UserIcon className="h-5 w-5"/></AvatarFallback>
-            </Avatar>
-            <div>
-              <span>{angler.firstName} {angler.lastName}</span>
-              <p className="text-sm text-muted-foreground">{angler.email}</p>
-            </div>
-        </div>
-    ));
+    return (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>First Name</TableHead>
+            <TableHead>Last Name</TableHead>
+            <TableHead>Section</TableHead>
+            <TableHead>Peg</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {registeredAnglersDetails.map((angler) => (
+            <TableRow key={angler.id}>
+              <TableCell>{angler.firstName}</TableCell>
+              <TableCell>{angler.lastName}</TableCell>
+              <TableCell>{angler.section}</TableCell>
+              <TableCell>{angler.peg}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    );
   }
 
   return (
@@ -758,9 +799,9 @@ export default function MatchesPage() {
 
       {selectedMatch && (
         <Dialog open={isViewRegisteredDialogOpen} onOpenChange={setIsViewRegisteredDialogOpen}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>Registered Anglers</DialogTitle>
+                    <DialogTitle>Angler List</DialogTitle>
                     <DialogDescription>
                         List of anglers registered for {selectedMatch.name}.
                     </DialogDescription>
@@ -790,3 +831,4 @@ export default function MatchesPage() {
     </div>
   );
 }
+
