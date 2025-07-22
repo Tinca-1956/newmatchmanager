@@ -17,8 +17,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Eye } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -29,8 +27,8 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, onSnapshot, doc, getDoc, orderBy, limit, getDocs } from 'firebase/firestore';
-import type { Club, User, Result } from '@/lib/types';
+import { collection, query, where, onSnapshot, doc, getDoc, getDocs, QueryConstraint } from 'firebase/firestore';
+import type { Club, User, Result, Series } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 
@@ -57,6 +55,8 @@ export default function ResultsPage() {
 
   const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
+  const [seriesList, setSeriesList] = useState<Series[]>([]);
+  const [selectedSeriesId, setSelectedSeriesId] = useState<string>('all');
   const [results, setResults] = useState<MatchResultSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -83,15 +83,40 @@ export default function ResultsPage() {
           } else if (clubs.length > 0) {
             setSelectedClubId(clubs[0].id);
           }
+        } else if (clubs.length > 0) {
+            setSelectedClubId(clubs[0].id);
         }
       });
     }
-     if (!user && !authLoading && clubs.length > 0) {
+     if (!user && !authLoading && clubs.length > 0 && !selectedClubId) {
         setSelectedClubId(clubs[0].id);
     }
   }, [user, authLoading, clubs, selectedClubId]);
 
-  // Fetch results for the selected club
+  // Fetch series for the selected club
+  useEffect(() => {
+    if (!selectedClubId || !firestore) {
+      setSeriesList([]);
+      return;
+    }
+    const seriesQuery = query(collection(firestore, 'series'), where('clubId', '==', selectedClubId));
+    const unsubscribe = onSnapshot(seriesQuery, (snapshot) => {
+      const seriesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Series));
+      setSeriesList(seriesData);
+      setSelectedSeriesId('all'); // Reset to all series when club changes
+    }, (error) => {
+        console.error("Error fetching series: ", error);
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Could not fetch series for the selected club.'
+        });
+    });
+
+    return () => unsubscribe();
+  }, [selectedClubId, toast]);
+
+  // Fetch results for the selected club and series
   useEffect(() => {
     if (!selectedClubId || !firestore) {
         setResults([]);
@@ -101,11 +126,16 @@ export default function ResultsPage() {
 
     setIsLoading(true);
     
-    const resultsQuery = query(
-        collection(firestore, 'results'),
+    const queryConstraints: QueryConstraint[] = [
         where('clubId', '==', selectedClubId),
-        where('position', '==', 1) // Only fetch the winners
-    );
+        where('position', '==', 1)
+    ];
+
+    if (selectedSeriesId !== 'all') {
+        queryConstraints.push(where('seriesId', '==', selectedSeriesId));
+    }
+    
+    const resultsQuery = query(collection(firestore, 'results'), ...queryConstraints);
 
     const unsubscribe = onSnapshot(resultsQuery, async (snapshot) => {
         if (snapshot.empty) {
@@ -153,7 +183,7 @@ export default function ResultsPage() {
     });
 
     return () => unsubscribe();
-  }, [selectedClubId, toast]);
+  }, [selectedClubId, selectedSeriesId, toast]);
 
   const renderResultsList = () => {
     if (isLoading) {
@@ -172,7 +202,7 @@ export default function ResultsPage() {
       return (
         <TableRow>
           <TableCell colSpan={5} className="h-24 text-center">
-            No results found for this club.
+            No results found for this selection.
           </TableCell>
         </TableRow>
       );
@@ -196,19 +226,36 @@ export default function ResultsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Results</h1>
           <p className="text-muted-foreground">View match results here.</p>
         </div>
-        <div className="w-64">
-             <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={clubs.length === 0}>
-                <SelectTrigger>
-                    <SelectValue placeholder="Select a club..." />
-                </SelectTrigger>
-                <SelectContent>
-                    {clubs.map((club) => (
-                        <SelectItem key={club.id} value={club.id}>
-                            {club.name}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
+        <div className="flex gap-4">
+            <div className="w-64">
+                <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={clubs.length === 0}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select a club..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {clubs.map((club) => (
+                            <SelectItem key={club.id} value={club.id}>
+                                {club.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="w-64">
+                <Select value={selectedSeriesId} onValueChange={setSelectedSeriesId} disabled={seriesList.length === 0}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select a series..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Series</SelectItem>
+                        {seriesList.map((series) => (
+                            <SelectItem key={series.id} value={series.id}>
+                                {series.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
         </div>
       </div>
       
@@ -216,7 +263,7 @@ export default function ResultsPage() {
         <CardHeader>
           <CardTitle>Completed Match Results</CardTitle>
           <CardDescription>
-            A summary of results for the selected club.
+            A summary of results for the selected club and series.
           </CardDescription>
         </CardHeader>
         <CardContent>
