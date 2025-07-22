@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   Card,
@@ -55,6 +55,8 @@ interface MatchResultSummary {
   winnerName: string;
 }
 
+type SortOption = 'Overall' | 'Section' | 'Peg';
+
 // Function to convert oz to kg for display
 const ozToKg = (oz: number): string => {
   if (typeof oz !== 'number' || isNaN(oz)) return '0.000';
@@ -84,6 +86,7 @@ export default function ResultsPage() {
   const [modalResults, setModalResults] = useState<Result[]>([]);
   const [isModalLoading, setIsModalLoading] = useState(false);
   const [selectedMatchForModal, setSelectedMatchForModal] = useState<MatchResultSummary | null>(null);
+  const [sortOption, setSortOption] = useState<SortOption>('Overall');
 
   // Fetch all clubs for the dropdown
   useEffect(() => {
@@ -284,6 +287,7 @@ export default function ResultsPage() {
     if (!firestore) return;
     
     setSelectedMatchForModal(result);
+    setSortOption('Overall'); // Reset sort on new modal open
     setIsModalOpen(true);
     setIsModalLoading(true);
     setModalResults([]);
@@ -294,15 +298,8 @@ export default function ResultsPage() {
         where('matchId', '==', result.matchId)
       );
       const snapshot = await getDocs(resultsQuery);
-      let fullResults = snapshot.docs.map(doc => doc.data() as Result);
+      const fullResults = snapshot.docs.map(doc => doc.data() as Result);
       
-      // Sort by position client-side
-      fullResults.sort((a, b) => {
-        if (a.position === null || a.position === undefined) return 1;
-        if (b.position === null || b.position === undefined) return -1;
-        return a.position - b.position;
-      });
-
       setModalResults(fullResults);
     } catch (error) {
       console.error("Error fetching full results:", error);
@@ -315,6 +312,30 @@ export default function ResultsPage() {
       setIsModalLoading(false);
     }
   };
+
+  const sortedModalResults = useMemo(() => {
+    const resultsCopy = [...modalResults];
+    switch (sortOption) {
+      case 'Section':
+        return resultsCopy.sort((a, b) => {
+          const sectionA = a.section || '';
+          const sectionB = b.section || '';
+          if (sectionA < sectionB) return -1;
+          if (sectionA > sectionB) return 1;
+          // If sections are equal, sort by position
+          return (a.position || Infinity) - (b.position || Infinity);
+        });
+      case 'Peg':
+         return resultsCopy.sort((a, b) => {
+          const pegA = parseInt(a.peg || '0', 10);
+          const pegB = parseInt(b.peg || '0', 10);
+          return pegA - pegB;
+        });
+      case 'Overall':
+      default:
+        return resultsCopy.sort((a, b) => (a.position || Infinity) - (b.position || Infinity));
+    }
+  }, [modalResults, sortOption]);
 
   const renderResultsList = () => {
     if (isLoading) {
@@ -356,27 +377,31 @@ export default function ResultsPage() {
                 <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-16" /></TableCell>
             </TableRow>
         ));
     }
     
-    if (modalResults.length === 0) {
+    if (sortedModalResults.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={4} className="h-24 text-center">
+          <TableCell colSpan={6} className="h-24 text-center">
             No results recorded for this match.
           </TableCell>
         </TableRow>
       );
     }
 
-    return modalResults.map((result) => (
+    return sortedModalResults.map((result) => (
       <TableRow key={result.userId}>
         <TableCell>
           {result.position ? <Badge variant="outline">{result.position}</Badge> : '-'}
         </TableCell>
         <TableCell className="font-medium">{result.userName}</TableCell>
         <TableCell>{ozToKg(result.weight)}</TableCell>
+        <TableCell>{result.peg || '-'}</TableCell>
+        <TableCell>{result.section || '-'}</TableCell>
         <TableCell>{result.status || 'OK'}</TableCell>
       </TableRow>
     ));
@@ -467,13 +492,26 @@ export default function ResultsPage() {
       
       {selectedMatchForModal && (
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Full Results: {selectedMatchForModal.matchName}</DialogTitle>
                     <DialogDescription>
                        {selectedMatchForModal.seriesName} - {format(selectedMatchForModal.date, 'PPP')}
                     </DialogDescription>
                 </DialogHeader>
+                <div className="flex items-center gap-4">
+                    <Label htmlFor="sort-results">Sort Results</Label>
+                    <Select value={sortOption} onValueChange={(value: SortOption) => setSortOption(value)}>
+                        <SelectTrigger id="sort-results" className="w-48">
+                            <SelectValue placeholder="Sort by..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Overall">Overall</SelectItem>
+                            <SelectItem value="Section">Section</SelectItem>
+                            <SelectItem value="Peg">Peg</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
                 <div className="mt-4 max-h-[60vh] overflow-y-auto">
                     <Table>
                         <TableHeader>
@@ -481,6 +519,8 @@ export default function ResultsPage() {
                                 <TableHead>Rank</TableHead>
                                 <TableHead>Name</TableHead>
                                 <TableHead>Kg</TableHead>
+                                <TableHead>Peg</TableHead>
+                                <TableHead>Section</TableHead>
                                 <TableHead>Status</TableHead>
                             </TableRow>
                         </TableHeader>
