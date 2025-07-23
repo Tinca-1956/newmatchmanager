@@ -60,6 +60,7 @@ export default function MembersPage() {
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [roleFilter, setRoleFilter] = useState<string>('all');
 
   useEffect(() => {
     if (authLoading || !user || !firestore) {
@@ -195,11 +196,12 @@ export default function MembersPage() {
   const canEdit = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
 
   const filteredMembers = useMemo(() => {
-    if (statusFilter === 'all') {
-      return members;
-    }
-    return members.filter(member => member.memberStatus === statusFilter);
-  }, [members, statusFilter]);
+    return members.filter(member => {
+      const statusMatch = statusFilter === 'all' || member.memberStatus === statusFilter;
+      const roleMatch = roleFilter === 'all' || member.role === roleFilter;
+      return statusMatch && roleMatch;
+    });
+  }, [members, statusFilter, roleFilter]);
 
   const renderMemberList = () => {
     if (isLoading) {
@@ -224,7 +226,7 @@ export default function MembersPage() {
       return (
         <TableRow>
           <TableCell colSpan={canEdit ? 4 : 3} className="h-24 text-center">
-            No members found with the selected status.
+            No members found with the selected filters.
           </TableCell>
         </TableRow>
       );
@@ -272,19 +274,34 @@ export default function MembersPage() {
                     A list of all the members in your primary club.
                 </CardDescription>
             </div>
-            <div className="w-48">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Filter by status..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="Pending">Pending</SelectItem>
-                        <SelectItem value="Member">Member</SelectItem>
-                        <SelectItem value="Suspended">Suspended</SelectItem>
-                        <SelectItem value="Blocked">Blocked</SelectItem>
-                    </SelectContent>
-                </Select>
+            <div className="flex gap-4">
+                <div className="w-48">
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Filter by status..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Statuses</SelectItem>
+                            <SelectItem value="Pending">Pending</SelectItem>
+                            <SelectItem value="Member">Member</SelectItem>
+                            <SelectItem value="Suspended">Suspended</SelectItem>
+                            <SelectItem value="Blocked">Blocked</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="w-48">
+                    <Select value={roleFilter} onValueChange={setRoleFilter}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Filter by role..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Roles</SelectItem>
+                            <SelectItem value="Angler">Angler</SelectItem>
+                            <SelectItem value="Marshal">Marshal</SelectItem>
+                            <SelectItem value="Club Admin">Club Admin</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
         </CardHeader>
         <CardContent>
