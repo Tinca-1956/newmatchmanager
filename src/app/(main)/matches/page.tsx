@@ -20,7 +20,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, CalendarIcon, HelpCircle, Scale, Trophy, FileText, Download, UserPlus } from 'lucide-react';
+import { PlusCircle, Edit, CalendarIcon, HelpCircle, Scale, Trophy, FileText, Download, UserPlus, ChevronRight } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -83,6 +83,8 @@ type AnglerDetails = Pick<User, 'id' | 'firstName' | 'lastName'> & {
   section: string;
 };
 
+type ClubMember = Pick<User, 'id' | 'firstName' | 'lastName'>;
+
 
 export default function MatchesPage() {
   const { user } = useAuth();
@@ -99,11 +101,17 @@ export default function MatchesPage() {
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
   const [isViewRegisteredDialogOpen, setIsViewRegisteredDialogOpen] = useState(false);
   const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
-  
+  const [isAssignAnglersDialogOpen, setIsAssignAnglersDialogOpen] = useState(false);
+
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [registeredAnglersDetails, setRegisteredAnglersDetails] = useState<AnglerDetails[]>([]);
   const [isLoadingAnglers, setIsLoadingAnglers] = useState(false);
   const [formState, setFormState] = useState<Omit<Match, 'id' | 'clubId' | 'seriesName'>>(EMPTY_MATCH);
+  
+  // State for Assign Anglers modal
+  const [availableMembers, setAvailableMembers] = useState<ClubMember[]>([]);
+  const [membersToAssign, setMembersToAssign] = useState<ClubMember[]>([]);
+  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
 
 
   useEffect(() => {
@@ -273,6 +281,56 @@ export default function MatchesPage() {
     } finally {
       setIsLoadingAnglers(false);
     }
+  };
+
+  const handleOpenAssignAnglersDialog = async (e: React.MouseEvent, match: Match) => {
+    e.stopPropagation();
+    if (!firestore || !currentUserProfile?.primaryClubId) return;
+
+    setSelectedMatch(match);
+    setIsAssignAnglersDialogOpen(true);
+    setIsLoadingMembers(true);
+    setAvailableMembers([]);
+    setMembersToAssign([]);
+
+    try {
+      const membersQuery = query(collection(firestore, 'users'), where('primaryClubId', '==', currentUserProfile.primaryClubId), where('memberStatus', '==', 'Member'));
+      const querySnapshot = await getDocs(membersQuery);
+      const allClubMembers = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          firstName: data.firstName,
+          lastName: data.lastName
+        } as ClubMember;
+      });
+
+      const registeredIds = new Set(match.registeredAnglers);
+      const available = allClubMembers
+        .filter(member => !registeredIds.has(member.id))
+        .sort((a,b) => a.lastName.localeCompare(b.lastName));
+      
+      setAvailableMembers(available);
+    } catch (error) {
+      console.error('Error fetching club members:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not fetch club members list.'
+      })
+    } finally {
+      setIsLoadingMembers(false);
+    }
+  };
+
+  const handleAssignMember = (member: ClubMember) => {
+    setAvailableMembers(prev => prev.filter(m => m.id !== member.id));
+    setMembersToAssign(prev => [...prev, member].sort((a,b) => a.lastName.localeCompare(b.lastName)));
+  };
+
+  const handleUnassignMember = (member: ClubMember) => {
+    setMembersToAssign(prev => prev.filter(m => m.id !== member.id));
+    setAvailableMembers(prev => [...prev, member].sort((a,b) => a.lastName.localeCompare(b.lastName)));
   };
 
   const handleSaveMatch = async (e: React.FormEvent) => {
@@ -565,6 +623,7 @@ export default function MatchesPage() {
                       variant="outline"
                       size="icon"
                       className="h-9 w-9"
+                      onClick={(e) => handleOpenAssignAnglersDialog(e, match)}
                     >
                       <UserPlus className="h-4 w-4" />
                     </Button>
@@ -946,8 +1005,83 @@ export default function MatchesPage() {
             </DialogContent>
         </Dialog>
       )}
+
+      {selectedMatch && (
+        <Dialog open={isAssignAnglersDialogOpen} onOpenChange={setIsAssignAnglersDialogOpen}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Assign Anglers to: {selectedMatch.name}</DialogTitle>
+              <DialogDescription>
+                Select members from the left list to assign them to the match on the right.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-4 h-96">
+                {/* Available Members Pane */}
+                <div className="flex flex-col">
+                    <h3 className="text-lg font-semibold mb-2">Available Club Members</h3>
+                    <Card className="flex-grow">
+                        <CardContent className="p-2 h-full">
+                           <ScrollArea className="h-full">
+                                {isLoadingMembers ? (
+                                    <div className="p-4 text-center">Loading members...</div>
+                                ) : availableMembers.length === 0 ? (
+                                    <div className="p-4 text-center text-muted-foreground">No available members found.</div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {availableMembers.map(member => (
+                                            <div key={member.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted">
+                                                <span>{member.firstName} {member.lastName}</span>
+                                                <Button variant="ghost" size="icon" onClick={() => handleAssignMember(member)}>
+                                                    <ChevronRight className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                           </ScrollArea>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Anglers to Assign Pane */}
+                <div className="flex flex-col">
+                    <h3 className="text-lg font-semibold mb-2">To Be Assigned ({membersToAssign.length})</h3>
+                     <Card className="flex-grow">
+                        <CardContent className="p-2 h-full">
+                           <ScrollArea className="h-full">
+                                {membersToAssign.length === 0 ? (
+                                     <div className="p-4 text-center text-muted-foreground">Select members to assign.</div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {membersToAssign.map(member => (
+                                            <div key={member.id} className="flex items-center justify-between p-2 rounded-md bg-secondary">
+                                                <span>{member.firstName} {member.lastName}</span>
+                                                <Button variant="ghost" size="icon" onClick={() => handleUnassignMember(member)}>
+                                                    <ChevronRight className="h-4 w-4 rotate-180" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </ScrollArea>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+             <DialogFooter>
+                <DialogClose asChild>
+                    <Button type="button" variant="ghost">Cancel</Button>
+                </DialogClose>
+                <Button type="button" disabled={isSaving}>
+                    {isSaving ? 'Saving...' : 'Save Assignments'}
+                </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
+
 
 
