@@ -360,7 +360,7 @@ export default function ResultsPage() {
       },
       styles: {
         fontSize: 8, // Reduced font size (20% smaller than default 10)
-        rowHeight: 7, // Set row height to 7mm
+        minCellHeight: 7, // Set row height to 7mm
         cellPadding: 2,
       },
       columnStyles: {
