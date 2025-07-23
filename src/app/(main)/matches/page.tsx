@@ -53,7 +53,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
 import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, Timestamp, arrayUnion, arrayRemove, increment, getDocs, getDoc, deleteDoc, writeBatch, orderBy } from 'firebase/firestore';
-import type { Match, Series, User, MatchStatus, Result } from '@/lib/types';
+import type { Match, Series, User, MatchStatus, Result, Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -93,6 +93,8 @@ export default function MatchesPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [seriesList, setSeriesList] = useState<Series[]>([]);
   const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
+  const [allClubs, setAllClubs] = useState<Club[]>([]);
+  const [selectedClubId, setSelectedClubId] = useState<string>('');
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -127,8 +129,10 @@ export default function MatchesPage() {
       if (userDoc.exists()) {
         const userProfile = { id: userDoc.id, ...userDoc.data() } as User;
         setCurrentUserProfile(userProfile);
+        if (userProfile.role !== 'Site Admin' && userProfile.primaryClubId) {
+            setSelectedClubId(userProfile.primaryClubId);
+        }
       } else {
-        // If user doc doesn't exist, they can't have a primary club, so stop loading.
         setIsLoading(false);
       }
     });
@@ -136,63 +140,70 @@ export default function MatchesPage() {
     return () => unsubscribeUser();
   }, [user]);
 
+  // Fetch all clubs if user is a site admin
   useEffect(() => {
-    if (!currentUserProfile || !firestore) {
-        // If there's no profile, we can't fetch data, so stop loading.
-        if(!currentUserProfile) setIsLoading(false);
+    if (currentUserProfile?.role === 'Site Admin' && firestore) {
+        const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
+        const unsubscribeClubs = onSnapshot(clubsQuery, (snapshot) => {
+            const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+            setAllClubs(clubsData);
+            if (!selectedClubId && clubsData.length > 0) {
+                setSelectedClubId(clubsData[0].id);
+            }
+        });
+        return () => unsubscribeClubs();
+    }
+  }, [currentUserProfile, selectedClubId]);
+
+  useEffect(() => {
+    if (!selectedClubId || !firestore) {
+        if(selectedClubId) setIsLoading(false);
+        setMatches([]);
+        setSeriesList([]);
         return;
     }
     
     let unsubscribeMatches: () => void = () => {};
     let unsubscribeSeries: () => void = () => {};
 
-    const primaryClubId = currentUserProfile.primaryClubId;
+    // Fetch Series
+    const seriesCollection = collection(firestore, 'series');
+    const seriesQuery = query(seriesCollection, where("clubId", "==", selectedClubId));
+    unsubscribeSeries = onSnapshot(seriesQuery, (snapshot) => {
+        const seriesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Series));
+        setSeriesList(seriesData);
+    }, (error) => {
+        console.error("Error fetching series: ", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series.'});
+    });
 
-    if (primaryClubId) {
-        // Fetch Series
-        const seriesCollection = collection(firestore, 'series');
-        const seriesQuery = query(seriesCollection, where("clubId", "==", primaryClubId));
-        unsubscribeSeries = onSnapshot(seriesQuery, (snapshot) => {
-            const seriesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Series));
-            setSeriesList(seriesData);
-        }, (error) => {
-            console.error("Error fetching series: ", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series.'});
+    // Fetch Matches
+    const matchesCollection = collection(firestore, 'matches');
+    const matchesQuery = query(matchesCollection, where("clubId", "==", selectedClubId), orderBy('date', 'desc'));
+    unsubscribeMatches = onSnapshot(matchesQuery, (snapshot) => {
+        const matchesData = snapshot.docs.map(doc => {
+             const data = doc.data();
+             return {
+                id: doc.id,
+                ...data,
+                date: (data.date as Timestamp).toDate(),
+                registeredAnglers: data.registeredAnglers || [],
+             } as Match
         });
-
-        // Fetch Matches
-        const matchesCollection = collection(firestore, 'matches');
-        const matchesQuery = query(matchesCollection, where("clubId", "==", primaryClubId), orderBy('date', 'desc'));
-        unsubscribeMatches = onSnapshot(matchesQuery, (snapshot) => {
-            const matchesData = snapshot.docs.map(doc => {
-                 const data = doc.data();
-                 return {
-                    id: doc.id,
-                    ...data,
-                    date: (data.date as Timestamp).toDate(),
-                    registeredAnglers: data.registeredAnglers || [],
-                 } as Match
-            });
-            setMatches(matchesData);
-            setIsLoading(false);
-        }, (error) => {
-            console.error("Error fetching matches: ", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches.'});
-            setIsLoading(false);
-        });
-
-    } else {
-        setMatches([]);
-        setSeriesList([]);
+        setMatches(matchesData);
         setIsLoading(false);
-    }
+    }, (error) => {
+        console.error("Error fetching matches: ", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches.'});
+        setIsLoading(false);
+    });
 
     return () => {
         unsubscribeMatches();
         unsubscribeSeries();
     };
 
-  }, [currentUserProfile, toast]);
+  }, [selectedClubId, toast]);
 
    const handleOpenEditDialog = (e: React.MouseEvent, match: Match) => {
     e.stopPropagation();
@@ -322,7 +333,7 @@ export default function MatchesPage() {
 
   const handleOpenAssignAnglersDialog = async (e: React.MouseEvent, match: Match) => {
     e.stopPropagation();
-    if (!firestore || !currentUserProfile?.primaryClubId) return;
+    if (!firestore || !selectedClubId) return;
 
     setSelectedMatch(match);
     setIsAssignAnglersDialogOpen(true);
@@ -331,7 +342,7 @@ export default function MatchesPage() {
     setMembersToAssign([]);
 
     try {
-      const membersQuery = query(collection(firestore, 'users'), where('primaryClubId', '==', currentUserProfile.primaryClubId), where('memberStatus', '==', 'Member'));
+      const membersQuery = query(collection(firestore, 'users'), where('primaryClubId', '==', selectedClubId), where('memberStatus', '==', 'Member'));
       const querySnapshot = await getDocs(membersQuery);
       const allClubMembers = querySnapshot.docs.map(doc => {
         const data = doc.data();
@@ -420,8 +431,8 @@ export default function MatchesPage() {
 
   const handleSaveMatch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUserProfile?.primaryClubId || !firestore) {
-        toast({ variant: 'destructive', title: 'Error', description: 'User profile not loaded.' });
+    if (!selectedClubId || !firestore) {
+        toast({ variant: 'destructive', title: 'Error', description: 'No club selected.' });
         return;
     }
 
@@ -439,7 +450,7 @@ export default function MatchesPage() {
         return;
     }
 
-    const dataToSave = { ...formState, clubId: currentUserProfile.primaryClubId, seriesName: series.name };
+    const dataToSave = { ...formState, clubId: selectedClubId, seriesName: series.name };
 
     try {
         if (selectedMatch) {
@@ -598,7 +609,7 @@ export default function MatchesPage() {
   const canEdit = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
 
   const handleDownloadAnglerListPdf = async () => {
-    if (!selectedMatch || !currentUserProfile?.primaryClubId || !firestore) {
+    if (!selectedMatch || !selectedClubId || !firestore) {
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -608,7 +619,7 @@ export default function MatchesPage() {
     }
 
     try {
-        const clubDocRef = doc(firestore, 'clubs', currentUserProfile.primaryClubId);
+        const clubDocRef = doc(firestore, 'clubs', selectedClubId);
         const clubDoc = await getDoc(clubDocRef);
         const clubName = clubDoc.exists() ? clubDoc.data().name : "Match Angler List";
 
@@ -917,12 +928,31 @@ export default function MatchesPage() {
           <h1 className="text-3xl font-bold tracking-tight">Matches</h1>
           <p className="text-muted-foreground">Manage your club's matches here.</p>
         </div>
-        {canCreate && (
-            <Button onClick={handleOpenCreateDialog}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Create Match
-            </Button>
-        )}
+        <div className="flex items-center gap-4">
+            {currentUserProfile?.role === 'Site Admin' && (
+                 <div className="grid w-52 gap-1.5">
+                    <Label htmlFor="club-filter">Clubs</Label>
+                    <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={allClubs.length === 0}>
+                        <SelectTrigger id="club-filter">
+                            <SelectValue placeholder="Select a club..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {allClubs.map((club) => (
+                                <SelectItem key={club.id} value={club.id}>
+                                    {club.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            )}
+            {canCreate && (
+                <Button onClick={handleOpenCreateDialog} disabled={!selectedClubId}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Create Match
+                </Button>
+            )}
+        </div>
       </div>
 
       <Card>
@@ -1244,3 +1274,5 @@ export default function MatchesPage() {
     </div>
   );
 }
+
+    
