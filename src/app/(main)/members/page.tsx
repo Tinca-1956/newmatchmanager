@@ -193,6 +193,11 @@ export default function MembersPage() {
     }
   };
 
+  const handleResetFilters = () => {
+    setStatusFilter('all');
+    setRoleFilter('all');
+  };
+
   const canEdit = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
 
   const filteredMembers = useMemo(() => {
@@ -274,10 +279,11 @@ export default function MembersPage() {
                     A list of all the members in your primary club.
                 </CardDescription>
             </div>
-            <div className="flex gap-4">
-                <div className="w-48">
+            <div className="flex items-end gap-2">
+                <div className="grid w-48 gap-1.5">
+                    <Label htmlFor="status-filter">Status</Label>
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger>
+                        <SelectTrigger id="status-filter">
                             <SelectValue placeholder="Filter by status..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -289,9 +295,10 @@ export default function MembersPage() {
                         </SelectContent>
                     </Select>
                 </div>
-                <div className="w-48">
+                <div className="grid w-48 gap-1.5">
+                    <Label htmlFor="role-filter">Role</Label>
                     <Select value={roleFilter} onValueChange={setRoleFilter}>
-                        <SelectTrigger>
+                        <SelectTrigger id="role-filter">
                             <SelectValue placeholder="Filter by role..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -302,6 +309,7 @@ export default function MembersPage() {
                         </SelectContent>
                     </Select>
                 </div>
+                <Button variant="outline" onClick={handleResetFilters}>Reset</Button>
             </div>
         </CardHeader>
         <CardContent>
