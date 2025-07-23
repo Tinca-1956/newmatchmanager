@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -17,6 +18,7 @@ import {
   User as UserIcon,
   FlaskConical,
   Trash2,
+  Beaker,
 } from 'lucide-react';
 import { SheetClose } from './ui/sheet';
 import { useAuth } from '@/hooks/use-auth';
@@ -36,6 +38,7 @@ const navItems = [
   { href: '/results', icon: Medal, label: 'Results' },
   { href: '/users', icon: UserCog, label: 'Users', adminOnly: true },
   { href: '/users/deleted', icon: Trash2, label: 'Deleted Users', adminOnly: true },
+  { href: '/admin/seed', icon: Beaker, label: 'Seed Data', adminOnly: true },
   { href: '/emulator', icon: FlaskConical, label: 'Emulator', adminOnly: true, emulatorOnly: true },
   { href: '/about', icon: Info, label: 'About' },
 ];
@@ -89,12 +92,18 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
           return false;
       }
       return true;
-  }).sort((a,b) => {
-      // Special sort to place "Deleted Users" right after "Users"
-      if (a.href === '/users/deleted' && b.href === '/users') return 1;
-      if (a.href === '/users' && b.href === '/users/deleted') return -1;
+  }).sort((a, b) => {
+      const adminOrder = ['/users', '/users/deleted', '/admin/seed', '/emulator'];
+      const aIndex = adminOrder.indexOf(a.href);
+      const bIndex = adminOrder.indexOf(b.href);
+      
+      if (aIndex !== -1 && bIndex !== -1) {
+          return aIndex - bIndex;
+      }
+      if (aIndex !== -1) return -1;
+      if (bIndex !== -1) return 1;
       return 0;
-  })
+  });
 
   return (
     <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
