@@ -162,9 +162,16 @@ export default function WeighInPage() {
 
   const handleFieldChange = (anglerId: string, field: keyof Omit<AnglerDetails, 'id' | 'firstName' | 'lastName' | 'isSaving'>, value: string) => {
     setAnglers(prev => 
-      prev.map(angler => 
-        angler.id === anglerId ? { ...angler, [field]: value } : angler
-      )
+      prev.map(angler => {
+        if (angler.id === anglerId) {
+          const updatedAngler = { ...angler, [field]: value };
+          if (field === 'status' && ['DNF', 'DNW', 'DSQ'].includes(value)) {
+            updatedAngler.weight = '0';
+          }
+          return updatedAngler;
+        }
+        return angler;
+      })
     );
   };
   
@@ -328,6 +335,7 @@ export default function WeighInPage() {
                         value={angler.weight}
                         onChange={(e) => handleFieldChange(angler.id, 'weight', e.target.value)}
                         step="0.001"
+                        disabled={['DNF', 'DNW', 'DSQ'].includes(angler.status)}
                     />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -422,6 +430,7 @@ export default function WeighInPage() {
                       value={angler.weight}
                       onChange={(e) => handleFieldChange(angler.id, 'weight', e.target.value)}
                       step="0.001"
+                      disabled={['DNF', 'DNW', 'DSQ'].includes(angler.status)}
                     />
                   </TableCell>
                   <TableCell>
