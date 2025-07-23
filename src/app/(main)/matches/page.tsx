@@ -20,7 +20,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, CalendarIcon, HelpCircle, Scale, Trophy, FileText, Download, UserPlus, ChevronRight, ChevronLeft } from 'lucide-react';
+import { PlusCircle, Edit, CalendarIcon, HelpCircle, Scale, Trophy, FileText, Download, UserPlus, ChevronRight, ChevronLeft, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -52,7 +52,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, Timestamp, arrayUnion, increment, getDocs, getDoc, deleteDoc, writeBatch, orderBy } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, Timestamp, arrayUnion, arrayRemove, increment, getDocs, getDoc, deleteDoc, writeBatch, orderBy } from 'firebase/firestore';
 import type { Match, Series, User, MatchStatus, Result } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
@@ -102,8 +102,10 @@ export default function MatchesPage() {
   const [isViewRegisteredDialogOpen, setIsViewRegisteredDialogOpen] = useState(false);
   const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
   const [isAssignAnglersDialogOpen, setIsAssignAnglersDialogOpen] = useState(false);
+  const [isUnregisterConfirmOpen, setIsUnregisterConfirmOpen] = useState(false);
 
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [anglerToUnregister, setAnglerToUnregister] = useState<AnglerDetails | null>(null);
   const [registeredAnglersDetails, setRegisteredAnglersDetails] = useState<AnglerDetails[]>([]);
   const [isLoadingAnglers, setIsLoadingAnglers] = useState(false);
   const [formState, setFormState] = useState<Omit<Match, 'id' | 'clubId' | 'seriesName'>>(EMPTY_MATCH);
@@ -388,6 +390,14 @@ export default function MatchesPage() {
         registeredCount: increment(memberIdsToAssign.length)
       });
 
+      // Update local state for immediate feedback
+      setRegisteredAnglersDetails(prev => [...prev, ...membersToAssign.map(m => ({...m, peg: '-', section: '-'}))].sort((a,b) => a.lastName.localeCompare(b.lastName)));
+      
+      const newMatchData = {...selectedMatch, registeredCount: selectedMatch.registeredCount + memberIdsToAssign.length, registeredAnglers: [...selectedMatch.registeredAnglers, ...memberIdsToAssign]};
+      setSelectedMatch(newMatchData as Match);
+      setMatches(prev => prev.map(m => m.id === selectedMatch.id ? newMatchData : m) as Match[]);
+
+
       toast({
         title: 'Success!',
         description: `${memberIdsToAssign.length} member(s) have been assigned to ${selectedMatch.name}.`
@@ -474,6 +484,44 @@ export default function MatchesPage() {
         setIsSaving(false);
     }
   };
+
+  const handleAdminUnregisterAngler = async () => {
+    if (!selectedMatch || !anglerToUnregister || !firestore) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Required data is missing.' });
+        return;
+    }
+
+    setIsSaving(true);
+    try {
+        const matchDocRef = doc(firestore, 'matches', selectedMatch.id);
+        await updateDoc(matchDocRef, {
+            registeredAnglers: arrayRemove(anglerToUnregister.id),
+            registeredCount: increment(-1),
+        });
+
+        // Update local state for immediate feedback
+        setRegisteredAnglersDetails(prev => prev.filter(angler => angler.id !== anglerToUnregister.id));
+        const newMatchData = {
+          ...selectedMatch,
+          registeredCount: selectedMatch.registeredCount - 1,
+          registeredAnglers: selectedMatch.registeredAnglers.filter(id => id !== anglerToUnregister.id)
+        };
+        setSelectedMatch(newMatchData);
+        setMatches(prev => prev.map(m => m.id === selectedMatch.id ? newMatchData : m));
+
+
+        toast({ title: 'Success', description: `${anglerToUnregister.firstName} ${anglerToUnregister.lastName} has been un-registered.` });
+        
+    } catch (error) {
+        console.error('Error un-registering angler:', error);
+        toast({ variant: 'destructive', title: 'Action Failed', description: 'Could not un-register the angler.' });
+    } finally {
+        setIsSaving(false);
+        setIsUnregisterConfirmOpen(false);
+        setAnglerToUnregister(null);
+    }
+  };
+
 
   const handleConfirmCancel = async () => {
     if (!selectedMatch || !firestore) {
@@ -800,6 +848,7 @@ export default function MatchesPage() {
               <TableHead><Skeleton className="h-4 w-24" /></TableHead>
               <TableHead><Skeleton className="h-4 w-16" /></TableHead>
               <TableHead><Skeleton className="h-4 w-16" /></TableHead>
+              {canEdit && <TableHead><Skeleton className="h-4 w-16" /></TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -809,6 +858,7 @@ export default function MatchesPage() {
                 <TableCell><Skeleton className="h-4 w-full" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-full" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                {canEdit && <TableCell><Skeleton className="h-10 w-full" /></TableCell>}
               </TableRow>
             ))}
           </TableBody>
@@ -828,6 +878,7 @@ export default function MatchesPage() {
             <TableHead>Last Name</TableHead>
             <TableHead>Section</TableHead>
             <TableHead>Peg</TableHead>
+            {canEdit && <TableHead className="text-right">Actions</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -837,6 +888,21 @@ export default function MatchesPage() {
               <TableCell>{angler.lastName}</TableCell>
               <TableCell>{angler.section}</TableCell>
               <TableCell>{angler.peg}</TableCell>
+              {canEdit && (
+                <TableCell className="text-right">
+                    <Button
+                        variant="destructive"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => {
+                            setAnglerToUnregister(angler);
+                            setIsUnregisterConfirmOpen(true);
+                        }}
+                    >
+                        <Trash2 className="h-4 w-4"/>
+                    </Button>
+                </TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>
@@ -1154,6 +1220,27 @@ export default function MatchesPage() {
           </DialogContent>
         </Dialog>
       )}
+
+        <AlertDialog open={isUnregisterConfirmOpen} onOpenChange={setIsUnregisterConfirmOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will remove <strong>{anglerToUnregister?.firstName} {anglerToUnregister?.lastName}</strong> from the match: <strong>{selectedMatch?.name}</strong>.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setAnglerToUnregister(null)}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                        onClick={handleAdminUnregisterAngler}
+                        disabled={isSaving}
+                        className="bg-destructive hover:bg-destructive/90"
+                    >
+                        {isSaving ? 'Removing...' : 'Yes, Remove'}
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </div>
   );
 }
