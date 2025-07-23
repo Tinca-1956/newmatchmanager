@@ -209,17 +209,26 @@ export default function MatchesPage() {
 
   const handleOpenRegisterDialog = (e: React.MouseEvent, match: Match) => {
     e.stopPropagation();
-
-    // Check if user has a role that can register
-    if (currentUserProfile?.role === 'Angler' || currentUserProfile?.role === 'Marshal') {
-      if (match.status !== 'Upcoming') {
+    
+    const canRegisterRoles = ['Angler', 'Marshal', 'Club Admin'];
+    if (currentUserProfile && canRegisterRoles.includes(currentUserProfile.role)) {
+      if (currentUserProfile.memberStatus !== 'Member') {
         toast({
           variant: 'destructive',
-          title: 'Registration Closed',
-          description: `Cannot register for a ${match.status.toLowerCase()} match.`,
+          title: 'Registration Not Allowed',
+          description: `Cannot register for match because your current member status is "${currentUserProfile.memberStatus}".`,
         });
         return;
       }
+    }
+
+    if (match.status !== 'Upcoming') {
+      toast({
+        variant: 'destructive',
+        title: 'Registration Closed',
+        description: `Cannot register for a ${match.status.toLowerCase()} match.`,
+      });
+      return;
     }
 
     if (match.registeredCount >= match.capacity) {
