@@ -27,13 +27,20 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDoc } from 'firebase/firestore';
-import type { Series, User } from '@/lib/types';
+import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDoc, orderBy } from 'firebase/firestore';
+import type { Series, User, Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function SeriesPage() {
@@ -43,6 +50,9 @@ export default function SeriesPage() {
   const [seriesList, setSeriesList] = useState<Series[]>([]);
   const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
   const [clubName, setClubName] = useState<string>('');
+  const [allClubs, setAllClubs] = useState<Club[]>([]);
+  const [selectedClubId, setSelectedClubId] = useState<string>('');
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -52,64 +62,87 @@ export default function SeriesPage() {
   const [selectedSeries, setSelectedSeries] = useState<Series | null>(null);
   const [newSeriesName, setNewSeriesName] = useState('');
 
+  // Fetch current user profile
   useEffect(() => {
     if (!user || !firestore) {
       setIsLoading(false);
       return;
     }
 
-    let unsubscribeSeries: () => void = () => {};
-
     const userDocRef = doc(firestore, 'users', user.uid);
-    const unsubscribeUser = onSnapshot(userDocRef, async (userDoc) => {
-        if (unsubscribeSeries) unsubscribeSeries();
-
+    const unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
         if (userDoc.exists()) {
             const userProfile = { id: userDoc.id, ...userDoc.data() } as User;
             setCurrentUserProfile(userProfile);
-            
-            const primaryClubId = userProfile.primaryClubId;
-            if (primaryClubId) {
-                const clubDocRef = doc(firestore, 'clubs', primaryClubId);
-                const clubDoc = await getDoc(clubDocRef);
-                setClubName(clubDoc.exists() ? clubDoc.data().name : 'Your Club');
-
-                const seriesCollection = collection(firestore, 'series');
-                const q = query(seriesCollection, where("clubId", "==", primaryClubId));
-                
-                unsubscribeSeries = onSnapshot(q, (snapshot) => {
-                    const seriesData = snapshot.docs.map(doc => ({
-                        id: doc.id,
-                        ...doc.data()
-                    } as Series));
-                    setSeriesList(seriesData);
-                    setIsLoading(false);
-                }, (error) => {
-                    console.error("Error fetching series: ", error);
-                    toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series.'});
-                    setIsLoading(false);
-                });
-
-            } else {
-                setClubName('No Club Selected');
-                setSeriesList([]);
-                setIsLoading(false);
+            // For non-admins, set the selected club to their primary club
+            if (userProfile.role !== 'Site Admin' && userProfile.primaryClubId) {
+                setSelectedClubId(userProfile.primaryClubId);
             }
         } else {
             setIsLoading(false);
         }
     });
 
+    return () => unsubscribeUser();
+  }, [user]);
+
+  // Fetch all clubs if user is a site admin
+  useEffect(() => {
+    if (currentUserProfile?.role === 'Site Admin' && firestore) {
+        const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
+        const unsubscribeClubs = onSnapshot(clubsQuery, (snapshot) => {
+            const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+            setAllClubs(clubsData);
+            if (!selectedClubId && clubsData.length > 0) {
+                setSelectedClubId(clubsData[0].id); // Default to first club
+            }
+        });
+        return () => unsubscribeClubs();
+    }
+  }, [currentUserProfile, selectedClubId]);
+
+
+  // Fetch series for the selected club
+  useEffect(() => {
+    if (!selectedClubId || !firestore) {
+      setSeriesList([]);
+      setClubName(currentUserProfile?.role === 'Site Admin' ? 'Please select a club' : 'No Club Selected');
+      if (selectedClubId) setIsLoading(false);
+      return;
+    }
+    
+    setIsLoading(true);
+
+    const clubDocRef = doc(firestore, 'clubs', selectedClubId);
+    const unsubscribeClub = onSnapshot(clubDocRef, (clubDoc) => {
+      setClubName(clubDoc.exists() ? clubDoc.data().name : 'Selected Club');
+    });
+
+    const seriesQuery = query(collection(firestore, 'series'), where("clubId", "==", selectedClubId));
+    const unsubscribeSeries = onSnapshot(seriesQuery, (snapshot) => {
+        const seriesData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as Series));
+        setSeriesList(seriesData);
+        setIsLoading(false);
+    }, (error) => {
+        console.error("Error fetching series: ", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series.' });
+        setIsLoading(false);
+    });
+
     return () => {
-        unsubscribeUser();
+        unsubscribeClub();
         unsubscribeSeries();
     };
-  }, [user, toast]);
+
+  }, [selectedClubId, toast, currentUserProfile]);
   
   const handleCreateSeries = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSeriesName.trim() || !currentUserProfile?.primaryClubId || !firestore) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Series name is required.' });
+    if (!newSeriesName.trim() || !selectedClubId || !firestore) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Series name and a selected club are required.' });
       return;
     }
     
@@ -117,7 +150,7 @@ export default function SeriesPage() {
     try {
       await addDoc(collection(firestore, 'series'), {
         name: newSeriesName,
-        clubId: currentUserProfile.primaryClubId,
+        clubId: selectedClubId,
         matchCount: 0,
         completedMatches: 0,
       });
@@ -169,7 +202,7 @@ export default function SeriesPage() {
             <TableCell><Skeleton className="h-4 w-[250px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[50px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[50px]" /></TableCell>
-            <TableCell className="text-right"><Skeleton className="h-10 w-[80px]" /></TableCell>
+            {canEdit && <TableCell className="text-right"><Skeleton className="h-10 w-[80px]" /></TableCell>}
           </TableRow>
       ));
     }
@@ -177,8 +210,8 @@ export default function SeriesPage() {
     if (seriesList.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={4} className="h-24 text-center">
-            No series found. Create the first one!
+          <TableCell colSpan={canEdit ? 4 : 3} className="h-24 text-center">
+            No series found for this club. Create the first one!
           </TableCell>
         </TableRow>
       );
@@ -189,14 +222,14 @@ export default function SeriesPage() {
           <TableCell className="font-medium">{series.name}</TableCell>
           <TableCell>{series.matchCount}</TableCell>
           <TableCell>{series.completedMatches}</TableCell>
-          <TableCell className="text-right">
-             {canEdit && (
+          {canEdit && (
+            <TableCell className="text-right">
                 <Button variant="outline" size="sm" onClick={() => handleEditClick(series)}>
                     <Edit className="mr-2 h-4 w-4"/>
                     Edit
                 </Button>
-            )}
-          </TableCell>
+            </TableCell>
+          )}
         </TableRow>
     ));
   }
@@ -208,18 +241,37 @@ export default function SeriesPage() {
           <h1 className="text-3xl font-bold tracking-tight">Series</h1>
           <p className="text-muted-foreground">Manage your match series here.</p>
         </div>
-        {canEdit && (
-            <Button onClick={() => setIsCreateDialogOpen(true)}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Create Series
-            </Button>
-        )}
+        <div className="flex items-center gap-4">
+            {currentUserProfile?.role === 'Site Admin' && (
+                 <div className="grid w-52 gap-1.5">
+                    <Label htmlFor="club-filter">Clubs</Label>
+                    <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={allClubs.length === 0}>
+                        <SelectTrigger id="club-filter">
+                            <SelectValue placeholder="Select a club..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {allClubs.map((club) => (
+                                <SelectItem key={club.id} value={club.id}>
+                                    {club.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            )}
+            {canEdit && (
+                <Button onClick={() => setIsCreateDialogOpen(true)} disabled={!selectedClubId}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Create Series
+                </Button>
+            )}
+        </div>
       </div>
 
       <Card>
         <CardHeader>
             <CardTitle>{clubName} Series</CardTitle>
-            <CardDescription>A list of all match series for your club.</CardDescription>
+            <CardDescription>A list of all match series for the selected club.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -228,7 +280,7 @@ export default function SeriesPage() {
                 <TableHead>Series Name</TableHead>
                 <TableHead>Match Count</TableHead>
                 <TableHead>Completed</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                {canEdit && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -244,7 +296,7 @@ export default function SeriesPage() {
             <DialogHeader>
               <DialogTitle>Create New Series</DialogTitle>
               <DialogDescription>
-                Enter a name for the new series.
+                Enter a name for the new series. It will be associated with the currently selected club: <span className="font-semibold">{clubName}</span>.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
