@@ -45,7 +45,7 @@ import { format } from 'date-fns';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import 'jspdf-autotable';
 
 
 interface MatchResultSummary {
@@ -320,51 +320,61 @@ export default function ResultsPage() {
   };
 
   const handleDownloadPdf = async () => {
-    const input = resultsTableRef.current;
-    if (!input || !selectedMatchForModal) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Could not generate PDF. The results table was not found.',
-      });
+    if (!selectedMatchForModal) {
+      toast({ variant: 'destructive', title: 'Error', description: 'No match data to generate PDF.' });
       return;
     }
 
-    try {
-      const canvas = await html2canvas(input);
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      const clubName = clubs.find(c => c.id === selectedClubId)?.name || 'Match Results';
-      const { seriesName, matchName, date, status } = selectedMatchForModal;
+    const doc = new jsPDF();
+    const clubName = clubs.find(c => c.id === selectedClubId)?.name || 'Match Results';
+    const { seriesName, matchName, date, status } = selectedMatchForModal;
 
-      // Header
-      pdf.setFontSize(22);
-      pdf.text(clubName, pdfWidth / 2, 20, { align: 'center' });
+    // Header
+    doc.setFontSize(18);
+    doc.text(clubName, doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
+    doc.setFontSize(14);
+    doc.text(`${seriesName} - ${matchName}`, doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
+    doc.setFontSize(10);
+    doc.text(`${format(date, 'PPP')} - Status: ${status} - Results Sorted by ${sortOption}`, doc.internal.pageSize.getWidth() / 2, 38, { align: 'center' });
+    
+    // Table
+    const tableData = sortedModalResults.map(r => [
+      r.position || '-',
+      r.userName,
+      formatWeightKg(r.weight),
+      r.peg || '-',
+      r.section || '-',
+      r.sectionPosition || '-',
+      r.status || 'OK'
+    ]);
 
-      pdf.setFontSize(14);
-      pdf.text(`${seriesName} - ${matchName}`, pdfWidth / 2, 30, { align: 'center' });
+    (doc as any).autoTable({
+      startY: 45,
+      head: [['Overall', 'Name', 'Kg', 'Peg', 'Section', 'Section Rank', 'Status']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [22, 163, 74], // A green color for the header
+        textColor: 255,
+        fontSize: 10,
+      },
+      styles: {
+        fontSize: 8, // Reduced font size (20% smaller than default 10)
+        rowHeight: 7, // Set row height to 7mm
+        cellPadding: 2,
+      },
+      columnStyles: {
+        0: { cellWidth: 15 }, // Overall
+        1: { cellWidth: 'auto' }, // Name
+        2: { cellWidth: 20 }, // Kg
+        3: { cellWidth: 15 }, // Peg
+        4: { cellWidth: 15 }, // Section
+        5: { cellWidth: 20 }, // Section Rank
+        6: { cellWidth: 15 }, // Status
+      }
+    });
 
-      pdf.setFontSize(10);
-      pdf.text(`${format(date, 'PPP')} - Status: ${status} - Results Sorted by ${sortOption}`, pdfWidth / 2, 38, { align: 'center' });
-
-
-      // Add table image
-      const tableYPosition = 50; // Y position to start the table image
-      pdf.addImage(imgData, 'PNG', 10, tableYPosition, pdfWidth - 20, pdfHeight * ((pdfWidth - 20) / pdfWidth));
-
-      pdf.save(`results-${matchName.replace(/ /g, '_')}.pdf`);
-
-    } catch (error) {
-       console.error("Error generating PDF:", error);
-       toast({
-        variant: 'destructive',
-        title: 'PDF Generation Failed',
-        description: 'An unexpected error occurred while creating the PDF.',
-      });
-    }
+    doc.save(`results-${matchName.replace(/ /g, '_')}.pdf`);
   };
 
   const processedModalResults = useMemo(() => {
