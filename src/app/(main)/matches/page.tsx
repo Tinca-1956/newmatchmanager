@@ -120,65 +120,71 @@ export default function MatchesPage() {
       return;
     }
 
+    const userDocRef = doc(firestore, 'users', user.uid);
+    const unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
+      if (userDoc.exists()) {
+        const userProfile = { id: userDoc.id, ...userDoc.data() } as User;
+        setCurrentUserProfile(userProfile);
+      } else {
+        setIsLoading(false);
+      }
+    });
+
+    return () => unsubscribeUser();
+  }, [user]);
+
+  useEffect(() => {
+    if (!currentUserProfile || !firestore) {
+        return;
+    }
+    
     let unsubscribeMatches: () => void = () => {};
     let unsubscribeSeries: () => void = () => {};
 
-    const userDocRef = doc(firestore, 'users', user.uid);
-    const unsubscribeUser = onSnapshot(userDocRef, async (userDoc) => {
-        if (unsubscribeMatches) unsubscribeMatches();
-        if (unsubscribeSeries) unsubscribeSeries();
-        
-        if (userDoc.exists()) {
-            const userProfile = { id: userDoc.id, ...userDoc.data() } as User;
-            setCurrentUserProfile(userProfile);
-            
-            const primaryClubId = userProfile.primaryClubId;
-            if (primaryClubId) {
-                // Fetch Series
-                const seriesCollection = collection(firestore, 'series');
-                const seriesQuery = query(seriesCollection, where("clubId", "==", primaryClubId));
-                unsubscribeSeries = onSnapshot(seriesQuery, (snapshot) => {
-                    const seriesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Series));
-                    setSeriesList(seriesData);
-                });
+    const primaryClubId = currentUserProfile.primaryClubId;
 
-                // Fetch Matches
-                const matchesCollection = collection(firestore, 'matches');
-                const matchesQuery = query(matchesCollection, where("clubId", "==", primaryClubId), orderBy('date', 'desc'));
-                unsubscribeMatches = onSnapshot(matchesQuery, (snapshot) => {
-                    const matchesData = snapshot.docs.map(doc => {
-                         const data = doc.data();
-                         return {
-                            id: doc.id,
-                            ...data,
-                            date: (data.date as Timestamp).toDate(),
-                            registeredAnglers: data.registeredAnglers || [],
-                         } as Match
-                    });
-                    setMatches(matchesData);
-                    setIsLoading(false);
-                }, (error) => {
-                    console.error("Error fetching matches: ", error);
-                    toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches.'});
-                    setIsLoading(false);
-                });
+    if (primaryClubId) {
+        // Fetch Series
+        const seriesCollection = collection(firestore, 'series');
+        const seriesQuery = query(seriesCollection, where("clubId", "==", primaryClubId));
+        unsubscribeSeries = onSnapshot(seriesQuery, (snapshot) => {
+            const seriesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Series));
+            setSeriesList(seriesData);
+        });
 
-            } else {
-                setMatches([]);
-                setSeriesList([]);
-                setIsLoading(false);
-            }
-        } else {
+        // Fetch Matches
+        const matchesCollection = collection(firestore, 'matches');
+        const matchesQuery = query(matchesCollection, where("clubId", "==", primaryClubId), orderBy('date', 'desc'));
+        unsubscribeMatches = onSnapshot(matchesQuery, (snapshot) => {
+            const matchesData = snapshot.docs.map(doc => {
+                 const data = doc.data();
+                 return {
+                    id: doc.id,
+                    ...data,
+                    date: (data.date as Timestamp).toDate(),
+                    registeredAnglers: data.registeredAnglers || [],
+                 } as Match
+            });
+            setMatches(matchesData);
             setIsLoading(false);
-        }
-    });
+        }, (error) => {
+            console.error("Error fetching matches: ", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches.'});
+            setIsLoading(false);
+        });
+
+    } else {
+        setMatches([]);
+        setSeriesList([]);
+        setIsLoading(false);
+    }
 
     return () => {
-        unsubscribeUser();
         unsubscribeMatches();
         unsubscribeSeries();
     };
-  }, [user, toast]);
+
+  }, [currentUserProfile, toast]);
 
    const handleOpenEditDialog = (e: React.MouseEvent, match: Match) => {
     e.stopPropagation();
