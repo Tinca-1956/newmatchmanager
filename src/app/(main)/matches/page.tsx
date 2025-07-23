@@ -20,7 +20,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, CalendarIcon, HelpCircle, Scale, Trophy, FileText, Download } from 'lucide-react';
+import { PlusCircle, Edit, CalendarIcon, HelpCircle, Scale, Trophy, FileText, Download, UserPlus } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -558,6 +558,22 @@ export default function MatchesPage() {
           <TableCell>{displayStatus}</TableCell>
           <TableCell className="text-right space-x-2" onClick={(e) => e.stopPropagation()}>
             <TooltipProvider>
+               {canEdit && (
+                 <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">
+                    <p>Assign members to match</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -933,4 +949,5 @@ export default function MatchesPage() {
     </div>
   );
 }
+
 
