@@ -1158,10 +1158,10 @@ export default function MatchesPage() {
             </DialogHeader>
             <div className="grid grid-cols-2 gap-4 h-96">
                 {/* Available Members Pane */}
-                <div className="flex flex-col">
+                <div className="flex flex-col h-full min-h-0">
                     <h3 className="text-lg font-semibold mb-2">Available Club Members</h3>
-                    <Card className="flex-grow">
-                        <CardContent className="p-2 h-full">
+                    <Card className="flex-grow flex flex-col min-h-0">
+                        <CardContent className="p-2 flex-grow min-h-0">
                            <ScrollArea className="h-full">
                                 {isLoadingMembers ? (
                                     <div className="p-4 text-center">Loading members...</div>
@@ -1185,10 +1185,10 @@ export default function MatchesPage() {
                 </div>
 
                 {/* Anglers to Assign Pane */}
-                <div className="flex flex-col">
+                <div className="flex flex-col h-full min-h-0">
                     <h3 className="text-lg font-semibold mb-2">To Be Assigned ({membersToAssign.length})</h3>
-                     <Card className="flex-grow">
-                        <CardContent className="p-2 h-full">
+                     <Card className="flex-grow flex flex-col min-h-0">
+                        <CardContent className="p-2 flex-grow min-h-0">
                            <ScrollArea className="h-full">
                                 {membersToAssign.length === 0 ? (
                                      <div className="p-4 text-center text-muted-foreground">Select members to assign.</div>
