@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -39,15 +38,10 @@ type AnglerDetails = Pick<User, 'id' | 'firstName' | 'lastName'> & {
   isSaving: boolean;
 };
 
-// Function to convert kg to oz
-const kgToOz = (kg: number): number => {
-  return Math.round(kg * 35.274);
-};
-
-// Function to convert oz to kg for display
-const ozToKg = (oz: number): string => {
-  if (!oz) return '';
-  return (oz / 35.274).toFixed(3);
+// Helper function to format weight to 3 decimal places
+const formatWeight = (weight: number | undefined | null): string => {
+  if (weight === undefined || weight === null) return '';
+  return weight.toFixed(3);
 };
 
 
@@ -167,7 +161,7 @@ export default function WeighInPage() {
                     ...a, 
                     peg: result?.peg || '',
                     section: result?.section || '',
-                    weight: result?.weight ? ozToKg(result.weight) : '', 
+                    weight: result ? formatWeight(result.weight) : '', 
                     status: (result?.status || 'NYW') as WeighInStatus, 
                     rank: result?.position?.toString() || '',
                     isSaving: false
@@ -200,7 +194,7 @@ export default function WeighInPage() {
         if (angler.id === anglerId) {
           const updatedAngler = { ...angler, [field]: value };
           if (field === 'status' && ['DNF', 'DNW', 'DSQ'].includes(value)) {
-            updatedAngler.weight = '0';
+            updatedAngler.weight = '0.000';
           }
           return updatedAngler;
         }
@@ -229,14 +223,13 @@ export default function WeighInPage() {
         const resultDocRef = doc(firestore, 'results', resultId);
         
         const weightInKg = parseFloat(angler.weight || '0');
-        const totalOz = kgToOz(weightInKg);
         
         // Save the individual angler's result
         const dataToSave: Partial<Result> = {
             matchId: match.id,
             userId: angler.id,
             userName: `${angler.firstName} ${angler.lastName}`,
-            weight: totalOz,
+            weight: weightInKg,
             date: match.date,
             seriesId: match.seriesId,
             clubId: match.clubId,
@@ -354,8 +347,12 @@ export default function WeighInPage() {
                     <Input
                         id={`weight-${angler.id}`}
                         type="number"
-                        placeholder="e.g. 8.5"
+                        placeholder="e.g. 8.500"
                         value={angler.weight}
+                        onBlur={(e) => {
+                            const formatted = parseFloat(e.target.value).toFixed(3);
+                            handleFieldChange(angler.id, 'weight', formatted)
+                        }}
                         onChange={(e) => handleFieldChange(angler.id, 'weight', e.target.value)}
                         step="0.001"
                         disabled={['DNF', 'DNW', 'DSQ'].includes(angler.status)}
@@ -449,8 +446,12 @@ export default function WeighInPage() {
                     <Input
                       className="h-8 w-24"
                       type="number"
-                      placeholder="e.g. 8.5"
+                      placeholder="e.g. 8.500"
                       value={angler.weight}
+                      onBlur={(e) => {
+                          const formatted = parseFloat(e.target.value).toFixed(3);
+                          handleFieldChange(angler.id, 'weight', formatted)
+                      }}
                       onChange={(e) => handleFieldChange(angler.id, 'weight', e.target.value)}
                       step="0.001"
                       disabled={['DNF', 'DNW', 'DSQ'].includes(angler.status)}

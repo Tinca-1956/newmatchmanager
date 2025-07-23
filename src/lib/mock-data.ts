@@ -19,10 +19,10 @@ export const mockUpcomingMatches: DashboardMatch[] = [
 ];
 
 export const mockRecentResults: (Result & { seriesName: string; venue: string, date: Date })[] = [
-    { matchId: 'match-4', userId: 'user-2', userName: 'Jane Doe', position: 1, weight: 1280, points: 1, seriesName: 'Spring Open', venue: 'Kingfisher Pond', date: new Date(new Date().setDate(new Date().getDate() - 7)) },
-    { matchId: 'match-4', userId: 'user-1', userName: 'John Angler', position: 2, weight: 1120, points: 2, seriesName: 'Spring Open', venue: 'Kingfisher Pond', date: new Date(new Date().setDate(new Date().getDate() - 7)) },
-    { matchId: 'match-4', userId: 'user-3', userName: 'Peter Smith', position: 3, weight: 980, points: 3, seriesName: 'Spring Open', venue: 'Kingfisher Pond', date: new Date(new Date().setDate(new Date().getDate() - 7)) },
-    { matchId: 'match-5', userId: 'user-4', userName: 'Susan B.', position: 1, weight: 2400, points: 1, seriesName: 'Club Championship', venue: 'Grand Union Canal', date: new Date(new Date().setDate(new Date().getDate() - 14)) },
+    { clubId: 'club-1', seriesId: 'series-1', matchId: 'match-4', userId: 'user-2', userName: 'Jane Doe', position: 1, weight: 80.5, points: 1, seriesName: 'Spring Open', venue: 'Kingfisher Pond', date: new Date(new Date().setDate(new Date().getDate() - 7)) },
+    { clubId: 'club-1', seriesId: 'series-1', matchId: 'match-4', userId: 'user-1', userName: 'John Angler', position: 2, weight: 70.0, points: 2, seriesName: 'Spring Open', venue: 'Kingfisher Pond', date: new Date(new Date().setDate(new Date().getDate() - 7)) },
+    { clubId: 'club-1', seriesId: 'series-1', matchId: 'match-4', userId: 'user-3', userName: 'Peter Smith', position: 3, weight: 61.25, points: 3, seriesName: 'Spring Open', venue: 'Kingfisher Pond', date: new Date(new Date().setDate(new Date().getDate() - 7)) },
+    { clubId: 'club-1', seriesId: 'series-1', matchId: 'match-5', userId: 'user-4', userName: 'Susan B.', position: 1, weight: 150.0, points: 1, seriesName: 'Club Championship', venue: 'Grand Union Canal', date: new Date(new Date().setDate(new Date().getDate() - 14)) },
 ];
 
     

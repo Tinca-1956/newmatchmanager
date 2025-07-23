@@ -17,12 +17,9 @@ import { mockUpcomingMatches, mockRecentResults } from '@/lib/mock-data';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 
-function weightLbsOz(totalOz: number) {
-    const lbs = Math.floor(totalOz / 16);
-    const oz = totalOz % 16;
-    return `${lbs}lbs ${oz}oz`;
+function formatWeightKg(weight: number): string {
+  return `${weight.toFixed(3)} kg`;
 }
-
 
 export default function DashboardPage() {
   return (
@@ -82,7 +79,7 @@ export default function DashboardPage() {
                   <TableRow key={result.userId}>
                     <TableCell><Badge variant="outline">{result.position}</Badge></TableCell>
                     <TableCell>{result.userName}</TableCell>
-                    <TableCell>{weightLbsOz(result.weight)}</TableCell>
+                    <TableCell>{formatWeightKg(result.weight)}</TableCell>
                     <TableCell>{format(result.date, 'MMM dd')}</TableCell>
                   </TableRow>
                 ))}

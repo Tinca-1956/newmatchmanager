@@ -60,10 +60,9 @@ interface MatchResultSummary {
 
 type SortOption = 'Overall' | 'Section' | 'Peg';
 
-// Function to convert oz to kg for display
-const ozToKg = (oz: number): string => {
-  if (typeof oz !== 'number' || isNaN(oz)) return '0.000';
-  return (oz / 35.274).toFixed(3);
+const formatWeightKg = (weight: number | undefined | null): string => {
+  if (weight === undefined || weight === null) return '0.000';
+  return weight.toFixed(3);
 };
 
 
@@ -481,7 +480,7 @@ export default function ResultsPage() {
           {result.position ? <Badge variant="outline">{result.position}</Badge> : '-'}
         </TableCell>
         <TableCell className="font-medium">{result.userName}</TableCell>
-        <TableCell>{ozToKg(result.weight)}</TableCell>
+        <TableCell>{formatWeightKg(result.weight)}</TableCell>
         <TableCell>{result.peg || '-'}</TableCell>
         <TableCell>{result.section || '-'}</TableCell>
         <TableCell>{result.status || 'OK'}</TableCell>

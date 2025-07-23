@@ -63,7 +63,7 @@ export interface Result {
   userId: string;
   userName: string;
   position: number;
-  weight: number; // in oz
+  weight: number; // in kg
   points: number;
   date: Date | Timestamp;
   status?: WeighInStatus;
