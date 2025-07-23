@@ -20,11 +20,11 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
-import { collection, doc, onSnapshot, updateDoc, getDocs } from 'firebase/firestore';
-import type { User, UserRole, Club } from '@/lib/types';
+import { collection, doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import type { User, UserRole, Club, MembershipStatus } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { User as UserIcon, Edit, Search } from 'lucide-react';
+import { User as UserIcon, Edit, Search, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -34,6 +34,17 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -94,7 +105,7 @@ export default function UsersPage() {
           const usersData = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
-          } as User));
+          } as User)).filter(u => u.memberStatus !== 'Deleted'); // Exclude "deleted" users
           setUsers(usersData);
           setIsLoading(false);
         }, (error) => {
@@ -133,6 +144,7 @@ export default function UsersPage() {
         lastName: selectedUser.lastName,
         role: selectedUser.role,
         primaryClubId: selectedUser.primaryClubId,
+        memberStatus: selectedUser.memberStatus,
       });
 
       toast({
@@ -150,6 +162,34 @@ export default function UsersPage() {
       });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSoftDeleteUser = async () => {
+    if (!selectedUser || !firestore) return;
+
+    setIsSaving(true);
+    try {
+        const userDocRef = doc(firestore, 'users', selectedUser.id);
+        await updateDoc(userDocRef, {
+            memberStatus: 'Deleted'
+        });
+
+        toast({
+            title: 'User Marked for Deletion',
+            description: `${selectedUser.firstName}'s has been moved to the Deleted Users list.`,
+        });
+        setIsEditDialogOpen(false);
+        setSelectedUser(null);
+    } catch (error) {
+        console.error('Error marking user for deletion:', error);
+        toast({
+            variant: 'destructive',
+            title: 'Action Failed',
+            description: 'Could not mark the user for deletion.',
+        });
+    } finally {
+        setIsSaving(false);
     }
   };
   
@@ -399,6 +439,23 @@ export default function UsersPage() {
                   <Label htmlFor="email">Email</Label>
                   <Input id="email" value={selectedUser.email} disabled />
                 </div>
+                 <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={selectedUser.memberStatus}
+                    onValueChange={(value) => setSelectedUser({...selectedUser, memberStatus: value as MembershipStatus})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Pending">Pending</SelectItem>
+                      <SelectItem value="Member">Member</SelectItem>
+                      <SelectItem value="Suspended">Suspended</SelectItem>
+                      <SelectItem value="Blocked">Blocked</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">Role</Label>
                   <Select
@@ -437,11 +494,35 @@ export default function UsersPage() {
                     </Select>
                   </div>
               </div>
-              <DialogFooter>
-                <Button type="button" variant="ghost" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={isSaving}>
-                  {isSaving ? 'Saving...' : 'Save Changes'}
-                </Button>
+              <DialogFooter className="sm:justify-between">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button type="button" variant="destructive" disabled={user?.uid === selectedUser.id}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete User
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will mark the user for deletion. Their account will be hidden from the app and moved to a special deletion list for final removal after you have removed them from Firebase Authentication. This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleSoftDeleteUser} disabled={isSaving}>
+                        {isSaving ? 'Deleting...' : 'Yes, Delete User'}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                <div className="flex gap-2">
+                    <Button type="button" variant="ghost" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                    <Button type="submit" disabled={isSaving}>
+                        {isSaving ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                </div>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -450,5 +531,3 @@ export default function UsersPage() {
     </div>
   );
 }
-
-    

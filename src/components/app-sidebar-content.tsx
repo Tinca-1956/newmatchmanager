@@ -16,6 +16,7 @@ import {
   Fish,
   User as UserIcon,
   FlaskConical,
+  Trash2,
 } from 'lucide-react';
 import { SheetClose } from './ui/sheet';
 import { useAuth } from '@/hooks/use-auth';
@@ -34,6 +35,7 @@ const navItems = [
   { href: '/matches', icon: Swords, label: 'Matches' },
   { href: '/results', icon: Medal, label: 'Results' },
   { href: '/users', icon: UserCog, label: 'Users', adminOnly: true },
+  { href: '/users/deleted', icon: Trash2, label: 'Deleted Users', adminOnly: true },
   { href: '/emulator', icon: FlaskConical, label: 'Emulator', adminOnly: true, emulatorOnly: true },
   { href: '/about', icon: Info, label: 'About' },
 ];
@@ -79,16 +81,24 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
     );
   }
 
+  const sortedNavItems = navItems.filter(item => {
+      if (item.adminOnly && currentUserProfile?.role !== 'Site Admin') {
+          return false;
+      }
+      if (item.emulatorOnly && !isEmulatorMode) {
+          return false;
+      }
+      return true;
+  }).sort((a,b) => {
+      // Special sort to place "Deleted Users" right after "Users"
+      if (a.href === '/users/deleted' && b.href === '/users') return 1;
+      if (a.href === '/users' && b.href === '/users/deleted') return -1;
+      return 0;
+  })
+
   return (
     <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
-      {navItems.map((item) => {
-        if (item.adminOnly && currentUserProfile?.role !== 'Site Admin') {
-          return null;
-        }
-        if (item.emulatorOnly && !isEmulatorMode) {
-          return null;
-        }
-
+      {sortedNavItems.map((item) => {
         const isActive =
           (item.href !== '/' && pathname.startsWith(item.href)) || pathname === item.href;
 

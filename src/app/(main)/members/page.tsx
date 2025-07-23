@@ -117,7 +117,7 @@ export default function MembersPage() {
             primaryClubId: data.primaryClubId,
             clubName: currentClubName,
           } as Member;
-        });
+        }).filter(m => m.memberStatus !== 'Deleted'); // Exclude deleted members from this view
         setMembers(membersData);
         setIsLoading(false);
       }, (error) => {
