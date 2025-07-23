@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -16,6 +15,7 @@ import {
   Info,
   Fish,
   User as UserIcon,
+  FlaskConical,
 } from 'lucide-react';
 import { SheetClose } from './ui/sheet';
 import { useAuth } from '@/hooks/use-auth';
@@ -34,6 +34,7 @@ const navItems = [
   { href: '/matches', icon: Swords, label: 'Matches' },
   { href: '/results', icon: Medal, label: 'Results' },
   { href: '/users', icon: UserCog, label: 'Users', adminOnly: true },
+  { href: '/emulator', icon: FlaskConical, label: 'Emulator', adminOnly: true, emulatorOnly: true },
   { href: '/about', icon: Info, label: 'About' },
 ];
 
@@ -46,8 +47,13 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
   const { user } = useAuth();
   const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isEmulatorMode, setIsEmulatorMode] = useState(false);
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      setIsEmulatorMode(true);
+    }
+
     if (!user || !firestore) {
       setIsLoading(false);
       return;
@@ -79,6 +85,10 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
         if (item.adminOnly && currentUserProfile?.role !== 'Site Admin') {
           return null;
         }
+        if (item.emulatorOnly && !isEmulatorMode) {
+          return null;
+        }
+
         const isActive =
           (item.href !== '/' && pathname.startsWith(item.href)) || pathname === item.href;
 
