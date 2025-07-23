@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import {
@@ -64,6 +64,34 @@ export default function WeighInPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('card');
+
+  const recalculateRanks = useCallback((currentAnglers: AnglerDetails[]): AnglerDetails[] => {
+    // Create a mutable copy
+    const rankedAnglers = currentAnglers.map(a => ({...a}));
+
+    // Filter for anglers who are eligible for ranking (status 'OK' and have a weight)
+    const eligibleAnglers = rankedAnglers
+        .filter(a => a.status === 'OK' && parseFloat(a.weight || '0') > 0)
+        // Sort by weight descending
+        .sort((a, b) => parseFloat(b.weight || '0') - parseFloat(a.weight || '0'));
+    
+    // Assign ranks to eligible anglers
+    eligibleAnglers.forEach((angler, index) => {
+        const originalAngler = rankedAnglers.find(a => a.id === angler.id);
+        if (originalAngler) {
+            originalAngler.rank = (index + 1).toString();
+        }
+    });
+
+    // Reset rank for ineligible anglers
+    rankedAnglers.forEach(a => {
+        if (a.status !== 'OK' || parseFloat(a.weight || '0') <= 0) {
+            a.rank = '';
+        }
+    });
+    
+    return rankedAnglers;
+  }, []);
 
   useEffect(() => {
     async function checkAuthorizationAndFetchData() {
@@ -139,7 +167,7 @@ export default function WeighInPage() {
                     isSaving: false
                 }
             });
-            setAnglers(initialAnglers);
+            setAnglers(recalculateRanks(initialAnglers));
         }
 
       } catch (error: any) {
@@ -158,11 +186,11 @@ export default function WeighInPage() {
     }
 
     checkAuthorizationAndFetchData();
-  }, [user, matchId, router, toast]);
+  }, [user, matchId, router, toast, recalculateRanks]);
 
   const handleFieldChange = (anglerId: string, field: keyof Omit<AnglerDetails, 'id' | 'firstName' | 'lastName' | 'isSaving'>, value: string) => {
-    setAnglers(prev => 
-      prev.map(angler => {
+    setAnglers(prev => {
+      let updatedAnglers = prev.map(angler => {
         if (angler.id === anglerId) {
           const updatedAngler = { ...angler, [field]: value };
           if (field === 'status' && ['DNF', 'DNW', 'DSQ'].includes(value)) {
@@ -171,8 +199,15 @@ export default function WeighInPage() {
           return updatedAngler;
         }
         return angler;
-      })
-    );
+      });
+
+      // Recalculate ranks if weight or status was changed
+      if (field === 'weight' || field === 'status') {
+          updatedAnglers = recalculateRanks(updatedAnglers);
+      }
+      
+      return updatedAnglers;
+    });
   };
   
   const handleSaveAngler = async (anglerId: string) => {
@@ -202,59 +237,41 @@ export default function WeighInPage() {
             peg: angler.peg,
             section: angler.section,
             status: angler.status,
+            position: angler.rank ? parseInt(angler.rank) : null,
+            points: angler.rank ? parseInt(angler.rank) : null,
         };
         await setDoc(resultDocRef, dataToSave, { merge: true });
-
-        // Now, fetch all results for the match to recalculate ranks
+        
+        // After saving one, we ensure consistency by re-fetching and re-ranking all server data.
         const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', matchId));
         const resultsSnapshot = await getDocs(resultsQuery);
         
         const resultsToProcess: Result[] = [];
         resultsSnapshot.forEach(doc => {
-            resultsToProcess.push(doc.data() as Result);
+            resultsToProcess.push({id: doc.id, ...doc.data()} as Result & {id: string});
         });
 
-        // Sort by weight descending to assign positions for 'OK' statuses
-        resultsToProcess
-          .filter(r => r.status === 'OK' && r.weight > 0)
-          .sort((a, b) => b.weight - a.weight)
-          .forEach((result, index) => {
-            const resultToUpdate = resultsToProcess.find(r => r.userId === result.userId);
-            if (resultToUpdate) {
-                resultToUpdate.position = index + 1;
-                resultToUpdate.points = index + 1;
-            }
-          });
+        const eligibleForRanking = resultsToProcess
+            .filter(r => r.status === 'OK' && r.weight > 0)
+            .sort((a, b) => b.weight - a.weight);
 
+        // Create a map for easy lookup
+        const rankMap = new Map<string, number>();
+        eligibleForRanking.forEach((result, index) => {
+            rankMap.set(result.id, index + 1);
+        });
 
         // Update all result documents with new ranks in a batch
         const batch = writeBatch(firestore);
         resultsToProcess.forEach((result) => {
-            const docRef = doc(firestore, 'results', `${match.id}_${result.userId}`);
-            batch.update(docRef, { 
-                position: result.position || null, 
-                points: result.points || null
+            const resultDocRef = doc(firestore, 'results', result.id);
+            const newPosition = rankMap.get(result.id) || null;
+            batch.update(resultDocRef, { 
+                position: newPosition,
+                points: newPosition 
             });
         });
         await batch.commit();
-
-        // Update local state to reflect new ranks for all anglers
-        setAnglers(prevAnglers => {
-            const newAnglers = [...prevAnglers];
-            resultsToProcess.forEach((result) => {
-                const anglerIndex = newAnglers.findIndex(a => a.id === result.userId);
-                if (anglerIndex !== -1) {
-                    newAnglers[anglerIndex].rank = result.position ? result.position.toString() : '';
-                }
-            });
-            // Also reset ranks for those not in the results (e.g., DNW)
-            newAnglers.forEach(a => {
-                if (!resultsToProcess.some(r => r.userId === a.id)) {
-                    a.rank = '';
-                }
-            });
-            return newAnglers;
-        });
 
         toast({
             title: 'Success!',
