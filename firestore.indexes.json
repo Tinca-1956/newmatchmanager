@@ -13,6 +13,21 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "primaryClubId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "memberStatus",
+          "order": "ASCENDING"
+        }
+      ]
     }
-  ]
+  ],
+  "fieldOverrides": []
 }
