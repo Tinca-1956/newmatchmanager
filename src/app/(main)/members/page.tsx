@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -58,6 +59,7 @@ export default function MembersPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   useEffect(() => {
     if (authLoading || !user || !firestore) {
@@ -192,6 +194,13 @@ export default function MembersPage() {
 
   const canEdit = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
 
+  const filteredMembers = useMemo(() => {
+    if (statusFilter === 'all') {
+      return members;
+    }
+    return members.filter(member => member.memberStatus === statusFilter);
+  }, [members, statusFilter]);
+
   const renderMemberList = () => {
     if (isLoading) {
       return Array.from({ length: 5 }).map((_, i) => (
@@ -206,22 +215,22 @@ export default function MembersPage() {
             </TableCell>
             <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
-            {canEdit && <TableCell><Skeleton className="h-10 w-20" /></TableCell>}
+            {canEdit && <TableCell className="text-right"><Skeleton className="h-10 w-12" /></TableCell>}
           </TableRow>
       ));
     }
     
-    if (members.length === 0) {
+    if (filteredMembers.length === 0) {
       return (
         <TableRow>
           <TableCell colSpan={canEdit ? 4 : 3} className="h-24 text-center">
-            No members found for this club.
+            No members found with the selected status.
           </TableCell>
         </TableRow>
       );
     }
     
-    return members.map((member) => (
+    return filteredMembers.map((member) => (
        <TableRow key={member.id}>
           <TableCell>
             <div className="flex items-center gap-3">
@@ -254,13 +263,29 @@ export default function MembersPage() {
         <p className="text-muted-foreground">Manage your club members here.</p>
       </div>
       <Card>
-        <CardHeader>
-          <CardTitle>
-            {isLoading ? <Skeleton className="h-6 w-48" /> : `${clubName} Members`}
-          </CardTitle>
-          <CardDescription>
-            A list of all the members in your primary club.
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+                <CardTitle>
+                    {isLoading ? <Skeleton className="h-6 w-48" /> : `${clubName} Members`}
+                </CardTitle>
+                <CardDescription>
+                    A list of all the members in your primary club.
+                </CardDescription>
+            </div>
+            <div className="w-48">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Filter by status..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="Pending">Pending</SelectItem>
+                        <SelectItem value="Member">Member</SelectItem>
+                        <SelectItem value="Suspended">Suspended</SelectItem>
+                        <SelectItem value="Blocked">Blocked</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
         </CardHeader>
         <CardContent>
           <Table>
