@@ -126,6 +126,7 @@ export default function MatchesPage() {
         const userProfile = { id: userDoc.id, ...userDoc.data() } as User;
         setCurrentUserProfile(userProfile);
       } else {
+        // If user doc doesn't exist, they can't have a primary club, so stop loading.
         setIsLoading(false);
       }
     });
@@ -135,6 +136,8 @@ export default function MatchesPage() {
 
   useEffect(() => {
     if (!currentUserProfile || !firestore) {
+        // If there's no profile, we can't fetch data, so stop loading.
+        if(!currentUserProfile) setIsLoading(false);
         return;
     }
     
@@ -150,6 +153,9 @@ export default function MatchesPage() {
         unsubscribeSeries = onSnapshot(seriesQuery, (snapshot) => {
             const seriesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Series));
             setSeriesList(seriesData);
+        }, (error) => {
+            console.error("Error fetching series: ", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series.'});
         });
 
         // Fetch Matches
@@ -203,15 +209,29 @@ export default function MatchesPage() {
 
   const handleOpenRegisterDialog = (e: React.MouseEvent, match: Match) => {
     e.stopPropagation();
+
+    // Check if user has a role that can register
+    if (currentUserProfile?.role === 'Angler' || currentUserProfile?.role === 'Marshal') {
+      if (match.status !== 'Upcoming') {
+        toast({
+          variant: 'destructive',
+          title: 'Registration Closed',
+          description: `Cannot register for a ${match.status.toLowerCase()} match.`,
+        });
+        return;
+      }
+    }
+
     if (match.registeredCount >= match.capacity) {
       toast({
         variant: 'destructive',
         title: 'Registration Full',
         description:
-          'This match registration list has reached the maximum number of anglers that the location can comfortably accommodate',
+          'This match has reached its maximum capacity.',
       });
       return;
     }
+    
     setSelectedMatch(match);
     setIsRegisterDialogOpen(true);
   };
