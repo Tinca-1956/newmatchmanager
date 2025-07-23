@@ -66,13 +66,11 @@ export default function WeighInPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('card');
 
   const recalculateRanks = useCallback((currentAnglers: AnglerDetails[]): AnglerDetails[] => {
-    // Create a mutable copy
     const rankedAnglers = currentAnglers.map(a => ({...a}));
 
     // Filter for anglers who are eligible for ranking (status 'OK' and have a weight)
     const eligibleAnglers = rankedAnglers
         .filter(a => a.status === 'OK' && parseFloat(a.weight || '0') > 0)
-        // Sort by weight descending
         .sort((a, b) => parseFloat(b.weight || '0') - parseFloat(a.weight || '0'));
     
     // Assign ranks to eligible anglers
@@ -82,11 +80,19 @@ export default function WeighInPage() {
             originalAngler.rank = (index + 1).toString();
         }
     });
+    
+    // Calculate the rank for those who did not weigh in
+    const lastPlaceRank = eligibleAnglers.length > 0 ? eligibleAnglers.length : 0;
+    const dnwRank = lastPlaceRank + 1;
 
-    // Reset rank for ineligible anglers
+    // Assign ranks to everyone else
     rankedAnglers.forEach(a => {
         if (a.status !== 'OK' || parseFloat(a.weight || '0') <= 0) {
-            a.rank = '';
+            if (['DNF', 'DNW', 'DSQ'].includes(a.status)) {
+                a.rank = dnwRank.toString();
+            } else {
+                a.rank = ''; // Reset for NYW
+            }
         }
     });
     
