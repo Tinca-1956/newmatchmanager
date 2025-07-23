@@ -366,8 +366,35 @@ export default function ResultsPage() {
     }
   };
 
+  const processedModalResults = useMemo(() => {
+    const resultsCopy = modalResults.map(r => ({ ...r }));
+
+    // 1. Assign ranks to those with weight
+    const rankedWithWeight = resultsCopy
+      .filter(r => r.status === 'OK' && r.weight > 0)
+      .sort((a, b) => b.weight - a.weight);
+    
+    rankedWithWeight.forEach((result, index) => {
+        const original = resultsCopy.find(r => r.userId === result.userId);
+        if (original) original.position = index + 1;
+    });
+
+    // 2. Assign ranks to DNW/DNF/DSQ
+    const lastPlaceRank = rankedWithWeight.length;
+    const dnwRank = lastPlaceRank + 1;
+
+    resultsCopy.forEach(result => {
+        if (['DNF', 'DNW', 'DSQ'].includes(result.status || '')) {
+            result.position = dnwRank;
+        }
+    });
+
+    return resultsCopy;
+
+  }, [modalResults]);
+
   const sortedModalResults = useMemo(() => {
-    const resultsCopy = [...modalResults];
+    const resultsCopy = [...processedModalResults];
     switch (sortOption) {
       case 'Section':
         return resultsCopy.sort((a, b) => {
@@ -375,7 +402,7 @@ export default function ResultsPage() {
           const sectionB = b.section || '';
           if (sectionA < sectionB) return -1;
           if (sectionA > sectionB) return 1;
-          // If sections are equal, sort by position
+          // If sections are equal, sort by overall position
           return (a.position || Infinity) - (b.position || Infinity);
         });
       case 'Peg':
@@ -388,7 +415,7 @@ export default function ResultsPage() {
       default:
         return resultsCopy.sort((a, b) => (a.position || Infinity) - (b.position || Infinity));
     }
-  }, [modalResults, sortOption]);
+  }, [processedModalResults, sortOption]);
 
   const renderResultsList = () => {
     if (isLoading) {
