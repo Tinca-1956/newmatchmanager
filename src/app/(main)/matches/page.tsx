@@ -20,7 +20,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, CalendarIcon, HelpCircle, Scale, Trophy, FileText, Download, UserPlus, ChevronRight } from 'lucide-react';
+import { PlusCircle, Edit, CalendarIcon, HelpCircle, Scale, Trophy, FileText, Download, UserPlus, ChevronRight, ChevronLeft } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -144,7 +144,7 @@ export default function MatchesPage() {
 
                 // Fetch Matches
                 const matchesCollection = collection(firestore, 'matches');
-                const matchesQuery = query(matchesCollection, where("clubId", "==", primaryClubId));
+                const matchesQuery = query(matchesCollection, where("clubId", "==", primaryClubId), orderBy('date', 'desc'));
                 unsubscribeMatches = onSnapshot(matchesQuery, (snapshot) => {
                     const matchesData = snapshot.docs.map(doc => {
                          const data = doc.data();
@@ -332,6 +332,46 @@ export default function MatchesPage() {
     setMembersToAssign(prev => prev.filter(m => m.id !== member.id));
     setAvailableMembers(prev => [...prev, member].sort((a,b) => a.lastName.localeCompare(b.lastName)));
   };
+  
+  const handleSaveAssignments = async () => {
+    if (!selectedMatch || !firestore || membersToAssign.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'No Members Selected',
+        description: 'Please assign at least one member to the match before saving.'
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const matchDocRef = doc(firestore, 'matches', selectedMatch.id);
+      const memberIdsToAssign = membersToAssign.map(m => m.id);
+
+      await updateDoc(matchDocRef, {
+        registeredAnglers: arrayUnion(...memberIdsToAssign),
+        registeredCount: increment(memberIdsToAssign.length)
+      });
+
+      toast({
+        title: 'Success!',
+        description: `${memberIdsToAssign.length} member(s) have been assigned to ${selectedMatch.name}.`
+      });
+      setIsAssignAnglersDialogOpen(false);
+      setMembersToAssign([]);
+      setAvailableMembers([]);
+    } catch (error) {
+       console.error('Error assigning members:', error);
+       toast({
+        variant: 'destructive',
+        title: 'Assignment Failed',
+        description: 'Could not assign members to the match. Please try again.'
+      })
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
 
   const handleSaveMatch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1057,7 +1097,7 @@ export default function MatchesPage() {
                                             <div key={member.id} className="flex items-center justify-between p-2 rounded-md bg-secondary">
                                                 <span>{member.firstName} {member.lastName}</span>
                                                 <Button variant="ghost" size="icon" onClick={() => handleUnassignMember(member)}>
-                                                    <ChevronRight className="h-4 w-4 rotate-180" />
+                                                    <ChevronLeft className="h-4 w-4" />
                                                 </Button>
                                             </div>
                                         ))}
@@ -1072,7 +1112,7 @@ export default function MatchesPage() {
                 <DialogClose asChild>
                     <Button type="button" variant="ghost">Cancel</Button>
                 </DialogClose>
-                <Button type="button" disabled={isSaving}>
+                <Button type="button" onClick={handleSaveAssignments} disabled={isSaving || membersToAssign.length === 0}>
                     {isSaving ? 'Saving...' : 'Save Assignments'}
                 </Button>
             </DialogFooter>
@@ -1082,6 +1122,3 @@ export default function MatchesPage() {
     </div>
   );
 }
-
-
-
