@@ -573,7 +573,7 @@ export default function ResultsPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Rank</TableHead>
+                                    <TableHead>Position</TableHead>
                                     <TableHead>Name</TableHead>
                                     <TableHead>Kg</TableHead>
                                     <TableHead>Peg</TableHead>
