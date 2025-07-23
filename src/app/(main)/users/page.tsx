@@ -55,6 +55,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useRouter } from 'next/navigation';
+import { Badge } from '@/components/ui/badge';
 
 export default function UsersPage() {
   const { user, loading: authLoading } = useAuth();
@@ -72,6 +73,8 @@ export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClubIdFilter, setSelectedClubIdFilter] = useState<string>('all');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>('all');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
+
 
   const getClubName = (clubId: string | undefined) => {
     if (!clubId) return 'N/A';
@@ -105,7 +108,7 @@ export default function UsersPage() {
           const usersData = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
-          } as User)).filter(u => u.memberStatus !== 'Deleted'); // Exclude "deleted" users
+          } as User));
           setUsers(usersData);
           setIsLoading(false);
         }, (error) => {
@@ -197,6 +200,7 @@ export default function UsersPage() {
     setSearchTerm('');
     setSelectedClubIdFilter('all');
     setSelectedRoleFilter('all');
+    setSelectedStatusFilter('all');
   };
 
   const filteredUsers = users.filter(u => {
@@ -204,13 +208,14 @@ export default function UsersPage() {
                       (selectedClubIdFilter === 'none' && !u.primaryClubId) || 
                       u.primaryClubId === selectedClubIdFilter;
     const roleMatch = selectedRoleFilter === 'all' || u.role === selectedRoleFilter;
+    const statusMatch = selectedStatusFilter === 'all' || u.memberStatus === selectedStatusFilter;
     
     const searchMatch = searchTerm.trim() === '' ||
                         (u.firstName?.toLowerCase().includes(searchTerm.toLowerCase())) ||
                         (u.lastName?.toLowerCase().includes(searchTerm.toLowerCase())) ||
                         (u.email?.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    return clubMatch && roleMatch && searchMatch;
+    return clubMatch && roleMatch && statusMatch && searchMatch;
   });
 
   const handleExportCsv = () => {
@@ -223,7 +228,7 @@ export default function UsersPage() {
       return;
     }
 
-    const headers = ['First Name', 'Last Name', 'Email', 'Club', 'Role'];
+    const headers = ['First Name', 'Last Name', 'Email', 'Club', 'Role', 'Status'];
     const csvContent = [
       headers.join(','),
       ...filteredUsers.map(user => [
@@ -232,6 +237,7 @@ export default function UsersPage() {
         user.email || '',
         getClubName(user.primaryClubId) || 'N/A',
         user.role || 'Angler',
+        user.memberStatus || 'Pending'
       ].join(','))
     ].join('\n');
 
@@ -269,6 +275,7 @@ export default function UsersPage() {
             <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
             <TableCell className="text-right"><Skeleton className="h-10 w-20" /></TableCell>
           </TableRow>
       ));
@@ -277,7 +284,7 @@ export default function UsersPage() {
     if (filteredUsers.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={6} className="h-24 text-center">
+          <TableCell colSpan={7} className="h-24 text-center">
             No users found for this filter.
           </TableCell>
         </TableRow>
@@ -300,6 +307,11 @@ export default function UsersPage() {
           <TableCell>{getClubName(u.primaryClubId)}</TableCell>
           <TableCell>{u.email}</TableCell>
           <TableCell>{u.role}</TableCell>
+          <TableCell>
+            <Badge variant={u.memberStatus === 'Deleted' ? 'destructive' : 'outline'}>
+              {u.memberStatus}
+            </Badge>
+          </TableCell>
           <TableCell className="text-right">
             <Button variant="outline" size="sm" onClick={() => handleEditClick(u)}>
               <Edit className="h-4 w-4" />
@@ -320,7 +332,7 @@ export default function UsersPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Users</h1>
           <p className="text-muted-foreground">Manage all application users here.</p>
@@ -328,22 +340,36 @@ export default function UsersPage() {
         <div className="flex flex-col md:flex-row md:items-end gap-2">
             <div className="grid w-full md:w-auto gap-1.5">
                 <Label htmlFor="search-users">Search</Label>
-                 <div className="flex items-center gap-2">
-                    <Button variant="outline" onClick={handleResetFilters}>Reset</Button>
-                    <div className="relative">
-                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                      <Input
-                          id="search-users"
-                          type="search"
-                          placeholder="Search..."
-                          className="pl-8 sm:w-[250px]"
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                      />
-                    </div>
-                 </div>
+                 <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        id="search-users"
+                        type="search"
+                        placeholder="Search by name or email..."
+                        className="pl-8 sm:w-[250px]"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
             </div>
-            <div className="grid w-full md:w-52 gap-1.5">
+            <div className="flex-grow" />
+             <div className="grid w-full md:w-48 gap-1.5">
+                <Label htmlFor="status-filter">Status</Label>
+                <Select value={selectedStatusFilter} onValueChange={setSelectedStatusFilter}>
+                    <SelectTrigger id="status-filter">
+                        <SelectValue placeholder="Filter by status..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="Pending">Pending</SelectItem>
+                        <SelectItem value="Member">Member</SelectItem>
+                        <SelectItem value="Suspended">Suspended</SelectItem>
+                        <SelectItem value="Blocked">Blocked</SelectItem>
+                        <SelectItem value="Deleted">Deleted</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="grid w-full md:w-48 gap-1.5">
                 <Label htmlFor="club-filter">Club</Label>
                 <Select value={selectedClubIdFilter} onValueChange={setSelectedClubIdFilter} disabled={clubs.length === 0}>
                     <SelectTrigger id="club-filter">
@@ -360,7 +386,7 @@ export default function UsersPage() {
                     </SelectContent>
                 </Select>
             </div>
-            <div className="grid w-full md:w-52 gap-1.5">
+            <div className="grid w-full md:w-48 gap-1.5">
                 <Label htmlFor="role-filter">Role</Label>
                 <Select value={selectedRoleFilter} onValueChange={setSelectedRoleFilter}>
                     <SelectTrigger id="role-filter">
@@ -375,14 +401,17 @@ export default function UsersPage() {
                     </SelectContent>
                 </Select>
             </div>
-            <Button variant="outline" onClick={handleExportCsv}>Export</Button>
+            <div className="flex items-end gap-2">
+              <Button variant="outline" onClick={handleResetFilters}>Reset</Button>
+              <Button variant="outline" onClick={handleExportCsv}>Export</Button>
+            </div>
         </div>
       </div>
       <Card>
         <CardHeader>
           <CardTitle>All Users</CardTitle>
           <CardDescription>
-            A list of all users in the system.
+            A list of all users in the system, including those marked for deletion.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -394,6 +423,7 @@ export default function UsersPage() {
                 <TableHead>Club</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -453,6 +483,7 @@ export default function UsersPage() {
                       <SelectItem value="Member">Member</SelectItem>
                       <SelectItem value="Suspended">Suspended</SelectItem>
                       <SelectItem value="Blocked">Blocked</SelectItem>
+                       <SelectItem value="Deleted">Deleted</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
