@@ -370,7 +370,7 @@ export default function ResultsPage() {
   const processedModalResults = useMemo(() => {
     const resultsCopy: ResultWithSectionRank[] = modalResults.map(r => ({ ...r }));
 
-    // 1. Assign ranks to those with weight
+    // 1. Assign overall ranks to those with weight
     const rankedWithWeight = resultsCopy
       .filter(r => r.status === 'OK' && r.weight > 0)
       .sort((a, b) => b.weight - a.weight);
@@ -380,7 +380,7 @@ export default function ResultsPage() {
         if (original) original.position = index + 1;
     });
 
-    // 2. Assign ranks to DNW/DNF/DSQ
+    // 2. Assign overall ranks to DNW/DNF/DSQ
     const lastPlaceRank = rankedWithWeight.length;
     const dnwRank = lastPlaceRank + 1;
 
@@ -402,16 +402,30 @@ export default function ResultsPage() {
     });
 
     for (const section in resultsBySection) {
-      const sectionResults = resultsBySection[section]
-        .filter(r => r.status === 'OK' && r.weight > 0)
-        .sort((a, b) => b.weight - a.weight);
+        // Rank anglers with weight
+        const sectionResultsWithWeight = resultsBySection[section]
+            .filter(r => r.status === 'OK' && r.weight > 0)
+            .sort((a, b) => b.weight - a.weight);
 
-      sectionResults.forEach((result, index) => {
-        const original = resultsCopy.find(r => r.userId === result.userId);
-        if (original) {
-          original.sectionPosition = index + 1;
-        }
-      });
+        sectionResultsWithWeight.forEach((result, index) => {
+            const original = resultsCopy.find(r => r.userId === result.userId);
+            if (original) {
+            original.sectionPosition = index + 1;
+            }
+        });
+
+        // Rank anglers without weight (DNF, DNW, DSQ)
+        const lastSectionRank = sectionResultsWithWeight.length;
+        const dnwSectionRank = lastSectionRank + 1;
+
+        resultsBySection[section].forEach(result => {
+            if (['DNF', 'DNW', 'DSQ'].includes(result.status || '')) {
+                const original = resultsCopy.find(r => r.userId === result.userId);
+                if (original) {
+                    original.sectionPosition = dnwSectionRank;
+                }
+            }
+        });
     }
 
     return resultsCopy;
