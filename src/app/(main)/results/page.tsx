@@ -60,6 +60,8 @@ interface MatchResultSummary {
 
 type SortOption = 'Overall' | 'Section' | 'Peg';
 
+type ResultWithSectionRank = Result & { sectionPosition?: number };
+
 const formatWeightKg = (weight: number | undefined | null): string => {
   if (weight === undefined || weight === null) return '0.000';
   return weight.toFixed(3);
@@ -366,7 +368,7 @@ export default function ResultsPage() {
   };
 
   const processedModalResults = useMemo(() => {
-    const resultsCopy = modalResults.map(r => ({ ...r }));
+    const resultsCopy: ResultWithSectionRank[] = modalResults.map(r => ({ ...r }));
 
     // 1. Assign ranks to those with weight
     const rankedWithWeight = resultsCopy
@@ -388,8 +390,31 @@ export default function ResultsPage() {
         }
     });
 
-    return resultsCopy;
+    // 3. Calculate Section Ranks
+    const resultsBySection: { [key: string]: ResultWithSectionRank[] } = {};
+    resultsCopy.forEach(result => {
+      if (result.section) {
+        if (!resultsBySection[result.section]) {
+          resultsBySection[result.section] = [];
+        }
+        resultsBySection[result.section].push(result);
+      }
+    });
 
+    for (const section in resultsBySection) {
+      const sectionResults = resultsBySection[section]
+        .filter(r => r.status === 'OK' && r.weight > 0)
+        .sort((a, b) => b.weight - a.weight);
+
+      sectionResults.forEach((result, index) => {
+        const original = resultsCopy.find(r => r.userId === result.userId);
+        if (original) {
+          original.sectionPosition = index + 1;
+        }
+      });
+    }
+
+    return resultsCopy;
   }, [modalResults]);
 
   const sortedModalResults = useMemo(() => {
@@ -460,6 +485,7 @@ export default function ResultsPage() {
                 <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-16" /></TableCell>
             </TableRow>
         ));
     }
@@ -467,7 +493,7 @@ export default function ResultsPage() {
     if (sortedModalResults.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={6} className="h-24 text-center">
+          <TableCell colSpan={7} className="h-24 text-center">
             No results recorded for this match.
           </TableCell>
         </TableRow>
@@ -483,6 +509,9 @@ export default function ResultsPage() {
         <TableCell>{formatWeightKg(result.weight)}</TableCell>
         <TableCell>{result.peg || '-'}</TableCell>
         <TableCell>{result.section || '-'}</TableCell>
+        <TableCell>
+          {result.sectionPosition || '-'}
+        </TableCell>
         <TableCell>{result.status || 'OK'}</TableCell>
       </TableRow>
     ));
@@ -574,7 +603,7 @@ export default function ResultsPage() {
       
       {selectedMatchForModal && (
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-            <DialogContent className="sm:max-w-2xl">
+            <DialogContent className="sm:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>Full Results: {selectedMatchForModal.matchName}</DialogTitle>
                     <DialogDescription>
@@ -604,6 +633,7 @@ export default function ResultsPage() {
                                     <TableHead>Kg</TableHead>
                                     <TableHead>Peg</TableHead>
                                     <TableHead>Section</TableHead>
+                                    <TableHead>Section Rank</TableHead>
                                     <TableHead>Status</TableHead>
                                 </TableRow>
                             </TableHeader>
