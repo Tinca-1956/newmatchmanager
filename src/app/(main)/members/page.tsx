@@ -24,7 +24,7 @@ import { collection, doc, getDoc, onSnapshot, query, where, updateDoc } from 'fi
 import type { User, UserRole, MembershipStatus } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { User as UserIcon, Edit } from 'lucide-react';
+import { User as UserIcon, Edit, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -61,6 +61,7 @@ export default function MembersPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (authLoading || !user || !firestore) {
@@ -194,6 +195,7 @@ export default function MembersPage() {
   };
 
   const handleResetFilters = () => {
+    setSearchTerm('');
     setStatusFilter('all');
     setRoleFilter('all');
   };
@@ -204,9 +206,11 @@ export default function MembersPage() {
     return members.filter(member => {
       const statusMatch = statusFilter === 'all' || member.memberStatus === statusFilter;
       const roleMatch = roleFilter === 'all' || member.role === roleFilter;
-      return statusMatch && roleMatch;
+      const searchMatch = searchTerm.trim() === '' ||
+                        `${member.firstName} ${member.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
+      return statusMatch && roleMatch && searchMatch;
     });
-  }, [members, statusFilter, roleFilter]);
+  }, [members, statusFilter, roleFilter, searchTerm]);
 
   const renderMemberList = () => {
     if (isLoading) {
@@ -280,6 +284,16 @@ export default function MembersPage() {
                 </CardDescription>
             </div>
             <div className="flex items-end gap-2">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                      type="search"
+                      placeholder="Search by name..."
+                      className="pl-8 sm:w-[250px] h-10"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
                 <div className="grid w-48 gap-1.5">
                     <Label htmlFor="status-filter">Status</Label>
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
