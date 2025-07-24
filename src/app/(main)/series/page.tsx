@@ -258,10 +258,16 @@ export default function SeriesPage() {
                       <p>Series Points Summary</p>
                     </TooltipContent>
                   </Tooltip>
-                  <Button variant="outline" size="sm" onClick={() => handleEditClick(series)}>
-                      <Edit className="mr-2 h-4 w-4"/>
-                      Edit
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" size="icon" onClick={() => handleEditClick(series)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">
+                      <p>Edit Series Details</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               </TooltipProvider>
             </TableCell>
