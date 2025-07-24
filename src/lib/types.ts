@@ -53,6 +53,7 @@ export interface Match {
   capacity: number;
   registeredCount: number;
   registeredAnglers: string[];
+  paidPlaces: number;
 }
 
 export interface Result {
