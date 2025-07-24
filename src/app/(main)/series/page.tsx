@@ -44,6 +44,7 @@ import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDocs, 
 import type { Series, User, Club, Match } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import Link from 'next/link';
 
 interface SeriesWithMatchCount extends Series {
     matchCount: number;
@@ -250,8 +251,10 @@ export default function SeriesPage() {
                 <div className="inline-flex gap-2">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="outline" size="icon">
-                        <FileText className="h-4 w-4" />
+                       <Button asChild variant="outline" size="icon">
+                        <Link href={`/series/${series.id}/points`}>
+                          <FileText className="h-4 w-4" />
+                        </Link>
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="left">
@@ -400,3 +403,4 @@ export default function SeriesPage() {
     </div>
   );
 }
+
