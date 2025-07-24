@@ -39,7 +39,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDoc, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
 import type { Series, User, Club, Match } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -126,18 +126,19 @@ export default function SeriesPage() {
 
     const seriesQuery = query(collection(firestore, 'series'), where("clubId", "==", selectedClubId));
     
-    const unsubscribeSeries = onSnapshot(seriesQuery, (seriesSnapshot) => {
+    const unsubscribeSeries = onSnapshot(seriesQuery, async (seriesSnapshot) => {
         const seriesData = seriesSnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         } as Series));
 
-        const matchesQuery = query(collection(firestore, 'matches'), where("clubId", "==", selectedClubId));
-        const unsubscribeMatches = onSnapshot(matchesQuery, (matchesSnapshot) => {
+        try {
+            const matchesQuery = query(collection(firestore, 'matches'), where("clubId", "==", selectedClubId));
+            const matchesSnapshot = await getDocs(matchesQuery);
             const matchesData = matchesSnapshot.docs.map(doc => doc.data() as Match);
-            
-            const counts: { [seriesId: string]: { total: number, completed: number } } = {};
 
+            const counts: { [seriesId: string]: { total: number, completed: number } } = {};
+            
             matchesData.forEach(match => {
                 if (!counts[match.seriesId]) {
                     counts[match.seriesId] = { total: 0, completed: 0 };
@@ -155,15 +156,14 @@ export default function SeriesPage() {
             }));
 
             setSeriesList(seriesWithCounts);
-            setIsLoading(false);
-        }, (error) => {
-            console.error("Error fetching matches: ", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches for series calculation.' });
-            setIsLoading(false);
-        });
 
-        // We need to return the cleanup function for the matches listener
-        return () => unsubscribeMatches();
+        } catch (error) {
+             console.error("Error fetching matches: ", error);
+             toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches for series calculation.' });
+        } finally {
+            setIsLoading(false);
+        }
+
     }, (error) => {
         console.error("Error fetching series: ", error);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series.' });
