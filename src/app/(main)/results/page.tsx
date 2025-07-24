@@ -397,15 +397,15 @@ export default function ResultsPage() {
   };
 
   const processedModalResults = useMemo(() => {
-    if (!selectedMatchForModal) return [];
+    if (!selectedMatchForModal || modalResults.length === 0) return [];
 
     const resultsCopy: ResultWithSectionRank[] = modalResults.map(r => ({ ...r, isOverallWinner: false, isSectionWinner: false }));
     const paidPlaces = selectedMatchForModal.paidPlaces || 0;
 
     // 1. Assign overall ranks
     const rankedWithWeight = resultsCopy
-      .filter(r => r.status === 'OK' && r.weight > 0)
-      .sort((a, b) => b.weight - a.weight);
+      .filter(r => r.status === 'OK' && (r.weight || 0) > 0)
+      .sort((a, b) => (b.weight || 0) - (a.weight || 0));
     
     rankedWithWeight.forEach((result, index) => {
         const original = resultsCopy.find(r => r.userId === result.userId);
@@ -419,18 +419,7 @@ export default function ResultsPage() {
         }
     });
 
-    // 2. Identify overall winners ("framing out")
-    const overallWinnerIds = new Set<string>();
-    if (paidPlaces > 0) {
-        resultsCopy
-            .filter(r => r.position !== null && r.position <= paidPlaces)
-            .forEach(r => {
-              overallWinnerIds.add(r.userId);
-              r.isOverallWinner = true;
-            });
-    }
-
-    // 3. Calculate Section Ranks, excluding overall winners
+    // 2. Assign section ranks (for all anglers)
     const resultsBySection: { [key: string]: ResultWithSectionRank[] } = {};
     resultsCopy.forEach(result => {
       if (result.section) {
@@ -442,20 +431,46 @@ export default function ResultsPage() {
     });
 
     for (const section in resultsBySection) {
-        // Rank anglers eligible for section prize (not an overall winner, has weight)
-        const eligibleForSectionRank = resultsBySection[section]
-            .filter(r => !overallWinnerIds.has(r.userId) && r.status === 'OK' && r.weight > 0)
-            .sort((a, b) => b.weight - a.weight);
-
-        eligibleForSectionRank.forEach((result, index) => {
+        const sectionResultsWithWeight = resultsBySection[section]
+            .filter(r => r.status === 'OK' && (r.weight || 0) > 0)
+            .sort((a, b) => (b.weight || 0) - (a.weight || 0));
+        
+        sectionResultsWithWeight.forEach((result, index) => {
             const original = resultsCopy.find(r => r.userId === result.userId);
-            if (original) {
-              original.sectionPosition = index + 1;
-              if (index === 0) { // Mark first in section as section winner
-                original.isSectionWinner = true;
-              }
+            if(original) original.sectionPosition = index + 1;
+        });
+        
+        const lastSectionRank = sectionResultsWithWeight.length;
+        const dnwSectionRank = lastSectionRank + 1;
+        resultsBySection[section].forEach(result => {
+            if(['DNF', 'DNW', 'DSQ'].includes(result.status || '')) {
+                const original = resultsCopy.find(r => r.userId === result.userId);
+                if(original) original.sectionPosition = dnwSectionRank;
             }
         });
+    }
+
+    // 3. Identify overall winners for highlighting
+    const overallWinnerIds = new Set<string>();
+    if (paidPlaces > 0) {
+        resultsCopy
+            .filter(r => r.position !== null && r.position! <= paidPlaces)
+            .forEach(r => {
+              overallWinnerIds.add(r.userId);
+              r.isOverallWinner = true;
+            });
+    }
+
+    // 4. Identify section winners for highlighting (excluding overall winners)
+    for (const section in resultsBySection) {
+        const sectionWinner = resultsBySection[section]
+            .filter(r => !overallWinnerIds.has(r.userId) && r.sectionPosition !== undefined)
+            .sort((a, b) => (a.sectionPosition || Infinity) - (b.sectionPosition || Infinity))[0];
+        
+        if (sectionWinner) {
+            const original = resultsCopy.find(r => r.userId === sectionWinner.userId);
+            if (original) original.isSectionWinner = true;
+        }
     }
 
     return resultsCopy;
