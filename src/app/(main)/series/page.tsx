@@ -40,7 +40,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
 import type { Series, User, Club, Match } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -226,7 +226,7 @@ export default function SeriesPage() {
          <TableRow key={i}>
             <TableCell><Skeleton className="h-4 w-[250px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[50px]" /></TableCell>
-            {canEdit && <TableCell className="text-right"><Skeleton className="h-10 w-[120px]" /></TableCell>}
+            {canEdit && <TableCell className="text-right"><Skeleton className="h-10 w-[80px]" /></TableCell>}
           </TableRow>
       ));
     }
@@ -249,18 +249,6 @@ export default function SeriesPage() {
             <TableCell className="text-right">
               <TooltipProvider>
                 <div className="inline-flex gap-2">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                       <Button asChild variant="outline" size="icon">
-                        <Link href={`/series/${series.id}/points`}>
-                          <FileText className="h-4 w-4" />
-                        </Link>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="left">
-                      <p>Series Points Summary</p>
-                    </TooltipContent>
-                  </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button variant="outline" size="icon" onClick={() => handleEditClick(series)}>
@@ -403,4 +391,3 @@ export default function SeriesPage() {
     </div>
   );
 }
-

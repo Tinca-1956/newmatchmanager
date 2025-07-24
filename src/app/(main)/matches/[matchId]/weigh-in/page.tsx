@@ -237,7 +237,6 @@ export default function WeighInPage() {
             section: angler.section,
             status: angler.status,
             position: angler.rank ? parseInt(angler.rank) : null,
-            points: angler.rank ? parseInt(angler.rank) : null,
         };
         await setDoc(resultDocRef, dataToSave, { merge: true });
         
@@ -245,7 +244,7 @@ export default function WeighInPage() {
         const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', matchId));
         const resultsSnapshot = await getDocs(resultsQuery);
         
-        const resultsToProcess: Result[] = [];
+        const resultsToProcess: (Result & {id: string})[] = [];
         resultsSnapshot.forEach(doc => {
             resultsToProcess.push({id: doc.id, ...doc.data()} as Result & {id: string});
         });
@@ -267,7 +266,6 @@ export default function WeighInPage() {
             const newPosition = rankMap.get(result.id) || null;
             batch.update(resultDocRef, { 
                 position: newPosition,
-                points: newPosition 
             });
         });
         await batch.commit();

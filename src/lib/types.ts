@@ -62,7 +62,6 @@ export interface Result {
   userName: string;
   position: number | null;
   weight: number; // in kg
-  points: number | null;
   date: Date | Timestamp;
   status?: WeighInStatus;
   peg?: string;
