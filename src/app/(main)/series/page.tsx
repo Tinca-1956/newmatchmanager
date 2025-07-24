@@ -54,6 +54,8 @@ interface AnglerStanding {
     totalRank: number;
 }
 
+type ResultWithSectionRank = Result & { sectionPosition?: number };
+
 
 export default function SeriesPage() {
   const { user } = useAuth();
@@ -217,11 +219,28 @@ export default function SeriesPage() {
         const resultsSnapshot = await getDocs(resultsQuery);
         const resultsData = resultsSnapshot.docs.map(doc => doc.data() as Result);
         
+        // Group results by matchId to calculate section ranks for each match
+        const resultsByMatch: { [matchId: string]: Result[] } = {};
+        resultsData.forEach(result => {
+            if (!resultsByMatch[result.matchId]) {
+                resultsByMatch[result.matchId] = [];
+            }
+            resultsByMatch[result.matchId].push(result);
+        });
+        
+        const resultsWithSectionRank: ResultWithSectionRank[] = [];
+
+        // Calculate section ranks for each match
+        for (const matchId in resultsByMatch) {
+            const matchResults = resultsByMatch[matchId];
+            const processedResults = calculateSectionRanks(matchResults);
+            resultsWithSectionRank.push(...processedResults);
+        }
+
         const anglerTotals: { [userId: string]: { userName: string; totalRank: number } } = {};
         
-        resultsData.forEach(result => {
-            // Ensure we have a valid position to add to the total
-            const rank = result.position;
+        resultsWithSectionRank.forEach(result => {
+            const rank = result.sectionPosition;
             if (typeof rank === 'number' && rank > 0) {
                 if (!anglerTotals[result.userId]) {
                     anglerTotals[result.userId] = {
@@ -248,6 +267,49 @@ export default function SeriesPage() {
     } finally {
         setIsStandingsLoading(false);
     }
+  }
+
+  const calculateSectionRanks = (results: Result[]): ResultWithSectionRank[] => {
+    const resultsCopy: ResultWithSectionRank[] = results.map(r => ({ ...r }));
+    
+    const resultsBySection: { [key: string]: ResultWithSectionRank[] } = {};
+    resultsCopy.forEach(result => {
+      if (result.section) {
+        if (!resultsBySection[result.section]) {
+          resultsBySection[result.section] = [];
+        }
+        resultsBySection[result.section].push(result);
+      }
+    });
+
+    for (const section in resultsBySection) {
+        // Rank anglers with weight
+        const sectionResultsWithWeight = resultsBySection[section]
+            .filter(r => r.status === 'OK' && r.weight > 0)
+            .sort((a, b) => b.weight - a.weight);
+
+        sectionResultsWithWeight.forEach((result, index) => {
+            const original = resultsCopy.find(r => r.userId === result.userId);
+            if (original) {
+              original.sectionPosition = index + 1;
+            }
+        });
+
+        // Rank anglers without weight (DNF, DNW, DSQ)
+        const lastSectionRank = sectionResultsWithWeight.length;
+        const dnwSectionRank = lastSectionRank + 1;
+
+        resultsBySection[section].forEach(result => {
+            if (['DNF', 'DNW', 'DSQ'].includes(result.status || '')) {
+                const original = resultsCopy.find(r => r.userId === result.userId);
+                if (original) {
+                    original.sectionPosition = dnwSectionRank;
+                }
+            }
+        });
+    }
+
+    return resultsCopy;
   }
 
   const handleUpdateSeries = async (e: React.FormEvent) => {
@@ -441,7 +503,7 @@ export default function SeriesPage() {
                 <DialogHeader>
                     <DialogTitle>League Standings: {selectedSeriesForStandings.name}</DialogTitle>
                     <DialogDescription>
-                        Overall standings based on the sum of positions from all completed matches in this series.
+                        Overall standings based on the sum of section positions from all completed matches in this series.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="max-h-[60vh] overflow-y-auto">
@@ -450,7 +512,7 @@ export default function SeriesPage() {
                             <TableRow>
                                 <TableHead>Rank</TableHead>
                                 <TableHead>Angler Name</TableHead>
-                                <TableHead>Total Rank</TableHead>
+                                <TableHead>Total Section Rank</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
