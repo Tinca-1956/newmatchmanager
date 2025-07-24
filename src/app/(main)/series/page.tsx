@@ -19,7 +19,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, FileText } from 'lucide-react';
+import { PlusCircle, Edit } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -44,7 +44,6 @@ import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDocs, 
 import type { Series, User, Club, Match } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import Link from 'next/link';
 
 interface SeriesWithMatchCount extends Series {
     matchCount: number;
