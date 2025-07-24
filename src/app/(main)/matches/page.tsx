@@ -74,6 +74,7 @@ const EMPTY_MATCH: Omit<Match, 'id' | 'clubId' | 'seriesName'> = {
     startTime: '09:00',
     endTime: '15:00',
     capacity: 20,
+    paidPlaces: 3,
     registeredCount: 0,
     registeredAnglers: [],
 };
@@ -209,7 +210,10 @@ export default function MatchesPage() {
     e.stopPropagation();
     setSelectedMatch(match);
     const { id, clubId, seriesName, ...rest } = match;
-    setFormState(rest);
+    setFormState({
+      ...EMPTY_MATCH, // Ensure all fields are present, including new ones
+      ...rest,
+    });
     setIsEditDialogOpen(true);
   };
   
@@ -1073,13 +1077,17 @@ export default function MatchesPage() {
                         <Input id="end-time" type="time" value={formState.endTime} onChange={(e) => handleFormChange('endTime', e.target.value)} />
                     </div>
                 </div>
-                 <div className="grid grid-cols-2 gap-4">
+                 <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
-                        <Label htmlFor="capacity">Capacity (Max Anglers)</Label>
+                        <Label htmlFor="capacity">Capacity</Label>
                         <Input id="capacity" type="number" value={formState.capacity} onChange={(e) => handleFormChange('capacity', Number(e.target.value))} />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="registered">Registered Anglers</Label>
+                        <Label htmlFor="paid-places">Paid Places</Label>
+                        <Input id="paid-places" type="number" value={formState.paidPlaces} onChange={(e) => handleFormChange('paidPlaces', Number(e.target.value))} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="registered">Registered</Label>
                         <Input id="registered" type="number" value={formState.registeredCount} onChange={(e) => handleFormChange('registeredCount', Number(e.target.value))} disabled/>
                     </div>
                 </div>
