@@ -35,8 +35,6 @@ export interface Series {
   id: string;
   clubId: string;
   name: string;
-  matchCount: number;
-  completedMatches: number;
 }
 
 export interface Match {
@@ -62,9 +60,9 @@ export interface Result {
   clubId: string;
   userId: string;
   userName: string;
-  position: number;
+  position: number | null;
   weight: number; // in kg
-  points: number;
+  points: number | null;
   date: Date | Timestamp;
   status?: WeighInStatus;
   peg?: string;

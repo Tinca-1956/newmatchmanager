@@ -40,7 +40,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
 import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDoc, orderBy, Timestamp } from 'firebase/firestore';
-import type { Series, User, Club, Match, MatchStatus } from '@/lib/types';
+import type { Series, User, Club, Match } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface SeriesWithMatchCount extends Series {
@@ -162,7 +162,8 @@ export default function SeriesPage() {
             setIsLoading(false);
         });
 
-        return () => unsubscribeMatches(); // Clean up matches listener
+        // We need to return the cleanup function for the matches listener
+        return () => unsubscribeMatches();
     }, (error) => {
         console.error("Error fetching series: ", error);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series.' });
@@ -187,9 +188,7 @@ export default function SeriesPage() {
     try {
       await addDoc(collection(firestore, 'series'), {
         name: newSeriesName,
-        clubId: selectedClubId,
-        matchCount: 0,
-        completedMatches: 0,
+        clubId: selectedClubId
       });
       toast({ title: 'Success!', description: `Series "${newSeriesName}" created.` });
       setNewSeriesName('');
@@ -279,7 +278,7 @@ export default function SeriesPage() {
         <div className="flex items-center gap-4">
             {currentUserProfile?.role === 'Site Admin' && (
                 <div className="flex items-center gap-2">
-                    <Label htmlFor="club-filter" className="text-nowrap">Clubs</Label>
+                    <Label htmlFor="club-filter">Clubs</Label>
                     <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={allClubs.length === 0}>
                         <SelectTrigger id="club-filter" className="w-52">
                             <SelectValue placeholder="Select a club..." />
