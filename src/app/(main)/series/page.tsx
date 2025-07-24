@@ -220,14 +220,16 @@ export default function SeriesPage() {
         const anglerTotals: { [userId: string]: { userName: string; totalRank: number } } = {};
         
         resultsData.forEach(result => {
-            if (result.position !== null && result.position > 0) {
+            // Ensure we have a valid position to add to the total
+            const rank = result.position;
+            if (typeof rank === 'number' && rank > 0) {
                 if (!anglerTotals[result.userId]) {
                     anglerTotals[result.userId] = {
                         userName: result.userName,
                         totalRank: 0,
                     };
                 }
-                anglerTotals[result.userId].totalRank += result.position;
+                anglerTotals[result.userId].totalRank += rank;
             }
         });
 
