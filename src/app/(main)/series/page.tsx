@@ -278,7 +278,7 @@ export default function SeriesPage() {
         <div className="flex items-center gap-4">
             {currentUserProfile?.role === 'Site Admin' && (
                 <div className="flex items-center gap-2">
-                    <Label htmlFor="club-filter">Clubs</Label>
+                    <Label htmlFor="club-filter" className="text-nowrap">Clubs</Label>
                     <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={allClubs.length === 0}>
                         <SelectTrigger id="club-filter" className="w-52">
                             <SelectValue placeholder="Select a club..." />
