@@ -145,7 +145,16 @@ export default function SeriesPointsPage() {
   }, [seriesId, router, toast]);
   
   const renderTableHeader = () => {
-    if (isLoading) return <Skeleton className="h-12 w-full" />;
+    if (isLoading) {
+      return (
+        <TableRow>
+          <TableHead className="sticky left-0 bg-background z-10 border-r w-[200px]"><Skeleton className="h-5 w-32" /></TableHead>
+          <TableHead className="text-center min-w-48"><Skeleton className="h-5 w-24 mx-auto" /></TableHead>
+          <TableHead className="text-center min-w-48"><Skeleton className="h-5 w-24 mx-auto" /></TableHead>
+          <TableHead className="text-center sticky right-0 bg-background z-10 border-l w-[150px]"><Skeleton className="h-5 w-24 mx-auto" /></TableHead>
+        </TableRow>
+      )
+    };
     
     return (
         <TableRow>
