@@ -45,7 +45,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 interface SeriesWithMatchCount extends Series {
     matchCount: number;
-    completedMatches: number;
 }
 
 
@@ -137,22 +136,18 @@ export default function SeriesPage() {
             const matchesSnapshot = await getDocs(matchesQuery);
             const matchesData = matchesSnapshot.docs.map(doc => doc.data() as Match);
 
-            const counts: { [seriesId: string]: { total: number, completed: number } } = {};
+            const counts: { [seriesId: string]: number } = {};
             
             matchesData.forEach(match => {
                 if (!counts[match.seriesId]) {
-                    counts[match.seriesId] = { total: 0, completed: 0 };
+                    counts[match.seriesId] = 0;
                 }
-                counts[match.seriesId].total++;
-                if (match.status === 'Completed') {
-                    counts[match.seriesId].completed++;
-                }
+                counts[match.seriesId]++;
             });
 
             const seriesWithCounts: SeriesWithMatchCount[] = seriesData.map(series => ({
                 ...series,
-                matchCount: counts[series.id]?.total || 0,
-                completedMatches: counts[series.id]?.completed || 0,
+                matchCount: counts[series.id] || 0,
             }));
 
             setSeriesList(seriesWithCounts);
@@ -235,7 +230,6 @@ export default function SeriesPage() {
          <TableRow key={i}>
             <TableCell><Skeleton className="h-4 w-[250px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[50px]" /></TableCell>
-            <TableCell><Skeleton className="h-4 w-[50px]" /></TableCell>
             {canEdit && <TableCell className="text-right"><Skeleton className="h-10 w-[80px]" /></TableCell>}
           </TableRow>
       ));
@@ -244,7 +238,7 @@ export default function SeriesPage() {
     if (seriesList.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={canEdit ? 4 : 3} className="h-24 text-center">
+          <TableCell colSpan={canEdit ? 3 : 2} className="h-24 text-center">
             No series found for this club. Create the first one!
           </TableCell>
         </TableRow>
@@ -255,7 +249,6 @@ export default function SeriesPage() {
        <TableRow key={series.id}>
           <TableCell className="font-medium">{series.name}</TableCell>
           <TableCell>{series.matchCount}</TableCell>
-          <TableCell>{series.completedMatches}</TableCell>
           {canEdit && (
             <TableCell className="text-right">
                 <Button variant="outline" size="sm" onClick={() => handleEditClick(series)}>
@@ -313,7 +306,6 @@ export default function SeriesPage() {
               <TableRow>
                 <TableHead>Series Name</TableHead>
                 <TableHead>Match Count</TableHead>
-                <TableHead>Completed</TableHead>
                 {canEdit && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
