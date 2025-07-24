@@ -362,9 +362,8 @@ export default function SeriesPage() {
           <TableCell>{series.matchCount}</TableCell>
           {canEdit && (
             <TableCell className="text-right space-x-2">
-                <Button variant="outline" size="sm" onClick={() => handleOpenStandingsModal(series)} disabled={series.matchCount === 0}>
-                    <Trophy className="mr-2 h-4 w-4" />
-                    Standings
+                <Button variant="outline" size="icon" onClick={() => handleOpenStandingsModal(series)} disabled={series.matchCount === 0}>
+                    <Trophy className="h-4 w-4" />
                 </Button>
                 <Button variant="outline" size="icon" onClick={() => handleEditClick(series)}>
                     <Edit className="h-4 w-4" />
