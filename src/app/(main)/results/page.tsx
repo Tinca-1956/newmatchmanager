@@ -46,6 +46,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { cn } from '@/lib/utils';
 
 
 interface MatchResultSummary {
@@ -56,11 +57,16 @@ interface MatchResultSummary {
   venue: string;
   winnerName: string;
   status: MatchStatus;
+  paidPlaces: number;
 }
 
 type SortOption = 'Overall' | 'Section' | 'Peg';
 
-type ResultWithSectionRank = Result & { sectionPosition?: number };
+type ResultWithSectionRank = Result & { 
+  sectionPosition?: number;
+  isOverallWinner?: boolean;
+  isSectionWinner?: boolean;
+};
 
 const formatWeightKg = (weight: number | undefined | null): string => {
   if (weight === undefined || weight === null) return '0.000';
@@ -234,7 +240,7 @@ export default function ResultsPage() {
         
         const matchIds = [...new Set(winnerResults.map(r => r.matchId))];
         
-        const matchDetailsMap = new Map();
+        const matchDetailsMap = new Map<string, Match>();
         if(matchIds.length > 0) {
             const chunks = [];
             for (let i = 0; i < matchIds.length; i += 30) {
@@ -246,7 +252,7 @@ export default function ResultsPage() {
                  const matchesQuery = query(collection(firestore, 'matches'), where('__name__', 'in', chunk));
                  const matchesSnapshot = await getDocs(matchesQuery);
                  matchesSnapshot.forEach(doc => {
-                    matchDetailsMap.set(doc.id, doc.data());
+                    matchDetailsMap.set(doc.id, doc.data() as Match);
                  });
             }
         }
@@ -261,6 +267,7 @@ export default function ResultsPage() {
                 date: (result.date as any).toDate(),
                 winnerName: result.userName,
                 status: match?.status || 'Completed',
+                paidPlaces: match?.paidPlaces || 0,
             };
         }).sort((a,b) => b.date.getTime() - a.date.getTime()); 
 
@@ -359,8 +366,8 @@ export default function ResultsPage() {
         fontSize: 10,
       },
       styles: {
-        fontSize: 8, // Reduced font size (20% smaller than default 10)
-        minCellHeight: 7, // Set row height to 7mm
+        fontSize: 8,
+        minCellHeight: 7, 
         cellPadding: 2,
       },
       columnStyles: {
@@ -371,6 +378,18 @@ export default function ResultsPage() {
         4: { cellWidth: 15 }, // Section
         5: { cellWidth: 20 }, // Section Rank
         6: { cellWidth: 15 }, // Status
+      },
+      didParseCell: function (data: any) {
+        const row = data.row.raw;
+        const cell = data.cell;
+        const result = sortedModalResults[data.row.index];
+        if (data.column.index === 1) { // 'Name' column
+            if (result.isOverallWinner) {
+                cell.styles.textColor = [255, 0, 0]; // Red
+            } else if (result.isSectionWinner) {
+                cell.styles.textColor = [0, 128, 0]; // Green
+            }
+        }
       }
     });
 
@@ -378,9 +397,12 @@ export default function ResultsPage() {
   };
 
   const processedModalResults = useMemo(() => {
-    const resultsCopy: ResultWithSectionRank[] = modalResults.map(r => ({ ...r }));
+    if (!selectedMatchForModal) return [];
 
-    // 1. Assign overall ranks to those with weight
+    const resultsCopy: ResultWithSectionRank[] = modalResults.map(r => ({ ...r, isOverallWinner: false, isSectionWinner: false }));
+    const paidPlaces = selectedMatchForModal.paidPlaces || 0;
+
+    // 1. Assign overall ranks
     const rankedWithWeight = resultsCopy
       .filter(r => r.status === 'OK' && r.weight > 0)
       .sort((a, b) => b.weight - a.weight);
@@ -390,17 +412,25 @@ export default function ResultsPage() {
         if (original) original.position = index + 1;
     });
 
-    // 2. Assign overall ranks to DNW/DNF/DSQ
     const lastPlaceRank = rankedWithWeight.length;
-    const dnwRank = lastPlaceRank + 1;
-
     resultsCopy.forEach(result => {
         if (['DNF', 'DNW', 'DSQ'].includes(result.status || '')) {
-            result.position = dnwRank;
+            result.position = lastPlaceRank + 1;
         }
     });
 
-    // 3. Calculate Section Ranks
+    // 2. Identify overall winners ("framing out")
+    const overallWinnerIds = new Set<string>();
+    if (paidPlaces > 0) {
+        resultsCopy
+            .filter(r => r.position !== null && r.position <= paidPlaces)
+            .forEach(r => {
+              overallWinnerIds.add(r.userId);
+              r.isOverallWinner = true;
+            });
+    }
+
+    // 3. Calculate Section Ranks, excluding overall winners
     const resultsBySection: { [key: string]: ResultWithSectionRank[] } = {};
     resultsCopy.forEach(result => {
       if (result.section) {
@@ -412,34 +442,24 @@ export default function ResultsPage() {
     });
 
     for (const section in resultsBySection) {
-        // Rank anglers with weight
-        const sectionResultsWithWeight = resultsBySection[section]
-            .filter(r => r.status === 'OK' && r.weight > 0)
+        // Rank anglers eligible for section prize (not an overall winner, has weight)
+        const eligibleForSectionRank = resultsBySection[section]
+            .filter(r => !overallWinnerIds.has(r.userId) && r.status === 'OK' && r.weight > 0)
             .sort((a, b) => b.weight - a.weight);
 
-        sectionResultsWithWeight.forEach((result, index) => {
+        eligibleForSectionRank.forEach((result, index) => {
             const original = resultsCopy.find(r => r.userId === result.userId);
             if (original) {
-            original.sectionPosition = index + 1;
-            }
-        });
-
-        // Rank anglers without weight (DNF, DNW, DSQ)
-        const lastSectionRank = sectionResultsWithWeight.length;
-        const dnwSectionRank = lastSectionRank + 1;
-
-        resultsBySection[section].forEach(result => {
-            if (['DNF', 'DNW', 'DSQ'].includes(result.status || '')) {
-                const original = resultsCopy.find(r => r.userId === result.userId);
-                if (original) {
-                    original.sectionPosition = dnwSectionRank;
-                }
+              original.sectionPosition = index + 1;
+              if (index === 0) { // Mark first in section as section winner
+                original.isSectionWinner = true;
+              }
             }
         });
     }
 
     return resultsCopy;
-  }, [modalResults]);
+  }, [modalResults, selectedMatchForModal]);
 
   const sortedModalResults = useMemo(() => {
     const resultsCopy = [...processedModalResults];
@@ -450,7 +470,6 @@ export default function ResultsPage() {
           const sectionB = b.section || '';
           if (sectionA < sectionB) return -1;
           if (sectionA > sectionB) return 1;
-          // If sections are equal, sort by overall position
           return (a.position || Infinity) - (b.position || Infinity);
         });
       case 'Peg':
@@ -529,7 +548,10 @@ export default function ResultsPage() {
         <TableCell>
           {result.position ? <Badge variant="outline">{result.position}</Badge> : '-'}
         </TableCell>
-        <TableCell className="font-medium">{result.userName}</TableCell>
+        <TableCell className={cn("font-medium", {
+            "text-red-600": result.isOverallWinner,
+            "text-green-600": result.isSectionWinner,
+        })}>{result.userName}</TableCell>
         <TableCell>{formatWeightKg(result.weight)}</TableCell>
         <TableCell>{result.peg || '-'}</TableCell>
         <TableCell>{result.section || '-'}</TableCell>
