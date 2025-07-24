@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
 export type UserRole = 'Site Admin' | 'Club Admin' | 'Marshal' | 'Angler';
@@ -66,4 +67,5 @@ export interface Result {
   status?: WeighInStatus;
   peg?: string;
   section?: string;
+  points?: number;
 }
