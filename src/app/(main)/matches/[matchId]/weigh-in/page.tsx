@@ -76,6 +76,7 @@ export default function WeighInPage() {
     });
     
     // Calculate the rank for those who did not weigh in
+    // This is 1 + the rank of the angler with the lowest recorded weight.
     const lastPlaceRank = eligibleAnglers.length > 0 ? eligibleAnglers.length : 0;
     const dnwRank = lastPlaceRank + 1;
 
