@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -18,7 +19,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit } from 'lucide-react';
+import { PlusCircle, Edit, FileText } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -42,6 +43,7 @@ import { firestore } from '@/lib/firebase-client';
 import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
 import type { Series, User, Club, Match } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface SeriesWithMatchCount extends Series {
     matchCount: number;
@@ -126,39 +128,32 @@ export default function SeriesPage() {
     const seriesQuery = query(collection(firestore, 'series'), where("clubId", "==", selectedClubId));
     
     const unsubscribeSeries = onSnapshot(seriesQuery, async (seriesSnapshot) => {
-        const seriesData = seriesSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        } as Series));
+      const seriesData = seriesSnapshot.docs.map(s => ({id: s.id, ...s.data()}) as Series);
 
-        try {
-            const matchesQuery = query(collection(firestore, 'matches'), where("clubId", "==", selectedClubId));
-            const matchesSnapshot = await getDocs(matchesQuery);
-            const matchesData = matchesSnapshot.docs.map(doc => doc.data() as Match);
+      try {
+        const matchesQuery = query(collection(firestore, 'matches'), where('clubId', '==', selectedClubId));
+        const matchesSnapshot = await getDocs(matchesQuery);
+        const matchesData = matchesSnapshot.docs.map(m => m.data() as Match);
 
-            const counts: { [seriesId: string]: number } = {};
-            
-            matchesData.forEach(match => {
-                if (!counts[match.seriesId]) {
-                    counts[match.seriesId] = 0;
-                }
-                counts[match.seriesId]++;
-            });
+        const seriesWithCounts = seriesData.map(series => {
+          const matchCount = matchesData.filter(m => m.seriesId === series.id).length;
+          return {
+            ...series,
+            matchCount: matchCount,
+          };
+        });
 
-            const seriesWithCounts: SeriesWithMatchCount[] = seriesData.map(series => ({
-                ...series,
-                matchCount: counts[series.id] || 0,
-            }));
-
-            setSeriesList(seriesWithCounts);
-
-        } catch (error) {
-             console.error("Error fetching matches: ", error);
-             toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches for series calculation.' });
-        } finally {
-            setIsLoading(false);
-        }
-
+        setSeriesList(seriesWithCounts);
+      } catch (error) {
+        console.error("Error fetching matches:", error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Could not fetch matches for series calculation.'
+        });
+      } finally {
+        setIsLoading(false);
+      }
     }, (error) => {
         console.error("Error fetching series: ", error);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series.' });
@@ -230,7 +225,7 @@ export default function SeriesPage() {
          <TableRow key={i}>
             <TableCell><Skeleton className="h-4 w-[250px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[50px]" /></TableCell>
-            {canEdit && <TableCell className="text-right"><Skeleton className="h-10 w-[80px]" /></TableCell>}
+            {canEdit && <TableCell className="text-right"><Skeleton className="h-10 w-[120px]" /></TableCell>}
           </TableRow>
       ));
     }
@@ -251,10 +246,24 @@ export default function SeriesPage() {
           <TableCell>{series.matchCount}</TableCell>
           {canEdit && (
             <TableCell className="text-right">
-                <Button variant="outline" size="sm" onClick={() => handleEditClick(series)}>
-                    <Edit className="mr-2 h-4 w-4"/>
-                    Edit
-                </Button>
+              <TooltipProvider>
+                <div className="inline-flex gap-2">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" size="icon">
+                        <FileText className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">
+                      <p>Series Points Summary</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Button variant="outline" size="sm" onClick={() => handleEditClick(series)}>
+                      <Edit className="mr-2 h-4 w-4"/>
+                      Edit
+                  </Button>
+                </div>
+              </TooltipProvider>
             </TableCell>
           )}
         </TableRow>
@@ -385,5 +394,3 @@ export default function SeriesPage() {
     </div>
   );
 }
-
-    
