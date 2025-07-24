@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -43,7 +42,6 @@ import { firestore } from '@/lib/firebase-client';
 import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
 import type { Series, User, Club, Match } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface SeriesWithMatchCount extends Series {
     matchCount: number;
@@ -246,20 +244,9 @@ export default function SeriesPage() {
           <TableCell>{series.matchCount}</TableCell>
           {canEdit && (
             <TableCell className="text-right">
-              <TooltipProvider>
-                <div className="inline-flex gap-2">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="outline" size="icon" onClick={() => handleEditClick(series)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="left">
-                      <p>Edit Series Details</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              </TooltipProvider>
+                <Button variant="outline" size="icon" onClick={() => handleEditClick(series)}>
+                    <Edit className="h-4 w-4" />
+                </Button>
             </TableCell>
           )}
         </TableRow>
