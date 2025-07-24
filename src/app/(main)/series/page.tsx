@@ -39,15 +39,21 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDoc, orderBy } from 'firebase/firestore';
-import type { Series, User, Club } from '@/lib/types';
+import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDoc, orderBy, Timestamp } from 'firebase/firestore';
+import type { Series, User, Club, Match, MatchStatus } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+
+interface SeriesWithMatchCount extends Series {
+    matchCount: number;
+    completedMatches: number;
+}
+
 
 export default function SeriesPage() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const [seriesList, setSeriesList] = useState<Series[]>([]);
+  const [seriesList, setSeriesList] = useState<SeriesWithMatchCount[]>([]);
   const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
   const [clubName, setClubName] = useState<string>('');
   const [allClubs, setAllClubs] = useState<Club[]>([]);
@@ -102,7 +108,7 @@ export default function SeriesPage() {
   }, [currentUserProfile, selectedClubId]);
 
 
-  // Fetch series for the selected club
+  // Fetch series and matches for the selected club
   useEffect(() => {
     if (!selectedClubId || !firestore) {
       setSeriesList([]);
@@ -119,13 +125,44 @@ export default function SeriesPage() {
     });
 
     const seriesQuery = query(collection(firestore, 'series'), where("clubId", "==", selectedClubId));
-    const unsubscribeSeries = onSnapshot(seriesQuery, (snapshot) => {
-        const seriesData = snapshot.docs.map(doc => ({
+    
+    const unsubscribeSeries = onSnapshot(seriesQuery, (seriesSnapshot) => {
+        const seriesData = seriesSnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         } as Series));
-        setSeriesList(seriesData);
-        setIsLoading(false);
+
+        const matchesQuery = query(collection(firestore, 'matches'), where("clubId", "==", selectedClubId));
+        const unsubscribeMatches = onSnapshot(matchesQuery, (matchesSnapshot) => {
+            const matchesData = matchesSnapshot.docs.map(doc => doc.data() as Match);
+            
+            const counts: { [seriesId: string]: { total: number, completed: number } } = {};
+
+            matchesData.forEach(match => {
+                if (!counts[match.seriesId]) {
+                    counts[match.seriesId] = { total: 0, completed: 0 };
+                }
+                counts[match.seriesId].total++;
+                if (match.status === 'Completed') {
+                    counts[match.seriesId].completed++;
+                }
+            });
+
+            const seriesWithCounts: SeriesWithMatchCount[] = seriesData.map(series => ({
+                ...series,
+                matchCount: counts[series.id]?.total || 0,
+                completedMatches: counts[series.id]?.completed || 0,
+            }));
+
+            setSeriesList(seriesWithCounts);
+            setIsLoading(false);
+        }, (error) => {
+            console.error("Error fetching matches: ", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches for series calculation.' });
+            setIsLoading(false);
+        });
+
+        return () => unsubscribeMatches(); // Clean up matches listener
     }, (error) => {
         console.error("Error fetching series: ", error);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series.' });
@@ -179,8 +216,6 @@ export default function SeriesPage() {
         const seriesDocRef = doc(firestore, 'series', selectedSeries.id);
         await updateDoc(seriesDocRef, {
             name: selectedSeries.name,
-            matchCount: selectedSeries.matchCount,
-            completedMatches: selectedSeries.completedMatches,
         });
         toast({ title: 'Success!', description: `Series "${selectedSeries.name}" updated.` });
         setIsEditDialogOpen(false);
@@ -189,7 +224,7 @@ export default function SeriesPage() {
         console.error('Error updating series:', error);
         toast({ variant: 'destructive', title: 'Update Failed', description: 'Could not update series.' });
     } finally {
-        setIsSaving(false);
+      setIsSaving(false);
     }
   };
   
@@ -344,26 +379,7 @@ export default function SeriesPage() {
                                 required
                             />
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                           <div className="space-y-2">
-                                <Label htmlFor="edit-match-count">Match Count</Label>
-                                <Input
-                                    id="edit-match-count"
-                                    type="number"
-                                    value={selectedSeries.matchCount}
-                                    onChange={(e) => setSelectedSeries({ ...selectedSeries, matchCount: Number(e.target.value) })}
-                                />
-                            </div>
-                             <div className="space-y-2">
-                                <Label htmlFor="edit-completed-matches">Completed Matches</Label>
-                                <Input
-                                    id="edit-completed-matches"
-                                    type="number"
-                                    value={selectedSeries.completedMatches}
-                                    onChange={(e) => setSelectedSeries({ ...selectedSeries, completedMatches: Number(e.target.value) })}
-                                />
-                            </div>
-                        </div>
+                         <p className="text-sm text-muted-foreground pt-4">Match counts are now calculated automatically. You can no longer edit them here.</p>
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="ghost" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
