@@ -441,6 +441,9 @@ export default function SeriesPage() {
           <TableCell>{series.matchCount}</TableCell>
           {canEdit && (
             <TableCell className="text-right space-x-2">
+              <Button variant="outline" size="sm" onClick={() => handleAuditClick(series)} disabled={series.matchCount === 0}>
+                Check
+              </Button>
               <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
