@@ -2,7 +2,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import {
   Card,
   CardContent,
@@ -19,13 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, MoreHorizontal, Eye } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { PlusCircle, FileDigit, Trophy, ArrowRight } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -33,13 +26,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
 import { collection, onSnapshot, doc, query, where, getDocs, getDoc, orderBy, Timestamp } from 'firebase/firestore';
-import type { Match, Series, User, Club } from '@/lib/types';
+import type { Match, User, Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -53,7 +45,6 @@ export default function MatchesPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
-  const [clubName, setClubName] = useState<string>('');
   
   const [isLoading, setIsLoading] = useState(true);
 
@@ -95,11 +86,6 @@ export default function MatchesPage() {
 
     setIsLoading(true);
 
-    const clubDocRef = doc(firestore, 'clubs', selectedClubId);
-    const unsubscribeClub = onSnapshot(clubDocRef, (clubDoc) => {
-      setClubName(clubDoc.exists() ? clubDoc.data().name : 'Selected Club');
-    });
-
     const matchesQuery = query(
       collection(firestore, 'matches'),
       where('clubId', '==', selectedClubId),
@@ -121,7 +107,6 @@ export default function MatchesPage() {
     });
 
     return () => {
-        unsubscribeClub();
         unsubscribeMatches();
     };
   }, [selectedClubId, toast]);
@@ -130,11 +115,14 @@ export default function MatchesPage() {
     if (isLoading) {
       return Array.from({ length: 5 }).map((_, i) => (
         <TableRow key={i}>
+          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
           <TableCell><Skeleton className="h-4 w-24" /></TableCell>
           <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-          <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-          <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-          <TableCell><Skeleton className="h-8 w-8 rounded-full" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+          <TableCell><Skeleton className="h-8 w-20" /></TableCell>
+          <TableCell><Skeleton className="h-8 w-24" /></TableCell>
         </TableRow>
       ));
     }
@@ -142,7 +130,7 @@ export default function MatchesPage() {
     if (matches.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={5} className="h-24 text-center">
+          <TableCell colSpan={8} className="h-24 text-center">
             No matches found for this club.
           </TableCell>
         </TableRow>
@@ -151,28 +139,25 @@ export default function MatchesPage() {
 
     return matches.map((match) => (
       <TableRow key={match.id}>
-        <TableCell>{format(match.date, 'PPP')}</TableCell>
         <TableCell className="font-medium">{match.seriesName}</TableCell>
+        <TableCell>{match.name}</TableCell>
         <TableCell>{match.location}</TableCell>
-        <TableCell><Badge variant="outline">{match.status}</Badge></TableCell>
+        <TableCell>{format(match.date, 'E, dd MMM yyyy')}</TableCell>
+        <TableCell>{match.capacity}</TableCell>
+        <TableCell>{match.registeredCount}</TableCell>
+        <TableCell><Badge variant="outline">{match.status}</TableCell>
         <TableCell>
-          <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                      <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                  <DropdownMenuItem>
-                      <Edit className="mr-2 h-4 w-4" />
-                      Edit Match
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                      <Eye className="mr-2 h-4 w-4" />
-                      View Results
-                  </DropdownMenuItem>
-              </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon">
+                  <FileDigit className="h-4 w-4" />
+              </Button>
+               <Button variant="ghost" size="icon">
+                  <Trophy className="h-4 w-4" />
+              </Button>
+               <Button variant="ghost" size="icon">
+                  <ArrowRight className="h-4 w-4" />
+              </Button>
+          </div>
         </TableCell>
       </TableRow>
     ));
@@ -183,7 +168,7 @@ export default function MatchesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Matches</h1>
-          <p className="text-muted-foreground">View and manage all matches.</p>
+          <p className="text-muted-foreground">Manage your club's matches here.</p>
         </div>
         <div className="flex items-center gap-4">
              {isSiteAdmin && (
@@ -212,16 +197,19 @@ export default function MatchesPage() {
       
       <Card>
         <CardHeader>
-          <CardTitle>{clubName} Matches</CardTitle>
-          <CardDescription>A list of all past and upcoming matches for the selected club.</CardDescription>
+          <CardTitle>Upcoming & Recent Matches</CardTitle>
+          <CardDescription>A list of all matches for your club. Click a row to see registered anglers.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Date</TableHead>
                 <TableHead>Series</TableHead>
-                <TableHead>Venue</TableHead>
+                <TableHead>Match</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Capacity</TableHead>
+                <TableHead>Registered</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
