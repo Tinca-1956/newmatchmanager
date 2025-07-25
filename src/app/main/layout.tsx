@@ -11,7 +11,7 @@ export default function MainLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading } = useRequireAuth('/login');
+  const { user, loading } = useRequireAuth('/auth/login');
 
   if (loading) {
     return (
