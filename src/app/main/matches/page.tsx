@@ -36,6 +36,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
+import { ResultsModal } from '@/components/results-modal';
+import { useMatchActions } from '@/hooks/use-match-actions';
 
 export default function MatchesPage() {
   const { user } = useAuth();
@@ -47,6 +49,15 @@ export default function MatchesPage() {
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   
   const [isLoading, setIsLoading] = useState(true);
+
+  const {
+    isModalOpen,
+    selectedMatchForModal,
+    handleViewResults,
+    handleEditMatch,
+    handleRegister,
+    closeModal,
+  } = useMatchActions();
 
   // Effect to get the user's primary club or all clubs for admin
   useEffect(() => {
@@ -69,11 +80,10 @@ export default function MatchesPage() {
                 setSelectedClubId(userData.primaryClubId || '');
             }
         }
-        // No need to set loading false here, the next effect will do it.
     };
 
     fetchInitialData();
-  }, [user, isSiteAdmin, adminLoading, toast]);
+  }, [user, isSiteAdmin, adminLoading]);
   
 
   // Effect to fetch matches for the selected club
@@ -148,13 +158,13 @@ export default function MatchesPage() {
         <TableCell><Badge variant="outline">{match.status}</Badge></TableCell>
         <TableCell>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" onClick={() => handleEditMatch(match.id)}>
               <FileDigit className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" onClick={() => handleViewResults(match)}>
               <Trophy className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" onClick={() => handleRegister(match.id)}>
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
@@ -164,62 +174,72 @@ export default function MatchesPage() {
   };
   
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Matches</h1>
-          <p className="text-muted-foreground">Manage your club's matches here.</p>
+    <>
+      <div className="flex flex-col gap-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Matches</h1>
+            <p className="text-muted-foreground">Manage your club's matches here.</p>
+          </div>
+          <div className="flex items-center gap-4">
+              {isSiteAdmin && (
+                  <div className="flex items-center gap-2">
+                      <Label htmlFor="club-filter" className="text-nowrap">Club</Label>
+                      <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={clubs.length === 0}>
+                          <SelectTrigger id="club-filter" className="w-52">
+                              <SelectValue placeholder="Select a club..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                              {clubs.map((club) => (
+                                  <SelectItem key={club.id} value={club.id}>
+                                      {club.name}
+                                  </SelectItem>
+                              ))}
+                          </SelectContent>
+                      </Select>
+                  </div>
+              )}
+              <Button disabled={!selectedClubId}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Create Match
+              </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-             {isSiteAdmin && (
-                <div className="flex items-center gap-2">
-                    <Label htmlFor="club-filter" className="text-nowrap">Club</Label>
-                    <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={clubs.length === 0}>
-                        <SelectTrigger id="club-filter" className="w-52">
-                            <SelectValue placeholder="Select a club..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {clubs.map((club) => (
-                                <SelectItem key={club.id} value={club.id}>
-                                    {club.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-            )}
-            <Button disabled={!selectedClubId}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Create Match
-            </Button>
-        </div>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Upcoming & Recent Matches</CardTitle>
+            <CardDescription>A list of all matches for your club. Click a row to see registered anglers.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Series</TableHead>
+                  <TableHead>Match</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Capacity</TableHead>
+                  <TableHead>Registered</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {renderMatchList()}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </div>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>Upcoming & Recent Matches</CardTitle>
-          <CardDescription>A list of all matches for your club. Click a row to see registered anglers.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Series</TableHead>
-                <TableHead>Match</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Capacity</TableHead>
-                <TableHead>Registered</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {renderMatchList()}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </div>
+
+      {selectedMatchForModal && (
+        <ResultsModal 
+          isOpen={isModalOpen}
+          onClose={closeModal}
+          match={selectedMatchForModal}
+        />
+      )}
+    </>
   );
 }
