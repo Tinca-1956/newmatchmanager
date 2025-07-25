@@ -1,36 +1,33 @@
-
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Users can read all club, series, match and result data if they are logged in
-    match /clubs/{clubId} {
-      allow read: if request.auth != null;
-      allow write: if false; // To be managed by Club Admins later
+    function isUserAuthenticated() {
+      return request.auth != null;
     }
 
+    // Allow users to manage their own document
+    match /users/{userId} {
+      allow read, update: if isUserAuthenticated();
+      allow create: if isUserAuthenticated();
+    }
+
+    // Allow authenticated users to read public data
+    match /clubs/{clubId} {
+      allow read: if isUserAuthenticated();
+    }
+    
     match /series/{seriesId} {
-      allow read, write: if request.auth != null;
+        allow read: if isUserAuthenticated();
     }
 
     match /matches/{matchId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null; // Will be restricted later
+        allow read: if isUserAuthenticated();
     }
-
+    
     match /results/{resultId} {
-       allow read, write: if request.auth != null; // Will be restricted later
-    }
-
-    // Users can read any profile, but can only write to their own.
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow create, update, delete: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Default deny all other collections
-    match /{document=**} {
-      allow read, write: if false;
+        allow read: if isUserAuthenticated();
     }
   }
 }
