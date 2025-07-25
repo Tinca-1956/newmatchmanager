@@ -256,6 +256,7 @@ export default function ProfilePage() {
       });
 
       setSecondaryClubIds(prev => [...prev, selectedSecondaryClubId]);
+      setSelectedSecondaryClubId('none'); // Reset dropdown
 
       toast({
         title: 'Club Added!',
@@ -417,7 +418,7 @@ export default function ProfilePage() {
                  <Separator />
 
                  <div className="space-y-4">
-                    <Label>Secondary Clubs</Label>
+                    <h3 className="text-sm font-medium leading-none">Secondary Clubs</h3>
                     <div className="space-y-2">
                         {secondaryClubIds.length > 0 ? (
                            <Card className="p-4 bg-muted/50">
@@ -425,7 +426,7 @@ export default function ProfilePage() {
                                 {secondaryClubIds.map(clubId => {
                                     const club = clubs.find(c => c.id === clubId);
                                     return (
-                                        <li key={clubId} className="flex items-center justify-between">
+                                        <li key={clubId} className="flex items-center justify-between text-sm">
                                             <span>{club ? club.name : 'Unknown Club'}</span>
                                             <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveSecondaryClub(clubId)}>
                                                 <Trash2 className="h-4 w-4 text-destructive"/>
@@ -436,28 +437,31 @@ export default function ProfilePage() {
                              </ul>
                            </Card>
                         ) : (
-                            <p className="text-sm text-muted-foreground">You have not joined any secondary clubs.</p>
+                            <p className="text-sm text-muted-foreground px-1">You have not joined any secondary clubs.</p>
                         )}
                     </div>
-                    <div className="flex items-center gap-4">
-                      <Select
-                        value={selectedSecondaryClubId}
-                        onValueChange={(value) => {
-                          setSelectedSecondaryClubId(value);
-                        }}
-                      >
-                        <SelectTrigger id="secondaryClub">
-                          <SelectValue placeholder="Select a secondary club to add..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Select a club to add...</SelectItem>
-                          {clubs.map((club) => (
-                            <SelectItem key={club.id} value={club.id}>
-                              {club.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="flex items-end gap-2">
+                      <div className="flex-grow space-y-2">
+                        <Label htmlFor="secondaryClub">Add a Secondary Club</Label>
+                        <Select
+                            value={selectedSecondaryClubId}
+                            onValueChange={(value) => {
+                            setSelectedSecondaryClubId(value);
+                            }}
+                        >
+                            <SelectTrigger id="secondaryClub">
+                            <SelectValue placeholder="Select a club to add..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                            <SelectItem value="none">Select a club to add...</SelectItem>
+                            {clubs.filter(c => c.id !== primaryClubId && !secondaryClubIds.includes(c.id)).map((club) => (
+                                <SelectItem key={club.id} value={club.id}>
+                                {club.name}
+                                </SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                      </div>
                       {selectedSecondaryClubId !== 'none' && (
                         <Button type="button" onClick={handleAddClubClick} disabled={isSaving}>
                           {isSaving ? 'Adding...' : 'Add Club'}
