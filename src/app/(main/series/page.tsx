@@ -18,7 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit } from 'lucide-react';
+import { PlusCircle, Edit, Trophy, HelpCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -40,12 +40,22 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
 import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
-import type { Series, User, Club, Match } from '@/lib/types';
+import type { Series, User, Club, Match, Result } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface SeriesWithMatchCount extends Series {
     matchCount: number;
 }
+
+interface AnglerStanding {
+    rank: number;
+    userName: string;
+    totalRank: number;
+}
+
+type ResultWithSectionRank = Result & { sectionPosition?: number };
 
 
 export default function SeriesPage() {
@@ -63,8 +73,13 @@ export default function SeriesPage() {
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isStandingsModalOpen, setIsStandingsModalOpen] = useState(false);
+  const [isStandingsLoading, setIsStandingsLoading] = useState(false);
 
   const [selectedSeries, setSelectedSeries] = useState<Series | null>(null);
+  const [selectedSeriesForStandings, setSelectedSeriesForStandings] = useState<Series | null>(null);
+  const [leagueStandings, setLeagueStandings] = useState<AnglerStanding[]>([]);
+
   const [newSeriesName, setNewSeriesName] = useState('');
 
   // Fetch current user profile
@@ -193,6 +208,110 @@ export default function SeriesPage() {
     setSelectedSeries(series);
     setIsEditDialogOpen(true);
   };
+  
+  const handleOpenStandingsModal = async (series: SeriesWithMatchCount) => {
+    if (!firestore) return;
+    setSelectedSeriesForStandings(series);
+    setIsStandingsModalOpen(true);
+    setIsStandingsLoading(true);
+
+    try {
+        const resultsQuery = query(collection(firestore, 'results'), where('seriesId', '==', series.id));
+        const resultsSnapshot = await getDocs(resultsQuery);
+        const resultsData = resultsSnapshot.docs.map(doc => doc.data() as Result);
+        
+        // Group results by matchId to calculate section ranks for each match
+        const resultsByMatch: { [matchId: string]: Result[] } = {};
+        resultsData.forEach(result => {
+            if (!resultsByMatch[result.matchId]) {
+                resultsByMatch[result.matchId] = [];
+            }
+            resultsByMatch[result.matchId].push(result);
+        });
+        
+        const resultsWithSectionRank: ResultWithSectionRank[] = [];
+
+        // Calculate section ranks for each match
+        for (const matchId in resultsByMatch) {
+            const matchResults = resultsByMatch[matchId];
+            const processedResults = calculateSectionRanks(matchResults);
+            resultsWithSectionRank.push(...processedResults);
+        }
+
+        const anglerTotals: { [userId: string]: { userName: string; totalRank: number } } = {};
+        
+        resultsWithSectionRank.forEach(result => {
+            const rank = result.sectionPosition;
+            if (typeof rank === 'number' && rank > 0) {
+                if (!anglerTotals[result.userId]) {
+                    anglerTotals[result.userId] = {
+                        userName: result.userName,
+                        totalRank: 0,
+                    };
+                }
+                anglerTotals[result.userId].totalRank += rank;
+            }
+        });
+
+        const standings = Object.values(anglerTotals)
+            .sort((a, b) => a.totalRank - b.totalRank)
+            .map((angler, index) => ({
+                rank: index + 1,
+                userName: angler.userName,
+                totalRank: angler.totalRank,
+            }));
+            
+        setLeagueStandings(standings);
+    } catch (error) {
+        console.error("Error calculating standings: ", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not calculate league standings.' });
+    } finally {
+        setIsStandingsLoading(false);
+    }
+  }
+
+  const calculateSectionRanks = (results: Result[]): ResultWithSectionRank[] => {
+    const resultsCopy: ResultWithSectionRank[] = results.map(r => ({ ...r }));
+    
+    const resultsBySection: { [key: string]: ResultWithSectionRank[] } = {};
+    resultsCopy.forEach(result => {
+      if (result.section) {
+        if (!resultsBySection[result.section]) {
+          resultsBySection[result.section] = [];
+        }
+        resultsBySection[result.section].push(result);
+      }
+    });
+
+    for (const section in resultsBySection) {
+        // Rank anglers with weight
+        const sectionResultsWithWeight = resultsBySection[section]
+            .filter(r => r.status === 'OK' && r.weight > 0)
+            .sort((a, b) => b.weight - a.weight);
+
+        sectionResultsWithWeight.forEach((result, index) => {
+            const original = resultsCopy.find(r => r.userId === result.userId);
+            if (original) {
+              original.sectionPosition = index + 1;
+            }
+        });
+
+        // Rank anglers without weight (DNF, DNW, DSQ)
+        const lastSectionRank = sectionResultsWithWeight.length;
+        const dnwSectionRank = lastSectionRank + 1;
+
+        resultsBySection[section].forEach(result => {
+            if (['DNF', 'DNW', 'DSQ'].includes(result.status || '')) {
+                const original = resultsCopy.find(r => r.userId === result.userId);
+                if (original) {
+                    original.sectionPosition = dnwSectionRank;
+                }
+            }
+        });
+    }
+
+    return resultsCopy;
+  }
 
   const handleUpdateSeries = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -243,10 +362,39 @@ export default function SeriesPage() {
           <TableCell className="font-medium">{series.name}</TableCell>
           <TableCell>{series.matchCount}</TableCell>
           {canEdit && (
-            <TableCell className="text-right">
-                <Button variant="outline" size="icon" onClick={() => handleEditClick(series)}>
-                    <Edit className="h-4 w-4" />
-                </Button>
+            <TableCell className="text-right space-x-2">
+              <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="outline" size="icon" onClick={() => {}} disabled={series.matchCount === 0}>
+                            <HelpCircle className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">
+                        <p>Check registrations for series</p>
+                    </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="outline" size="icon" onClick={() => handleOpenStandingsModal(series)} disabled={series.matchCount === 0}>
+                            <Trophy className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">
+                        <p>View league standings</p>
+                    </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="outline" size="icon" onClick={() => handleEditClick(series)}>
+                            <Edit className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">
+                        <p>Edit series</p>
+                    </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </TableCell>
           )}
         </TableRow>
@@ -371,6 +519,60 @@ export default function SeriesPage() {
                         </Button>
                     </DialogFooter>
                 </form>
+            </DialogContent>
+        </Dialog>
+      )}
+
+      {selectedSeriesForStandings && (
+        <Dialog open={isStandingsModalOpen} onOpenChange={setIsStandingsModalOpen}>
+            <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>League Standings: {selectedSeriesForStandings.name}</DialogTitle>
+                    <DialogDescription>
+                        Overall standings based on the sum of section positions from all completed matches in this series.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="max-h-[60vh] overflow-y-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Rank</TableHead>
+                                <TableHead>Angler Name</TableHead>
+                                <TableHead>Total Section Rank</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {isStandingsLoading ? (
+                                Array.from({ length: 3 }).map((_, i) => (
+                                    <TableRow key={i}>
+                                        <TableCell><Skeleton className="h-4 w-10" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                                    </TableRow>
+                                ))
+                            ) : leagueStandings.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={3} className="h-24 text-center">
+                                        No results with rankings recorded for this series yet.
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                leagueStandings.map((angler) => (
+                                    <TableRow key={angler.userName}>
+                                        <TableCell>
+                                            <Badge variant="outline">{angler.rank}</Badge>
+                                        </TableCell>
+                                        <TableCell className="font-medium">{angler.userName}</TableCell>
+                                        <TableCell>{angler.totalRank}</TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+                 <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsStandingsModalOpen(false)}>Close</Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
       )}
