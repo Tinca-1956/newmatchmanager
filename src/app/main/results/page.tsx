@@ -30,7 +30,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, getDocs, orderBy, Timestamp, doc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, Timestamp, doc, onSnapshot, getDoc } from 'firebase/firestore';
 import type { Result, Series, User, Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
