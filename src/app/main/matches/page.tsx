@@ -145,18 +145,18 @@ export default function MatchesPage() {
         <TableCell>{format(match.date, 'E, dd MMM yyyy')}</TableCell>
         <TableCell>{match.capacity}</TableCell>
         <TableCell>{match.registeredCount}</TableCell>
-        <TableCell><Badge variant="outline">{match.status}</TableCell>
+        <TableCell><Badge variant="outline">{match.status}</Badge></TableCell>
         <TableCell>
           <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon">
-                  <FileDigit className="h-4 w-4" />
-              </Button>
-               <Button variant="ghost" size="icon">
-                  <Trophy className="h-4 w-4" />
-              </Button>
-               <Button variant="ghost" size="icon">
-                  <ArrowRight className="h-4 w-4" />
-              </Button>
+            <Button variant="ghost" size="icon">
+              <FileDigit className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon">
+              <Trophy className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon">
+              <ArrowRight className="h-4 w-4" />
+            </Button>
           </div>
         </TableCell>
       </TableRow>
