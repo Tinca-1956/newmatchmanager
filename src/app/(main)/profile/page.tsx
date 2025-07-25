@@ -223,6 +223,18 @@ export default function ProfilePage() {
       setIsUnregistering(false);
     }
   };
+  
+  const handleAddClubClick = () => {
+    if (secondaryClubId && secondaryClubId === primaryClubId) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid Selection',
+        description: 'Your secondary club cannot be the same as your primary club.',
+      });
+      return;
+    }
+    // Future logic for adding a user to a secondary club will go here.
+  };
 
 
   const renderUpcomingMatches = () => {
@@ -381,7 +393,7 @@ export default function ProfilePage() {
                       </SelectContent>
                     </Select>
                     {secondaryClubId && (
-                      <Button type="button">Add Club</Button>
+                      <Button type="button" onClick={handleAddClubClick}>Add Club</Button>
                     )}
                   </div>
                 </div>
