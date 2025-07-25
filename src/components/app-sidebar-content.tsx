@@ -28,19 +28,19 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { Skeleton } from './ui/skeleton';
 
 const navItems = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { href: '/profile', icon: UserIcon, label: 'Profile' },
-  { href: '/clubs', icon: Shield, label: 'Clubs' },
-  { href: '/members', icon: Users, label: 'Members' },
-  { href: '/marshals', icon: CircleUserRound, label: 'Marshals' },
-  { href: '/series', icon: Trophy, label: 'Series' },
-  { href: '/matches', icon: Swords, label: 'Matches' },
-  { href: '/results', icon: Medal, label: 'Results' },
-  { href: '/users', icon: UserCog, label: 'Users', adminOnly: true },
-  { href: '/users/deleted', icon: Trash2, label: 'Deleted Users', adminOnly: true },
-  { href: '/admin/seed', icon: Beaker, label: 'Seed Data', adminOnly: true },
-  { href: '/emulator', icon: FlaskConical, label: 'Emulator', adminOnly: true, emulatorOnly: true },
-  { href: '/about', icon: Info, label: 'About' },
+  { href: '/main/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/main/profile', icon: UserIcon, label: 'Profile' },
+  { href: '/main/clubs', icon: Shield, label: 'Clubs' },
+  { href: '/main/members', icon: Users, label: 'Members' },
+  { href: '/main/marshals', icon: CircleUserRound, label: 'Marshals' },
+  { href: '/main/series', icon: Trophy, label: 'Series' },
+  { href: '/main/matches', icon: Swords, label: 'Matches' },
+  { href: '/main/results', icon: Medal, label: 'Results' },
+  { href: '/main/users', icon: UserCog, label: 'Users', adminOnly: true },
+  { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users', adminOnly: true },
+  { href: '/main/admin/seed', icon: Beaker, label: 'Seed Data', adminOnly: true },
+  { href: '/main/emulator', icon: FlaskConical, label: 'Emulator', adminOnly: true, emulatorOnly: true },
+  { href: '/main/about', icon: Info, label: 'About' },
 ];
 
 interface AppSidebarContentProps {
@@ -93,7 +93,7 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
       }
       return true;
   }).sort((a, b) => {
-      const adminOrder = ['/users', '/users/deleted', '/admin/seed', '/emulator'];
+      const adminOrder = ['/main/users', '/main/users/deleted', '/main/admin/seed', '/main/emulator'];
       const aIndex = adminOrder.indexOf(a.href);
       const bIndex = adminOrder.indexOf(b.href);
       
@@ -108,8 +108,7 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
   return (
     <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
       {sortedNavItems.map((item) => {
-        const isActive =
-          (item.href !== '/' && pathname.startsWith(item.href)) || pathname === item.href;
+        const isActive = pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/main/dashboard');
 
         const linkContent = (
           <Link
