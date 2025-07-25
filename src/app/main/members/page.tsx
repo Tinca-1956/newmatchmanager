@@ -68,6 +68,12 @@ export default function MembersPage() {
 
     const fetchInitialData = async () => {
         setIsLoading(true);
+        if (!firestore) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Firestore not available.' });
+            setIsLoading(false);
+            return;
+        }
+
         try {
             const userDocRef = doc(firestore, 'users', user.uid);
             const userDoc = await getDoc(userDocRef);
@@ -127,12 +133,14 @@ export default function MembersPage() {
         }
     };
 
-    const unsubscribe = fetchInitialData();
+    const unsubscribePromise = fetchInitialData();
 
     return () => {
-        if (unsubscribe instanceof Promise) {
-            unsubscribe.then(unsub => unsub && unsub());
-        }
+        unsubscribePromise.then(unsubscribe => {
+            if (unsubscribe) {
+                unsubscribe();
+            }
+        });
     };
 
   }, [user, adminLoading, isSiteAdmin, toast]);
@@ -140,6 +148,7 @@ export default function MembersPage() {
 
   const handleStatusChange = async (memberId: string, newStatus: MembershipStatus) => {
     setIsUpdating(true);
+    if (!firestore) return;
     try {
       const memberDocRef = doc(firestore, 'users', memberId);
       await updateDoc(memberDocRef, { memberStatus: newStatus });
@@ -154,6 +163,7 @@ export default function MembersPage() {
 
   const handleRoleChange = async (memberId: string, newRole: UserRole) => {
      setIsUpdating(true);
+     if (!firestore) return;
     try {
       const memberDocRef = doc(firestore, 'users', memberId);
       await updateDoc(memberDocRef, { role: newRole });
@@ -328,7 +338,7 @@ export default function MembersPage() {
                 </DropdownMenuCheckboxItem>
                 <DropdownMenuCheckboxItem
                   checked={statusFilter.includes('Blocked')}
-                  onCheckedChange={() => toggle_filter('status', 'Blocked')}
+                  onCheckedChange={() => toggleFilter('status', 'Blocked')}
                 >
                   Blocked
                 </DropdownMenuCheckboxItem>

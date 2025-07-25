@@ -1,9 +1,10 @@
+
 'use client';
 
 import React, { useState, useEffect, useContext, createContext } from 'react';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { auth } from '@/lib/firebase-client';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -44,12 +45,15 @@ export const useAuth = () => useContext(AuthContext);
 export const useRequireAuth = (redirectUrl = '/login') => {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && !user && auth) {
-      router.push(redirectUrl);
+    if (!loading && !user) {
+        if(!pathname.startsWith('/auth/')) {
+            router.push(redirectUrl);
+        }
     }
-  }, [user, loading, router, redirectUrl]);
+  }, [user, loading, router, redirectUrl, pathname]);
 
   return { user, loading };
 };

@@ -2,7 +2,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import jsPDF from 'jspdf';
 import {
   Card,
   CardContent,
@@ -19,7 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trophy, HelpCircle, Download } from 'lucide-react';
+import { PlusCircle, Edit, Trophy } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -58,11 +57,6 @@ interface AnglerStanding {
 
 type ResultWithSectionRank = Result & { sectionPosition?: number };
 
-interface AuditResult {
-  [anglerName: string]: string[];
-}
-
-
 export default function SeriesPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -79,16 +73,11 @@ export default function SeriesPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isStandingsModalOpen, setIsStandingsModalOpen] = useState(false);
-  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
-  
   const [isStandingsLoading, setIsStandingsLoading] = useState(false);
-  const [isAuditing, setIsAuditing] = useState(false);
 
   const [selectedSeries, setSelectedSeries] = useState<Series | null>(null);
   const [selectedSeriesForAction, setSelectedSeriesForAction] = useState<SeriesWithMatchCount | null>(null);
   const [leagueStandings, setLeagueStandings] = useState<AnglerStanding[]>([]);
-  const [auditResults, setAuditResults] = useState<AuditResult>({});
-
 
   const [newSeriesName, setNewSeriesName] = useState('');
 
@@ -280,131 +269,6 @@ export default function SeriesPage() {
     }
   }
 
-  const handleAuditClick = async (series: SeriesWithMatchCount) => {
-    if (!firestore) return;
-    setSelectedSeriesForAction(series);
-    setIsAuditModalOpen(true);
-    setIsAuditing(true);
-    setAuditResults({});
-    
-    try {
-        // 1. Fetch all matches for the series
-        const matchesQuery = query(collection(firestore, 'matches'), where('seriesId', '==', series.id));
-        const matchesSnapshot = await getDocs(matchesQuery);
-        const seriesMatches = matchesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Match));
-        
-        if (seriesMatches.length === 0) {
-            setIsAuditing(false);
-            return;
-        }
-
-        // 2. Create a unique list of all anglers who participated
-        const allAnglerIds = seriesMatches.flatMap(m => m.registeredAnglers);
-        const uniqueAnglerIds = [...new Set(allAnglerIds)];
-        
-        if(uniqueAnglerIds.length === 0) {
-            setIsAuditing(false);
-            return;
-        }
-        
-        // 3. Fetch angler details
-        const anglersMap = new Map<string, User>();
-        const chunks = [];
-        for (let i = 0; i < uniqueAnglerIds.length; i += 30) {
-            chunks.push(uniqueAnglerIds.slice(i, i + 30));
-        }
-        for (const chunk of chunks) {
-            if (chunk.length === 0) continue;
-            const usersQuery = query(collection(firestore, 'users'), where('__name__', 'in', chunk));
-            const usersSnapshot = await getDocs(usersQuery);
-            usersSnapshot.forEach(doc => anglersMap.set(doc.id, {id: doc.id, ...doc.data()} as User));
-        }
-
-        // 4. Check each angler against each match
-        const missingAnglers: AuditResult = {};
-        for (const anglerId of uniqueAnglerIds) {
-            const angler = anglersMap.get(anglerId);
-            if (!angler) continue;
-            
-            const anglerName = `${angler.firstName} ${angler.lastName}`;
-            missingAnglers[anglerName] = [];
-            
-            for (const match of seriesMatches) {
-                if (!match.registeredAnglers.includes(anglerId)) {
-                    missingAnglers[anglerName].push(match.name);
-                }
-            }
-            
-            if (missingAnglers[anglerName].length === 0) {
-                delete missingAnglers[anglerName];
-            }
-        }
-        
-        setAuditResults(missingAnglers);
-    } catch(error) {
-        console.error("Error during series audit:", error);
-        toast({ variant: 'destructive', title: 'Audit Error', description: 'Could not complete the registration check.' });
-    } finally {
-        setIsAuditing(false);
-    }
-  };
-
-  const handleDownloadAuditPdf = () => {
-    if (!selectedSeriesForAction || Object.keys(auditResults).length === 0) {
-        toast({
-            variant: 'destructive',
-            title: 'No Data to Export',
-            description: 'There are no audit results to generate a PDF.',
-        });
-        return;
-    }
-
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const margin = 15;
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    let currentY = margin;
-
-    // Header
-    pdf.setFontSize(18);
-    pdf.text(`Registration Audit`, pageWidth / 2, currentY, { align: 'center' });
-    currentY += 8;
-    pdf.setFontSize(14);
-    pdf.text(selectedSeriesForAction.name, pageWidth / 2, currentY, { align: 'center' });
-    currentY += 15;
-
-    // Content
-    pdf.setFontSize(12);
-    Object.entries(auditResults).forEach(([anglerName, matches]) => {
-        if (currentY > pdf.internal.pageSize.getHeight() - margin - (7 * (matches.length + 2))) {
-            pdf.addPage();
-            currentY = margin;
-        }
-        
-        pdf.setFont('helvetica', 'bold');
-        pdf.text(anglerName, margin, currentY);
-        currentY += 7;
-        
-        pdf.setFont('helvetica', 'normal');
-        pdf.text('Missing from match(es):', margin + 5, currentY);
-        currentY += 7;
-
-        matches.forEach(matchName => {
-            if (currentY > pdf.internal.pageSize.getHeight() - margin) {
-                pdf.addPage();
-                currentY = margin;
-            }
-            pdf.text(`- ${matchName}`, margin + 10, currentY);
-            currentY += 7;
-        });
-        
-        currentY += 5; // Extra space between anglers
-    });
-
-    pdf.save(`audit_report_${selectedSeriesForAction.name.replace(/ /g, '_')}.pdf`);
-    toast({ title: 'Success', description: 'Audit report PDF has been downloaded.' });
-  };
-
-
   const calculateSectionRanks = (results: Result[]): ResultWithSectionRank[] => {
     const resultsCopy: ResultWithSectionRank[] = results.map(r => ({ ...r }));
     
@@ -497,16 +361,6 @@ export default function SeriesPage() {
           {canEdit && (
             <TableCell className="text-right space-x-2">
               <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button variant="outline" size="icon" onClick={() => handleAuditClick(series)} disabled={series.matchCount === 0}>
-                            <HelpCircle className="h-4 w-4" />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="left">
-                        <p>Check registrations for series</p>
-                    </TooltipContent>
-                </Tooltip>
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <Button variant="outline" size="icon" onClick={() => handleOpenStandingsModal(series)} disabled={series.matchCount === 0}>
@@ -705,57 +559,6 @@ export default function SeriesPage() {
                 </div>
                  <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => setIsStandingsModalOpen(false)}>Close</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-      )}
-
-      {selectedSeriesForAction && (
-        <Dialog open={isAuditModalOpen} onOpenChange={setIsAuditModalOpen}>
-            <DialogContent className="sm:max-w-xl">
-                <DialogHeader>
-                    <DialogTitle>Registration Audit: {selectedSeriesForAction.name}</DialogTitle>
-                    <DialogDescription>
-                        A list of anglers who are not registered for all matches in this series. They should be added manually from the Matches page.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="max-h-[60vh] overflow-y-auto mt-4 p-1">
-                    {isAuditing ? (
-                         <div className="flex items-center justify-center p-8">
-                            <Skeleton className="h-24 w-full" />
-                         </div>
-                    ) : Object.keys(auditResults).length === 0 ? (
-                        <p className="text-center text-muted-foreground p-8">
-                            All anglers who have fished at least one match in this series are correctly registered for all matches.
-                        </p>
-                    ) : (
-                        <div className="space-y-4">
-                            {Object.entries(auditResults).map(([anglerName, matches]) => (
-                                <Card key={anglerName}>
-                                    <CardHeader className="p-4">
-                                        <CardTitle className="text-base">{anglerName}</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="p-4 pt-0">
-                                        <p className="text-sm font-medium mb-2">Missing from:</p>
-                                        <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                                            {matches.map(matchName => <li key={matchName}>{matchName}</li>)}
-                                        </ul>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    )}
-                </div>
-                <DialogFooter className="sm:justify-between">
-                     <Button 
-                        variant="secondary" 
-                        onClick={handleDownloadAuditPdf} 
-                        disabled={isAuditing || Object.keys(auditResults).length === 0}
-                    >
-                        <Download className="mr-2 h-4 w-4"/>
-                        Download PDF
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => setIsAuditModalOpen(false)}>Close</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
