@@ -365,12 +365,20 @@ export default function SeriesPage() {
     let currentY = margin;
 
     // Header
-    pdf.setFontSize(18);
-    pdf.text(`Registration Audit`, pageWidth / 2, currentY, { align: 'center' });
-    currentY += 8;
-    pdf.setFontSize(14);
+    pdf.setFontSize(22);
+    pdf.text(clubName, pageWidth / 2, currentY, { align: 'center' });
+    currentY += 10;
+    
+    pdf.setFontSize(16);
     pdf.text(selectedSeriesForAction.name, pageWidth / 2, currentY, { align: 'center' });
-    currentY += 15;
+    currentY += 8;
+
+    pdf.setFontSize(10);
+    const instructions = "This list details all anglers that do not appear in every match for the series. It is the CLUB ADMIN's role to manually add these anglers that did not attend any matches and to mark their match status as DNF and click SAVE. The app will then assign DNF anglers the maximum ranking points for that match";
+    const splitInstructions = pdf.splitTextToSize(instructions, pageWidth - (margin * 2));
+    pdf.text(splitInstructions, pageWidth / 2, currentY, { align: 'center' });
+    currentY += (splitInstructions.length * 5) + 10; // Adjust spacing based on number of lines
+
 
     // Content
     pdf.setFontSize(12);
