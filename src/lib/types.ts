@@ -1,4 +1,3 @@
-
 import type { Timestamp } from 'firebase/firestore';
 
 export type UserRole = 'Site Admin' | 'Club Admin' | 'Marshal' | 'Angler';
@@ -14,7 +13,7 @@ export interface User {
   role: UserRole;
   memberStatus: MembershipStatus;
   primaryClubId?: string;
-  secondaryClubIds?: string[];
+  secondaryClubId?: string;
 }
 
 export interface Club {
