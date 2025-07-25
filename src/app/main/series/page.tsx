@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 import {
   Card,
   CardContent,
@@ -20,7 +19,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trophy, HelpCircle, Download, CheckCircle, AlertTriangle } from 'lucide-react';
+import { PlusCircle, Edit, Trophy, HelpCircle, Download } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -41,7 +40,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDocs, orderBy, writeBatch } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
 import type { Series, User, Club, Match, Result } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -90,9 +89,6 @@ export default function SeriesPage() {
   const [leagueStandings, setLeagueStandings] = useState<AnglerStanding[]>([]);
   const [auditResults, setAuditResults] = useState<AuditResult>({});
 
-  const [isAuditConfirmOpen, setIsAuditConfirmOpen] = useState(false);
-  const [auditFixIsLoading, setAuditFixIsLoading] = useState(false);
-  const [isCheckComplete, setIsCheckComplete] = useState(false);
 
   const [newSeriesName, setNewSeriesName] = useState('');
 
@@ -289,7 +285,6 @@ export default function SeriesPage() {
     setSelectedSeriesForAction(series);
     setIsAuditModalOpen(true);
     setIsAuditing(true);
-    setIsCheckComplete(false); // Reset check status
     setAuditResults({});
     
     try {
@@ -300,17 +295,15 @@ export default function SeriesPage() {
         
         if (seriesMatches.length === 0) {
             setIsAuditing(false);
-            setIsCheckComplete(true);
             return;
         }
 
         // 2. Create a unique list of all anglers who participated
-        const allAnglerIdsWithDuplicates = seriesMatches.flatMap(m => m.registeredAnglers);
-        const uniqueAnglerIds = [...new Set(allAnglerIdsWithDuplicates)];
+        const allAnglerIds = seriesMatches.flatMap(m => m.registeredAnglers);
+        const uniqueAnglerIds = [...new Set(allAnglerIds)];
         
         if(uniqueAnglerIds.length === 0) {
             setIsAuditing(false);
-             setIsCheckComplete(true);
             return;
         }
         
@@ -353,8 +346,62 @@ export default function SeriesPage() {
         toast({ variant: 'destructive', title: 'Audit Error', description: 'Could not complete the registration check.' });
     } finally {
         setIsAuditing(false);
-        setIsCheckComplete(true);
     }
+  };
+
+  const handleDownloadAuditPdf = () => {
+    if (!selectedSeriesForAction || Object.keys(auditResults).length === 0) {
+        toast({
+            variant: 'destructive',
+            title: 'No Data to Export',
+            description: 'There are no audit results to generate a PDF.',
+        });
+        return;
+    }
+
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const margin = 15;
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    let currentY = margin;
+
+    // Header
+    pdf.setFontSize(18);
+    pdf.text(`Registration Audit`, pageWidth / 2, currentY, { align: 'center' });
+    currentY += 8;
+    pdf.setFontSize(14);
+    pdf.text(selectedSeriesForAction.name, pageWidth / 2, currentY, { align: 'center' });
+    currentY += 15;
+
+    // Content
+    pdf.setFontSize(12);
+    Object.entries(auditResults).forEach(([anglerName, matches]) => {
+        if (currentY > pdf.internal.pageSize.getHeight() - margin - (7 * (matches.length + 2))) {
+            pdf.addPage();
+            currentY = margin;
+        }
+        
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(anglerName, margin, currentY);
+        currentY += 7;
+        
+        pdf.setFont('helvetica', 'normal');
+        pdf.text('Missing from match(es):', margin + 5, currentY);
+        currentY += 7;
+
+        matches.forEach(matchName => {
+            if (currentY > pdf.internal.pageSize.getHeight() - margin) {
+                pdf.addPage();
+                currentY = margin;
+            }
+            pdf.text(`- ${matchName}`, margin + 10, currentY);
+            currentY += 7;
+        });
+        
+        currentY += 5; // Extra space between anglers
+    });
+
+    pdf.save(`audit_report_${selectedSeriesForAction.name.replace(/ /g, '_')}.pdf`);
+    toast({ title: 'Success', description: 'Audit report PDF has been downloaded.' });
   };
 
 
@@ -672,32 +719,17 @@ export default function SeriesPage() {
                         A list of anglers who are not registered for all matches in this series. They should be added manually from the Matches page.
                     </DialogDescription>
                 </DialogHeader>
-                 <div className="max-h-[60vh] overflow-y-auto mt-4 p-1">
+                <div className="max-h-[60vh] overflow-y-auto mt-4 p-1">
                     {isAuditing ? (
                          <div className="flex items-center justify-center p-8">
                             <Skeleton className="h-24 w-full" />
                          </div>
-                    ) : isCheckComplete && Object.keys(auditResults).length === 0 ? (
-                       <div className="text-center p-8 space-y-4">
-                          <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
-                           <p className="text-lg font-semibold">Check Complete</p>
-                          <p className="text-muted-foreground">
-                              All anglers who have fished at least one match in this series are correctly registered for all matches.
-                          </p>
-                       </div>
-                    ) : isCheckComplete && Object.keys(auditResults).length > 0 ? (
+                    ) : Object.keys(auditResults).length === 0 ? (
+                        <p className="text-center text-muted-foreground p-8">
+                            All anglers who have fished at least one match in this series are correctly registered for all matches.
+                        </p>
+                    ) : (
                         <div className="space-y-4">
-                           <div className="p-4 rounded-lg bg-yellow-50 border border-yellow-200">
-                                <div className="flex items-start gap-3">
-                                    <AlertTriangle className="h-5 w-5 text-yellow-500 mt-1"/>
-                                    <div>
-                                        <p className="font-semibold text-yellow-800">Discrepancies Found</p>
-                                        <p className="text-sm text-yellow-700">
-                                            The following anglers are missing from one or more matches in this series.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
                             {Object.entries(auditResults).map(([anglerName, matches]) => (
                                 <Card key={anglerName}>
                                     <CardHeader className="p-4">
@@ -712,24 +744,23 @@ export default function SeriesPage() {
                                 </Card>
                             ))}
                         </div>
-                    ) : null}
+                    )}
                 </div>
-                <DialogFooter className="sm:justify-between items-center">
-                    <div>
-                        {!isAuditing && isCheckComplete && Object.keys(auditResults).length > 0 && (
-                            <Button variant="destructive" onClick={() => setIsAuditConfirmOpen(true)}>
-                                Fix Registrations
-                            </Button>
-                        )}
-                    </div>
-                     <div className="flex gap-2">
-                        <Button type="button" variant="outline" onClick={() => setIsAuditModalOpen(false)}>Close</Button>
-                     </div>
+                <DialogFooter className="sm:justify-between">
+                     <Button 
+                        variant="secondary" 
+                        onClick={handleDownloadAuditPdf} 
+                        disabled={isAuditing || Object.keys(auditResults).length === 0}
+                    >
+                        <Download className="mr-2 h-4 w-4"/>
+                        Download PDF
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => setIsAuditModalOpen(false)}>Close</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
       )}
-      
+
     </div>
   );
 }
