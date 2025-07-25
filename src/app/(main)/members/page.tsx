@@ -20,7 +20,7 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
-import { collection, doc, getDoc, onSnapshot, query, where, updateDoc, orderBy } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, where, updateDoc, orderBy } from 'firebase/firestore';
 import type { User, UserRole, MembershipStatus, Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -43,6 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useRouter } from 'next/navigation';
 
 interface Member extends User {
   clubName: string;
@@ -50,35 +51,39 @@ interface Member extends User {
 
 export default function MembersPage() {
   const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   const { toast } = useToast();
   
-  const [members, setMembers] = useState<Member[]>([]);
-  const [clubName, setClubName] = useState<string>('');
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [clubs, setClubs] = useState<Club[]>([]);
+
   const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
-  const [allClubs, setAllClubs] = useState<Club[]>([]);
-  const [selectedClubId, setSelectedClubId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
+  
+  // State for Edit Dialog
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // State for Filters
+  const [selectedClubId, setSelectedClubId] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
-
-  // Fetch current user profile to determine role and primary club
+  
+  // Fetch current user profile to determine role
   useEffect(() => {
     if (authLoading || !user || !firestore) {
       if (!authLoading) setIsLoading(false);
       return;
     }
-
     const userDocRef = doc(firestore, 'users', user.uid);
     const unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
       if (userDoc.exists()) {
         const userProfile = { id: userDoc.id, ...userDoc.data() } as User;
         setCurrentUserProfile(userProfile);
-        // For non-admins or if no club is selected yet, set the selected club to their primary club
-        if (userProfile.primaryClubId && (userProfile.role !== 'Site Admin' || !selectedClubId)) {
+        // Default filter to user's primary club if they are not a Site Admin
+        if (userProfile.role !== 'Site Admin' && userProfile.primaryClubId) {
           setSelectedClubId(userProfile.primaryClubId);
         }
       } else {
@@ -86,79 +91,51 @@ export default function MembersPage() {
         toast({ variant: 'destructive', title: 'Error', description: 'Could not find your user profile.' });
       }
     });
-
     return () => unsubscribeUser();
-  }, [user, authLoading, toast, selectedClubId]);
-
-  // If user is a Site Admin, fetch all clubs for the dropdown
+  }, [user, authLoading, toast]);
+  
+  // Fetch all clubs (for Site Admin dropdown and name mapping)
   useEffect(() => {
-    if (currentUserProfile?.role === 'Site Admin' && firestore) {
-      const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
-      const unsubscribeClubs = onSnapshot(clubsQuery, (snapshot) => {
+    if (!firestore) return;
+    const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
+    const unsubscribeClubs = onSnapshot(clubsQuery, (snapshot) => {
         const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
-        setAllClubs(clubsData);
-        // If no club is selected, default to the admin's primary club or the first club in the list
-        if (!selectedClubId) {
-          if(currentUserProfile.primaryClubId) {
-            setSelectedClubId(currentUserProfile.primaryClubId);
-          } else if (clubsData.length > 0) {
-            setSelectedClubId(clubsData[0].id);
-          }
-        }
-      });
-      return () => unsubscribeClubs();
-    }
-  }, [currentUserProfile, selectedClubId]);
+        setClubs(clubsData);
+    });
+    return () => unsubscribeClubs();
+  }, []);
 
-
-  // Fetch members based on the selected club
+  // Fetch users based on role
   useEffect(() => {
-    if (!selectedClubId || !firestore) {
-      if(selectedClubId) setIsLoading(false);
-      setMembers([]);
-      setClubName(currentUserProfile?.role === 'Site Admin' ? 'Please select a club' : 'No Club Selected');
-      return;
-    }
+    if (!currentUserProfile || !firestore) return;
 
     setIsLoading(true);
-
-    const clubDocRef = doc(firestore, 'clubs', selectedClubId);
-    const unsubscribeClub = onSnapshot(clubDocRef, (clubDoc) => {
-      setClubName(clubDoc.exists() ? clubDoc.data().name : 'Unknown Club');
-    });
-
-    const membersQuery = query(collection(firestore, 'users'), where('primaryClubId', '==', selectedClubId));
-    const unsubscribeMembers = onSnapshot(membersQuery, (snapshot) => {
-      const membersData = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          firstName: data.firstName || '',
-          lastName: data.lastName || '',
-          email: data.email || '',
-          role: data.role || 'Angler',
-          memberStatus: data.memberStatus || 'Pending',
-          primaryClubId: data.primaryClubId,
-          clubName: clubName, // clubName from the outer scope
-        } as Member;
-      }).filter(m => m.memberStatus !== 'Deleted');
-      setMembers(membersData);
-      setIsLoading(false);
+    let usersQuery;
+    if (currentUserProfile.role === 'Site Admin') {
+        // Site Admins fetch all users
+        usersQuery = query(collection(firestore, 'users'));
+    } else {
+        // Other roles (Club Admin) fetch only users from their primary club
+        usersQuery = query(collection(firestore, 'users'), where('primaryClubId', '==', currentUserProfile.primaryClubId));
+    }
+    
+    const unsubscribeUsers = onSnapshot(usersQuery, (snapshot) => {
+        const usersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+        setAllUsers(usersData.filter(u => u.memberStatus !== 'Deleted'));
+        setIsLoading(false);
     }, (error) => {
-      console.error("Error fetching members: ", error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Could not fetch club members.',
-      });
-      setIsLoading(false);
+        console.error("Error fetching members: ", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch club members.' });
+        setIsLoading(false);
     });
 
-    return () => {
-      unsubscribeClub();
-      unsubscribeMembers();
-    };
-  }, [selectedClubId, toast, currentUserProfile, clubName]);
+    return () => unsubscribeUsers();
+  }, [currentUserProfile, toast]);
+
+  const getClubName = (clubId?: string) => {
+    if (!clubId) return 'N/A';
+    return clubs.find(c => c.id === clubId)?.name || 'Unknown Club';
+  };
   
   const handleEditClick = (member: Member) => {
     setSelectedMember(member);
@@ -169,8 +146,7 @@ export default function MembersPage() {
     e.preventDefault();
     if (!selectedMember || !firestore) return;
     
-    // Rule: Cannot leave club with no admin
-    const clubAdmins = members.filter(m => m.role === 'Club Admin');
+    const clubAdmins = filteredMembers.filter(m => m.role === 'Club Admin' && m.primaryClubId === selectedMember.primaryClubId);
     if (
       clubAdmins.length === 1 && 
       clubAdmins[0].id === selectedMember.id &&
@@ -216,19 +192,29 @@ export default function MembersPage() {
     setSearchTerm('');
     setStatusFilter('all');
     setRoleFilter('all');
+    // Site admins reset to all clubs, others reset to their own
+    if (currentUserProfile?.role === 'Site Admin') {
+      setSelectedClubId('all');
+    } else {
+      setSelectedClubId(currentUserProfile?.primaryClubId || 'all');
+    }
   };
 
-  const canEdit = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
-
   const filteredMembers = useMemo(() => {
-    return members.filter(member => {
-      const statusMatch = statusFilter === 'all' || member.memberStatus === statusFilter;
-      const roleMatch = roleFilter === 'all' || member.role === roleFilter;
-      const searchMatch = searchTerm.trim() === '' ||
-                        `${member.firstName} ${member.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
-      return statusMatch && roleMatch && searchMatch;
-    });
-  }, [members, statusFilter, roleFilter, searchTerm]);
+    return allUsers.filter(member => {
+        const clubMatch = selectedClubId === 'all' || member.primaryClubId === selectedClubId;
+        const statusMatch = statusFilter === 'all' || member.memberStatus === statusFilter;
+        const roleMatch = roleFilter === 'all' || member.role === roleFilter;
+        const searchMatch = searchTerm.trim() === '' ||
+                          `${member.firstName} ${member.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
+        return clubMatch && statusMatch && roleMatch && searchMatch;
+      }).map(member => ({
+        ...member,
+        clubName: getClubName(member.primaryClubId)
+      }));
+  }, [allUsers, selectedClubId, statusFilter, roleFilter, searchTerm, clubs]);
+
+  const canEdit = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
 
   const renderMemberList = () => {
     if (isLoading) {
@@ -295,10 +281,10 @@ export default function MembersPage() {
         <CardHeader className="flex flex-row items-center justify-between">
             <div>
                 <CardTitle>
-                    {isLoading ? <Skeleton className="h-6 w-48" /> : `${clubName} Members`}
+                    {currentUserProfile?.role === 'Site Admin' ? 'All Club Members' : `${getClubName(currentUserProfile?.primaryClubId)} Members` }
                 </CardTitle>
                 <CardDescription>
-                    A list of all the members in the selected club.
+                    {currentUserProfile?.role === 'Site Admin' ? 'A list of all members in the system.' : 'A list of all members in your primary club.'}
                 </CardDescription>
             </div>
             <div className="flex items-end gap-2">
@@ -315,12 +301,13 @@ export default function MembersPage() {
                 {currentUserProfile?.role === 'Site Admin' && (
                   <div className="grid w-52 gap-1.5">
                     <Label htmlFor="club-filter">Club</Label>
-                    <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={allClubs.length === 0}>
+                    <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={clubs.length === 0}>
                       <SelectTrigger id="club-filter">
-                        <SelectValue placeholder="Select a club..." />
+                        <SelectValue placeholder="Filter by club..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {allClubs.map((club) => (
+                         <SelectItem value="all">All Clubs</SelectItem>
+                        {clubs.map((club) => (
                           <SelectItem key={club.id} value={club.id}>
                             {club.name}
                           </SelectItem>
@@ -355,6 +342,7 @@ export default function MembersPage() {
                             <SelectItem value="Angler">Angler</SelectItem>
                             <SelectItem value="Marshal">Marshal</SelectItem>
                             <SelectItem value="Club Admin">Club Admin</SelectItem>
+                             {currentUserProfile?.role === 'Site Admin' && <SelectItem value="Site Admin">Site Admin</SelectItem>}
                         </SelectContent>
                     </Select>
                 </div>
