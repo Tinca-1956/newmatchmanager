@@ -18,7 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, FileDigit, Trophy, ArrowRight } from 'lucide-react';
+import { PlusCircle, UserPlus, FileText, Trophy, Scale, LogIn, Edit } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -38,6 +38,7 @@ import { format } from 'date-fns';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { ResultsModal } from '@/components/results-modal';
 import { useMatchActions } from '@/hooks/use-match-actions';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function MatchesPage() {
   const { user } = useAuth();
@@ -57,6 +58,9 @@ export default function MatchesPage() {
     handleEditMatch,
     handleRegister,
     closeModal,
+    handleManagePegs,
+    handleWeighIn,
+    handleViewAnglers,
   } = useMatchActions();
 
   // Effect to get the user's primary club or all clubs for admin
@@ -131,8 +135,8 @@ export default function MatchesPage() {
           <TableCell><Skeleton className="h-4 w-24" /></TableCell>
           <TableCell><Skeleton className="h-4 w-12" /></TableCell>
           <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-          <TableCell><Skeleton className="h-8 w-20" /></TableCell>
-          <TableCell><Skeleton className="h-8 w-24" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+          <TableCell><Skeleton className="h-10 w-48" /></TableCell>
         </TableRow>
       ));
     }
@@ -157,17 +161,58 @@ export default function MatchesPage() {
         <TableCell>{match.registeredCount}</TableCell>
         <TableCell><Badge variant="outline">{match.status}</Badge></TableCell>
         <TableCell>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => handleEditMatch(match.id)}>
-              <FileDigit className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => handleViewResults(match)}>
-              <Trophy className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => handleRegister(match.id)}>
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </div>
+            <TooltipProvider>
+                <div className="flex items-center gap-1">
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={() => handleViewAnglers(match.id)}>
+                                <UserPlus className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>View/Manage Anglers</p></TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={() => handleManagePegs(match.id)}>
+                                <FileText className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Manage Pegs</p></TooltipContent>
+                    </Tooltip>
+                     <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={() => handleViewResults(match)}>
+                                <Trophy className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>View Results</p></TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                             <Button variant="ghost" size="icon" onClick={() => handleWeighIn(match.id)}>
+                                <Scale className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Manage Weigh-in</p></TooltipContent>
+                    </Tooltip>
+                     <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={() => handleRegister(match.id)}>
+                                <LogIn className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Register for Match</p></TooltipContent>
+                    </Tooltip>
+                     <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={() => handleEditMatch(match.id)}>
+                                <Edit className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Edit Match</p></TooltipContent>
+                    </Tooltip>
+                </div>
+            </TooltipProvider>
         </TableCell>
       </TableRow>
     ));
@@ -184,7 +229,7 @@ export default function MatchesPage() {
           <div className="flex items-center gap-4">
               {isSiteAdmin && (
                   <div className="flex items-center gap-2">
-                      <Label htmlFor="club-filter" className="text-nowrap">Club</Label>
+                      <Label htmlFor="club-filter" className="text-nowrap">Clubs</Label>
                       <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={clubs.length === 0}>
                           <SelectTrigger id="club-filter" className="w-52">
                               <SelectValue placeholder="Select a club..." />

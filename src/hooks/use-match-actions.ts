@@ -26,20 +26,37 @@ export const useMatchActions = () => {
   };
 
   const handleEditMatch = (matchId: string) => {
-    // In a real app, this would navigate to an edit page
-    // router.push(`/main/matches/edit/${matchId}`);
     toast({
         title: 'Action Not Implemented',
         description: `Edit functionality for match ${matchId} is not yet available.`,
     });
   };
-
-  const handleRegister = (matchId: string) => {
-     // In a real app, this would navigate to a registration or angler list page
-    // router.push(`/main/matches/register/${matchId}`);
+  
+  const handleViewAnglers = (matchId: string) => {
      toast({
         title: 'Action Not Implemented',
-        description: `Registration/Angler view for match ${matchId} is not yet available.`,
+        description: `View/Manage Anglers for match ${matchId} is not yet available.`,
+    });
+  };
+  
+  const handleManagePegs = (matchId: string) => {
+     toast({
+        title: 'Action Not Implemented',
+        description: `Manage Pegs for match ${matchId} is not yet available.`,
+    });
+  };
+
+   const handleWeighIn = (matchId: string) => {
+     toast({
+        title: 'Action Not Implemented',
+        description: `Weigh-in for match ${matchId} is not yet available.`,
+    });
+  };
+
+  const handleRegister = (matchId: string) => {
+     toast({
+        title: 'Action Not Implemented',
+        description: `Registration for match ${matchId} is not yet available.`,
     });
   };
 
@@ -54,6 +71,9 @@ export const useMatchActions = () => {
     handleViewResults,
     handleEditMatch,
     handleRegister,
+    handleViewAnglers,
+    handleManagePegs,
+    handleWeighIn,
     closeModal,
   };
 };
