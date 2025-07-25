@@ -49,7 +49,7 @@ export const useRequireAuth = (redirectUrl = '/login') => {
 
   useEffect(() => {
     if (!loading && !user) {
-        if(!pathname.startsWith('/auth/')) {
+        if(!pathname.startsWith('/auth')) {
             router.push(redirectUrl);
         }
     }
