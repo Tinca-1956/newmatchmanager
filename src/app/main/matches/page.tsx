@@ -167,11 +167,9 @@ export default function MatchesPage() {
                       <Edit className="mr-2 h-4 w-4" />
                       Edit Match
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                      <Link href={`/main/results?clubId=${match.clubId}&seriesId=${match.seriesId}&matchId=${match.id}`}>
-                          <Eye className="mr-2 h-4 w-4" />
-                          View Results
-                      </Link>
+                  <DropdownMenuItem>
+                      <Eye className="mr-2 h-4 w-4" />
+                      View Results
                   </DropdownMenuItem>
               </DropdownMenuContent>
           </DropdownMenu>
