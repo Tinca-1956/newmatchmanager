@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import jsPDF from 'jspdf';
 import {
   Card,
   CardContent,
@@ -18,7 +19,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trophy, HelpCircle } from 'lucide-react';
+import { PlusCircle, Edit, Trophy, HelpCircle, Download } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -229,6 +230,7 @@ export default function SeriesPage() {
         const resultsSnapshot = await getDocs(resultsQuery);
         const resultsData = resultsSnapshot.docs.map(doc => doc.data() as Result);
         
+        // Group results by matchId to calculate section ranks for each match
         const resultsByMatch: { [matchId: string]: Result[] } = {};
         resultsData.forEach(result => {
             if (!resultsByMatch[result.matchId]) {
@@ -239,6 +241,7 @@ export default function SeriesPage() {
         
         const resultsWithSectionRank: ResultWithSectionRank[] = [];
 
+        // Calculate section ranks for each match
         for (const matchId in resultsByMatch) {
             const matchResults = resultsByMatch[matchId];
             const processedResults = calculateSectionRanks(matchResults);
@@ -285,6 +288,7 @@ export default function SeriesPage() {
     setAuditResults({});
     
     try {
+        // 1. Fetch all matches for the series
         const matchesQuery = query(collection(firestore, 'matches'), where('seriesId', '==', series.id));
         const matchesSnapshot = await getDocs(matchesQuery);
         const seriesMatches = matchesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Match));
@@ -294,6 +298,7 @@ export default function SeriesPage() {
             return;
         }
 
+        // 2. Create a unique list of all anglers who participated
         const allAnglerIds = seriesMatches.flatMap(m => m.registeredAnglers);
         const uniqueAnglerIds = [...new Set(allAnglerIds)];
         
@@ -302,6 +307,7 @@ export default function SeriesPage() {
             return;
         }
         
+        // 3. Fetch angler details
         const anglersMap = new Map<string, User>();
         const chunks = [];
         for (let i = 0; i < uniqueAnglerIds.length; i += 30) {
@@ -314,6 +320,7 @@ export default function SeriesPage() {
             usersSnapshot.forEach(doc => anglersMap.set(doc.id, {id: doc.id, ...doc.data()} as User));
         }
 
+        // 4. Check each angler against each match
         const missingAnglers: AuditResult = {};
         for (const anglerId of uniqueAnglerIds) {
             const angler = anglersMap.get(anglerId);
@@ -341,6 +348,62 @@ export default function SeriesPage() {
         setIsAuditing(false);
     }
   };
+
+  const handleDownloadAuditPdf = () => {
+    if (!selectedSeriesForAction || Object.keys(auditResults).length === 0) {
+        toast({
+            variant: 'destructive',
+            title: 'No Data to Export',
+            description: 'There are no audit results to generate a PDF.',
+        });
+        return;
+    }
+
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const margin = 15;
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    let currentY = margin;
+
+    // Header
+    pdf.setFontSize(18);
+    pdf.text(`Registration Audit`, pageWidth / 2, currentY, { align: 'center' });
+    currentY += 8;
+    pdf.setFontSize(14);
+    pdf.text(selectedSeriesForAction.name, pageWidth / 2, currentY, { align: 'center' });
+    currentY += 15;
+
+    // Content
+    pdf.setFontSize(12);
+    Object.entries(auditResults).forEach(([anglerName, matches]) => {
+        if (currentY > pdf.internal.pageSize.getHeight() - margin - (7 * (matches.length + 2))) {
+            pdf.addPage();
+            currentY = margin;
+        }
+        
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(anglerName, margin, currentY);
+        currentY += 7;
+        
+        pdf.setFont('helvetica', 'normal');
+        pdf.text('Missing from match(es):', margin + 5, currentY);
+        currentY += 7;
+
+        matches.forEach(matchName => {
+            if (currentY > pdf.internal.pageSize.getHeight() - margin) {
+                pdf.addPage();
+                currentY = margin;
+            }
+            pdf.text(`- ${matchName}`, margin + 10, currentY);
+            currentY += 7;
+        });
+        
+        currentY += 5; // Extra space between anglers
+    });
+
+    pdf.save(`audit_report_${selectedSeriesForAction.name.replace(/ /g, '_')}.pdf`);
+    toast({ title: 'Success', description: 'Audit report PDF has been downloaded.' });
+  };
+
 
   const calculateSectionRanks = (results: Result[]): ResultWithSectionRank[] => {
     const resultsCopy: ResultWithSectionRank[] = results.map(r => ({ ...r }));
@@ -407,12 +470,12 @@ export default function SeriesPage() {
   const canEdit = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
 
   const renderSeriesList = () => {
-    if (isLoading && !seriesList.length) {
+    if (isLoading) {
       return Array.from({ length: 3 }).map((_, i) => (
          <TableRow key={i}>
             <TableCell><Skeleton className="h-4 w-[250px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[50px]" /></TableCell>
-            <TableCell className="text-right"><Skeleton className="h-10 w-[120px]" /></TableCell>
+            {canEdit && <TableCell className="text-right"><Skeleton className="h-10 w-[120px]" /></TableCell>}
           </TableRow>
       ));
     }
@@ -420,7 +483,7 @@ export default function SeriesPage() {
     if (seriesList.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={3} className="h-24 text-center">
+          <TableCell colSpan={canEdit ? 3 : 2} className="h-24 text-center">
             No series found for this club. Create the first one!
           </TableCell>
         </TableRow>
@@ -431,42 +494,42 @@ export default function SeriesPage() {
        <TableRow key={series.id}>
           <TableCell className="font-medium">{series.name}</TableCell>
           <TableCell>{series.matchCount}</TableCell>
-          <TableCell className="text-right space-x-2">
-            {canEdit && (
+          {canEdit && (
+            <TableCell className="text-right space-x-2">
               <TooltipProvider>
-                  <Tooltip>
-                      <TooltipTrigger asChild>
-                          <Button variant="outline" size="icon" onClick={() => handleAuditClick(series)} disabled={series.matchCount === 0}>
-                              <HelpCircle className="h-4 w-4" />
-                          </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="left">
-                          <p>Check registrations for series</p>
-                      </TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                      <TooltipTrigger asChild>
-                          <Button variant="outline" size="icon" onClick={() => handleOpenStandingsModal(series)} disabled={series.matchCount === 0}>
-                              <Trophy className="h-4 w-4" />
-                          </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="left">
-                          <p>View league standings</p>
-                      </TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                      <TooltipTrigger asChild>
-                          <Button variant="outline" size="icon" onClick={() => handleEditClick(series)}>
-                              <Edit className="h-4 w-4" />
-                          </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="left">
-                          <p>Edit series</p>
-                      </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-            )}
-          </TableCell>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="outline" size="icon" onClick={() => handleAuditClick(series)} disabled={series.matchCount === 0}>
+                            <HelpCircle className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">
+                        <p>Check registrations for series</p>
+                    </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="outline" size="icon" onClick={() => handleOpenStandingsModal(series)} disabled={series.matchCount === 0}>
+                            <Trophy className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">
+                        <p>View league standings</p>
+                    </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="outline" size="icon" onClick={() => handleEditClick(series)}>
+                            <Edit className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">
+                        <p>Edit series</p>
+                    </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </TableCell>
+          )}
         </TableRow>
     ));
   }
@@ -516,7 +579,7 @@ export default function SeriesPage() {
               <TableRow>
                 <TableHead>Series Name</TableHead>
                 <TableHead>Match Count</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                {canEdit && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -683,7 +746,15 @@ export default function SeriesPage() {
                         </div>
                     )}
                 </div>
-                <DialogFooter>
+                <DialogFooter className="sm:justify-between pt-4">
+                     <Button 
+                        variant="secondary" 
+                        onClick={handleDownloadAuditPdf} 
+                        disabled={isAuditing || Object.keys(auditResults).length === 0}
+                    >
+                        <Download className="mr-2 h-4 w-4"/>
+                        Download PDF
+                    </Button>
                     <Button type="button" variant="outline" onClick={() => setIsAuditModalOpen(false)}>Close</Button>
                 </DialogFooter>
             </DialogContent>
@@ -693,4 +764,3 @@ export default function SeriesPage() {
     </div>
   );
 }
-
