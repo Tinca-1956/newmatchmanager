@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   Card,
   CardContent,
@@ -18,15 +19,13 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, MoreHorizontal } from 'lucide-react';
+import { PlusCircle, Edit, MoreHorizontal, Eye } from 'lucide-react';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Select,
   SelectContent,
@@ -39,7 +38,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDocs, getDoc, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, onSnapshot, doc, query, where, getDocs, getDoc, orderBy, Timestamp } from 'firebase/firestore';
 import type { Match, Series, User, Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -157,10 +156,25 @@ export default function MatchesPage() {
         <TableCell>{match.location}</TableCell>
         <TableCell><Badge variant="outline">{match.status}</Badge></TableCell>
         <TableCell>
-          {/* Actions Dropdown can be added here */}
-          <Button variant="ghost" size="icon">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
+          <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                      <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                  <DropdownMenuItem>
+                      <Edit className="mr-2 h-4 w-4" />
+                      Edit Match
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                      <Link href={`/main/results?clubId=${match.clubId}&seriesId=${match.seriesId}&matchId=${match.id}`}>
+                          <Eye className="mr-2 h-4 w-4" />
+                          View Results
+                      </Link>
+                  </DropdownMenuItem>
+              </DropdownMenuContent>
+          </DropdownMenu>
         </TableCell>
       </TableRow>
     ));

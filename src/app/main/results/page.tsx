@@ -1,7 +1,8 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Card,
   CardContent,
@@ -30,8 +31,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, getDocs, orderBy, Timestamp, doc, onSnapshot, getDoc } from 'firebase/firestore';
-import type { Result, Series, User, Club } from '@/lib/types';
+import { collection, query, where, getDocs, orderBy, Timestamp, doc, onSnapshot, getDoc, Query } from 'firebase/firestore';
+import type { Result, Series, User, Club, Match } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -39,29 +40,46 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 interface EnrichedResult extends Result {
     seriesName: string;
+    matchName: string;
 }
 
-export default function ResultsPage() {
+function ResultsPageComponent() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { isSiteAdmin, loading: adminLoading } = useAdminAuth();
+  const searchParams = useSearchParams();
 
   const [results, setResults] = useState<EnrichedResult[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
   const [series, setSeries] = useState<Series[]>([]);
+  const [matches, setMatches] = useState<Match[]>([]);
   
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   const [selectedSeriesId, setSelectedSeriesId] = useState<string>('');
+  const [selectedMatchId, setSelectedMatchId] = useState<string>('');
+
   const [clubName, setClubName] = useState<string>('');
+  const [pageTitle, setPageTitle] = useState('Results');
   
   const [isLoading, setIsLoading] = useState(true);
+
+  // Effect to handle URL parameters on initial load
+  useEffect(() => {
+    const clubId = searchParams.get('clubId');
+    const seriesId = searchParams.get('seriesId');
+    const matchId = searchParams.get('matchId');
+
+    if (clubId) setSelectedClubId(clubId);
+    if (seriesId) setSelectedSeriesId(seriesId);
+    if (matchId) setSelectedMatchId(matchId);
+
+  }, [searchParams]);
 
   // Effect to get the user's primary club or all clubs for admin
   useEffect(() => {
     if (adminLoading || !user || !firestore) return;
 
     const fetchInitialData = async () => {
-        setIsLoading(true);
         const userDocRef = doc(firestore, 'users', user.uid);
         const userDoc = await getDoc(userDocRef);
 
@@ -72,20 +90,24 @@ export default function ResultsPage() {
                 const clubsSnapshot = await getDocs(clubsQuery);
                 const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
                 setClubs(clubsData);
-                setSelectedClubId(userData.primaryClubId || (clubsData.length > 0 ? clubsData[0].id : ''));
+                if (!selectedClubId) { // Only set if not set by URL param
+                  setSelectedClubId(userData.primaryClubId || (clubsData.length > 0 ? clubsData[0].id : ''));
+                }
             } else {
-                setSelectedClubId(userData.primaryClubId || '');
+                if (!selectedClubId) {
+                  setSelectedClubId(userData.primaryClubId || '');
+                }
             }
         }
     };
-
     fetchInitialData();
-  }, [user, isSiteAdmin, adminLoading]);
+  }, [user, isSiteAdmin, adminLoading, selectedClubId]);
 
-  // Effect to fetch series for the selected club
+  // Effect to fetch series and matches for the selected club
   useEffect(() => {
       if (!selectedClubId || !firestore) {
         setSeries([]);
+        setMatches([]);
         return;
       }
       const clubDocRef = doc(firestore, 'clubs', selectedClubId);
@@ -98,79 +120,76 @@ export default function ResultsPage() {
           const seriesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Series));
           setSeries(seriesData);
       });
+      
+      const matchesQuery = query(collection(firestore, 'matches'), where('clubId', '==', selectedClubId));
+      const unsubscribeMatches = onSnapshot(matchesQuery, (snapshot) => {
+          const matchesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Match));
+          setMatches(matchesData);
+      });
 
       return () => {
           unsubscribeClub();
           unsubscribeSeries();
+          unsubscribeMatches();
       }
   }, [selectedClubId]);
   
-  // New Effect: Fetch results for the selected club AND series
+  // Effect to fetch results based on filters
   useEffect(() => {
-    if (!selectedClubId || !selectedSeriesId || !firestore) {
+    if (!selectedClubId || !firestore) {
+        setResults([]);
+        setIsLoading(false);
         return;
     }
     setIsLoading(true);
 
-    const resultsQuery = query(
-      collection(firestore, 'results'),
-      where('clubId', '==', selectedClubId),
-      where('seriesId', '==', selectedSeriesId),
-      orderBy('date', 'desc')
-    );
+    let resultsQuery: Query = collection(firestore, 'results');
+    resultsQuery = query(resultsQuery, where('clubId', '==', selectedClubId));
+
+    if (selectedSeriesId) {
+      resultsQuery = query(resultsQuery, where('seriesId', '==', selectedSeriesId));
+    }
+    if (selectedMatchId) {
+      resultsQuery = query(resultsQuery, where('matchId', '==', selectedMatchId));
+    }
+
+    resultsQuery = query(resultsQuery, orderBy('date', 'desc'), orderBy('position', 'asc'));
 
     const unsubscribe = onSnapshot(resultsQuery, async (snapshot) => {
       const resultsData = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Result));
-      const enriched = await enrichResults(resultsData);
+      
+      // Enrich results with series and match names
+      const enriched = resultsData.map(result => {
+        const foundSeries = series.find(s => s.id === result.seriesId);
+        const foundMatch = matches.find(m => m.id === result.matchId);
+        return {
+            ...result,
+            seriesName: foundSeries?.name || 'N/A',
+            matchName: foundMatch?.name || 'N/A',
+        };
+      });
+
       setResults(enriched);
       setIsLoading(false);
-    }, (error) => {
-      console.error("Error fetching filtered results: ", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch results for the selected series.' });
-      setIsLoading(false);
-    });
-    return () => unsubscribe();
-  }, [selectedClubId, selectedSeriesId]);
 
-  // New Effect: Fetch results for ONLY the selected club (when no series is selected)
-  useEffect(() => {
-    if (!selectedClubId || selectedSeriesId || !firestore) {
-      if (!selectedSeriesId) {
-        setResults([]);
+      // Update Page Title
+      if(selectedMatchId) {
+          const matchName = matches.find(m => m.id === selectedMatchId)?.name || 'Match';
+          setPageTitle(`${matchName} Results`);
+      } else if (selectedSeriesId) {
+          const seriesName = series.find(s => s.id === selectedSeriesId)?.name || 'Series';
+          setPageTitle(`${seriesName} Results`);
+      } else {
+          setPageTitle(`${clubName} Results`);
       }
-      return;
-    }
-    setIsLoading(true);
 
-    const resultsQuery = query(
-      collection(firestore, 'results'),
-      where('clubId', '==', selectedClubId),
-      orderBy('date', 'desc')
-    );
-
-     const unsubscribe = onSnapshot(resultsQuery, async (snapshot) => {
-      const resultsData = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Result));
-      const enriched = await enrichResults(resultsData);
-      setResults(enriched);
-      setIsLoading(false);
     }, (error) => {
-      console.error("Error fetching all club results: ", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch results for the selected club.' });
+      console.error("Error fetching results: ", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch results. Check Firestore indexes.' });
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [selectedClubId, selectedSeriesId]);
-
-
-  const enrichResults = async (resultsData: Result[]): Promise<EnrichedResult[]> => {
-      return await Promise.all(resultsData.map(async (result) => {
-          const foundSeries = series.find(s => s.id === result.seriesId);
-          return {
-              ...result,
-              seriesName: foundSeries?.name || 'N/A',
-          };
-      }));
-  }
+  }, [selectedClubId, selectedSeriesId, selectedMatchId, firestore, series, matches, clubName]);
 
   const renderResultList = () => {
     if (isLoading) {
@@ -214,19 +233,17 @@ export default function ResultsPage() {
   
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Results</h1>
-          <p className="text-muted-foreground">View and export match results.</p>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Results</h1>
+        <p className="text-muted-foreground">View and export match results.</p>
       </div>
       
       <Card>
         <CardHeader>
           <div className="flex items-start justify-between">
             <div>
-                <CardTitle>{clubName} Results</CardTitle>
-                <CardDescription>A list of all results for the selected club.</CardDescription>
+                <CardTitle>{pageTitle}</CardTitle>
+                <CardDescription>A list of all results for the selected filters.</CardDescription>
             </div>
              <Button variant="outline" size="sm" disabled={results.length === 0}>
                 <Download className="mr-2 h-4 w-4" />
@@ -235,7 +252,7 @@ export default function ResultsPage() {
           </div>
         </CardHeader>
         <CardContent>
-           <div className="flex items-center gap-4 mb-4">
+           <div className="flex flex-wrap items-center gap-4 mb-4">
              {isSiteAdmin && (
                 <div className="flex items-center gap-2">
                     <Label htmlFor="club-filter" className="text-nowrap">Club</Label>
@@ -290,4 +307,13 @@ export default function ResultsPage() {
       </Card>
     </div>
   );
+}
+
+
+export default function ResultsPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <ResultsPageComponent />
+        </Suspense>
+    )
 }
