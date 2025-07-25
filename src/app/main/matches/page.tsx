@@ -39,7 +39,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDocs, getDoc, orderBy, Timestamp } from 'firebase/firestore';
 import type { Match, Series, User, Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
