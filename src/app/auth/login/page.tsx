@@ -89,7 +89,7 @@ export default function LoginPage() {
       const userDoc = await getDoc(userDocRef);
 
       if (userDoc.exists()) {
-         router.push('/dashboard');
+         router.push('/main/dashboard');
       } else {
         // This is a first-time login for a registered user
         router.push('/select-club');

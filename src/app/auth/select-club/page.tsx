@@ -103,7 +103,7 @@ export default function SelectClubPage() {
         description: 'Your primary club has been set.',
       });
       
-      router.push('/dashboard');
+      router.push('/main/dashboard');
 
     } catch (error) {
       console.error("Error setting primary club: ", error);
