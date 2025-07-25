@@ -361,24 +361,29 @@ export default function ProfilePage() {
                 </div>
                  <div className="space-y-2">
                   <Label htmlFor="secondaryClub">Secondary Club</Label>
-                  <Select
-                    value={secondaryClubId || 'none'}
-                    onValueChange={(value) => {
-                      setSecondaryClubId(value === 'none' ? '' : value);
-                    }}
-                  >
-                    <SelectTrigger id="secondaryClub">
-                      <SelectValue placeholder="Select a secondary club" />
-                    </SelectTrigger>
-                    <SelectContent>
-                       <SelectItem value="none">None</SelectItem>
-                       {clubs.map((club) => (
-                        <SelectItem key={club.id} value={club.id}>
-                          {club.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-4">
+                    <Select
+                      value={secondaryClubId || 'none'}
+                      onValueChange={(value) => {
+                        setSecondaryClubId(value === 'none' ? '' : value);
+                      }}
+                    >
+                      <SelectTrigger id="secondaryClub">
+                        <SelectValue placeholder="Select a secondary club" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {clubs.map((club) => (
+                          <SelectItem key={club.id} value={club.id}>
+                            {club.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {secondaryClubId && (
+                      <Button type="button">Add Club</Button>
+                    )}
+                  </div>
                 </div>
                  <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
