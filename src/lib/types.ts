@@ -14,7 +14,7 @@ export interface User {
   role: UserRole;
   memberStatus: MembershipStatus;
   primaryClubId?: string;
-  secondaryClubId?: string;
+  secondaryClubIds?: string[];
 }
 
 export interface Club {

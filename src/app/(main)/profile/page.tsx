@@ -43,10 +43,12 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { updateProfile } from 'firebase/auth';
 import { auth, firestore } from '@/lib/firebase-client';
-import { collection, doc, getDoc, getDocs, setDoc, query, where, onSnapshot, updateDoc, arrayRemove, increment, Timestamp } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, query, where, onSnapshot, updateDoc, arrayRemove, increment, Timestamp, arrayUnion } from 'firebase/firestore';
 import type { Club, UserRole, Match } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
+import { Trash2 } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -55,7 +57,8 @@ export default function ProfilePage() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [primaryClubId, setPrimaryClubId] = useState('');
-  const [secondaryClubId, setSecondaryClubId] = useState('');
+  const [selectedSecondaryClubId, setSelectedSecondaryClubId] = useState('none');
+  const [secondaryClubIds, setSecondaryClubIds] = useState<string[]>([]);
   const [role, setRole] = useState<UserRole | ''>('');
   const [clubs, setClubs] = useState<Club[]>([]);
   const [upcomingMatches, setUpcomingMatches] = useState<Match[]>([]);
@@ -90,7 +93,7 @@ export default function ProfilePage() {
           setFirstName(userData.firstName || '');
           setLastName(userData.lastName || '');
           setPrimaryClubId(userData.primaryClubId || '');
-          setSecondaryClubId(userData.secondaryClubId || '');
+          setSecondaryClubIds(userData.secondaryClubIds || []);
           setRole(userData.role || 'Angler');
         } else {
            // Fallback if firestore doc not created, get from auth displayName
@@ -178,7 +181,7 @@ export default function ProfilePage() {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         primaryClubId,
-        secondaryClubId,
+        secondaryClubIds,
         email: user.email,
         role: role,
       }, { merge: true });
@@ -224,8 +227,10 @@ export default function ProfilePage() {
     }
   };
   
-  const handleAddClubClick = () => {
-    if (secondaryClubId && secondaryClubId === primaryClubId) {
+  const handleAddClubClick = async () => {
+    if (!user || !firestore || selectedSecondaryClubId === 'none') return;
+    
+    if (selectedSecondaryClubId === primaryClubId) {
       toast({
         variant: 'destructive',
         title: 'Invalid Selection',
@@ -233,7 +238,44 @@ export default function ProfilePage() {
       });
       return;
     }
-    // Future logic for adding a user to a secondary club will go here.
+
+    if (secondaryClubIds.includes(selectedSecondaryClubId)) {
+        toast({
+            variant: 'destructive',
+            title: 'Already a Member',
+            description: 'You have already added this secondary club.',
+        });
+        return;
+    }
+    
+    setIsSaving(true);
+    try {
+      const userDocRef = doc(firestore, 'users', user.uid);
+      await updateDoc(userDocRef, {
+        secondaryClubIds: arrayUnion(selectedSecondaryClubId),
+      });
+
+      setSecondaryClubIds(prev => [...prev, selectedSecondaryClubId]);
+
+      toast({
+        title: 'Club Added!',
+        description: 'The secondary club has been added to your profile. Your membership status for this club is "Pending" until approved by an admin.',
+      });
+      
+    } catch (error) {
+       toast({
+        variant: 'destructive',
+        title: 'Update Failed',
+        description: 'Could not add the secondary club.',
+      });
+    } finally {
+        setIsSaving(false);
+    }
+  };
+
+  const handleRemoveSecondaryClub = async (clubIdToRemove: string) => {
+    // This function will be implemented in a future step
+    console.log("Request to remove club:", clubIdToRemove);
   };
 
 
@@ -371,33 +413,62 @@ export default function ProfilePage() {
                     </SelectContent>
                   </Select>
                 </div>
-                 <div className="space-y-2">
-                  <Label htmlFor="secondaryClub">Secondary Club</Label>
-                  <div className="flex items-center gap-4">
-                    <Select
-                      value={secondaryClubId || 'none'}
-                      onValueChange={(value) => {
-                        setSecondaryClubId(value === 'none' ? '' : value);
-                      }}
-                    >
-                      <SelectTrigger id="secondaryClub">
-                        <SelectValue placeholder="Select a secondary club" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        {clubs.map((club) => (
-                          <SelectItem key={club.id} value={club.id}>
-                            {club.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {secondaryClubId && (
-                      <Button type="button" onClick={handleAddClubClick}>Add Club</Button>
-                    )}
-                  </div>
+                 
+                 <Separator />
+
+                 <div className="space-y-4">
+                    <Label>Secondary Clubs</Label>
+                    <div className="space-y-2">
+                        {secondaryClubIds.length > 0 ? (
+                           <Card className="p-4 bg-muted/50">
+                             <ul className="space-y-2">
+                                {secondaryClubIds.map(clubId => {
+                                    const club = clubs.find(c => c.id === clubId);
+                                    return (
+                                        <li key={clubId} className="flex items-center justify-between">
+                                            <span>{club ? club.name : 'Unknown Club'}</span>
+                                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveSecondaryClub(clubId)}>
+                                                <Trash2 className="h-4 w-4 text-destructive"/>
+                                            </Button>
+                                        </li>
+                                    )
+                                })}
+                             </ul>
+                           </Card>
+                        ) : (
+                            <p className="text-sm text-muted-foreground">You have not joined any secondary clubs.</p>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <Select
+                        value={selectedSecondaryClubId}
+                        onValueChange={(value) => {
+                          setSelectedSecondaryClubId(value);
+                        }}
+                      >
+                        <SelectTrigger id="secondaryClub">
+                          <SelectValue placeholder="Select a secondary club to add..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Select a club to add...</SelectItem>
+                          {clubs.map((club) => (
+                            <SelectItem key={club.id} value={club.id}>
+                              {club.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedSecondaryClubId !== 'none' && (
+                        <Button type="button" onClick={handleAddClubClick} disabled={isSaving}>
+                          {isSaving ? 'Adding...' : 'Add Club'}
+                        </Button>
+                      )}
+                    </div>
                 </div>
-                 <div className="space-y-2">
+
+                 <Separator />
+
+                 <div className="space-y-2 pt-2">
                     <Label htmlFor="email">Email</Label>
                     <Input id="email" value={user?.email || ''} disabled />
                 </div>
