@@ -18,7 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trophy } from 'lucide-react';
+import { PlusCircle, Edit, Trophy, HelpCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -43,6 +43,7 @@ import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDocs, 
 import type { Series, User, Club, Match, Result } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface SeriesWithMatchCount extends Series {
     matchCount: number;
@@ -341,7 +342,7 @@ export default function SeriesPage() {
          <TableRow key={i}>
             <TableCell><Skeleton className="h-4 w-[250px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[50px]" /></TableCell>
-            {canEdit && <TableCell className="text-right"><Skeleton className="h-10 w-[80px]" /></TableCell>}
+            {canEdit && <TableCell className="text-right"><Skeleton className="h-10 w-[120px]" /></TableCell>}
           </TableRow>
       ));
     }
@@ -362,12 +363,38 @@ export default function SeriesPage() {
           <TableCell>{series.matchCount}</TableCell>
           {canEdit && (
             <TableCell className="text-right space-x-2">
-                <Button variant="outline" size="icon" onClick={() => handleOpenStandingsModal(series)} disabled={series.matchCount === 0}>
-                    <Trophy className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="icon" onClick={() => handleEditClick(series)}>
-                    <Edit className="h-4 w-4" />
-                </Button>
+              <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="outline" size="icon" onClick={() => {}} disabled={series.matchCount === 0}>
+                            <HelpCircle className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">
+                        <p>Check registrations for series</p>
+                    </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="outline" size="icon" onClick={() => handleOpenStandingsModal(series)} disabled={series.matchCount === 0}>
+                            <Trophy className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">
+                        <p>View league standings</p>
+                    </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="outline" size="icon" onClick={() => handleEditClick(series)}>
+                            <Edit className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">
+                        <p>Edit series</p>
+                    </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </TableCell>
           )}
         </TableRow>
