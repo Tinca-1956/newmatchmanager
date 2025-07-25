@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -54,6 +55,7 @@ export default function ProfilePage() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [primaryClubId, setPrimaryClubId] = useState('');
+  const [secondaryClubId, setSecondaryClubId] = useState('');
   const [role, setRole] = useState<UserRole | ''>('');
   const [clubs, setClubs] = useState<Club[]>([]);
   const [upcomingMatches, setUpcomingMatches] = useState<Match[]>([]);
@@ -88,6 +90,7 @@ export default function ProfilePage() {
           setFirstName(userData.firstName || '');
           setLastName(userData.lastName || '');
           setPrimaryClubId(userData.primaryClubId || '');
+          setSecondaryClubId(userData.secondaryClubId || '');
           setRole(userData.role || 'Angler');
         } else {
            // Fallback if firestore doc not created, get from auth displayName
@@ -175,6 +178,7 @@ export default function ProfilePage() {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         primaryClubId,
+        secondaryClubId,
         email: user.email,
         role: role,
       }, { merge: true });
@@ -348,6 +352,22 @@ export default function ProfilePage() {
                     </SelectTrigger>
                     <SelectContent>
                       {clubs.map((club) => (
+                        <SelectItem key={club.id} value={club.id}>
+                          {club.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                 <div className="space-y-2">
+                  <Label htmlFor="secondaryClub">Secondary Club</Label>
+                  <Select value={secondaryClubId} onValueChange={setSecondaryClubId}>
+                    <SelectTrigger id="secondaryClub">
+                      <SelectValue placeholder="Select a secondary club" />
+                    </SelectTrigger>
+                    <SelectContent>
+                       <SelectItem value="">None</SelectItem>
+                       {clubs.map((club) => (
                         <SelectItem key={club.id} value={club.id}>
                           {club.name}
                         </SelectItem>
