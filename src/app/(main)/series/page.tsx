@@ -57,6 +57,10 @@ interface AnglerStanding {
 
 type ResultWithSectionRank = Result & { sectionPosition?: number };
 
+interface AuditResult {
+  [anglerName: string]: string[];
+}
+
 
 export default function SeriesPage() {
   const { user } = useAuth();
@@ -74,11 +78,16 @@ export default function SeriesPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isStandingsModalOpen, setIsStandingsModalOpen] = useState(false);
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+  
   const [isStandingsLoading, setIsStandingsLoading] = useState(false);
+  const [isAuditing, setIsAuditing] = useState(false);
 
   const [selectedSeries, setSelectedSeries] = useState<Series | null>(null);
-  const [selectedSeriesForStandings, setSelectedSeriesForStandings] = useState<Series | null>(null);
+  const [selectedSeriesForAction, setSelectedSeriesForAction] = useState<SeriesWithMatchCount | null>(null);
   const [leagueStandings, setLeagueStandings] = useState<AnglerStanding[]>([]);
+  const [auditResults, setAuditResults] = useState<AuditResult>({});
+
 
   const [newSeriesName, setNewSeriesName] = useState('');
 
@@ -211,7 +220,7 @@ export default function SeriesPage() {
   
   const handleOpenStandingsModal = async (series: SeriesWithMatchCount) => {
     if (!firestore) return;
-    setSelectedSeriesForStandings(series);
+    setSelectedSeriesForAction(series);
     setIsStandingsModalOpen(true);
     setIsStandingsLoading(true);
 
@@ -220,7 +229,6 @@ export default function SeriesPage() {
         const resultsSnapshot = await getDocs(resultsQuery);
         const resultsData = resultsSnapshot.docs.map(doc => doc.data() as Result);
         
-        // Group results by matchId to calculate section ranks for each match
         const resultsByMatch: { [matchId: string]: Result[] } = {};
         resultsData.forEach(result => {
             if (!resultsByMatch[result.matchId]) {
@@ -231,7 +239,6 @@ export default function SeriesPage() {
         
         const resultsWithSectionRank: ResultWithSectionRank[] = [];
 
-        // Calculate section ranks for each match
         for (const matchId in resultsByMatch) {
             const matchResults = resultsByMatch[matchId];
             const processedResults = calculateSectionRanks(matchResults);
@@ -270,6 +277,71 @@ export default function SeriesPage() {
     }
   }
 
+  const handleAuditClick = async (series: SeriesWithMatchCount) => {
+    if (!firestore) return;
+    setSelectedSeriesForAction(series);
+    setIsAuditModalOpen(true);
+    setIsAuditing(true);
+    setAuditResults({});
+    
+    try {
+        const matchesQuery = query(collection(firestore, 'matches'), where('seriesId', '==', series.id));
+        const matchesSnapshot = await getDocs(matchesQuery);
+        const seriesMatches = matchesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Match));
+        
+        if (seriesMatches.length === 0) {
+            setIsAuditing(false);
+            return;
+        }
+
+        const allAnglerIds = seriesMatches.flatMap(m => m.registeredAnglers);
+        const uniqueAnglerIds = [...new Set(allAnglerIds)];
+        
+        if(uniqueAnglerIds.length === 0) {
+            setIsAuditing(false);
+            return;
+        }
+        
+        const anglersMap = new Map<string, User>();
+        const chunks = [];
+        for (let i = 0; i < uniqueAnglerIds.length; i += 30) {
+            chunks.push(uniqueAnglerIds.slice(i, i + 30));
+        }
+        for (const chunk of chunks) {
+            if (chunk.length === 0) continue;
+            const usersQuery = query(collection(firestore, 'users'), where('__name__', 'in', chunk));
+            const usersSnapshot = await getDocs(usersQuery);
+            usersSnapshot.forEach(doc => anglersMap.set(doc.id, {id: doc.id, ...doc.data()} as User));
+        }
+
+        const missingAnglers: AuditResult = {};
+        for (const anglerId of uniqueAnglerIds) {
+            const angler = anglersMap.get(anglerId);
+            if (!angler) continue;
+            
+            const anglerName = `${angler.firstName} ${angler.lastName}`;
+            missingAnglers[anglerName] = [];
+            
+            for (const match of seriesMatches) {
+                if (!match.registeredAnglers.includes(anglerId)) {
+                    missingAnglers[anglerName].push(match.name);
+                }
+            }
+            
+            if (missingAnglers[anglerName].length === 0) {
+                delete missingAnglers[anglerName];
+            }
+        }
+        
+        setAuditResults(missingAnglers);
+    } catch(error) {
+        console.error("Error during series audit:", error);
+        toast({ variant: 'destructive', title: 'Audit Error', description: 'Could not complete the registration check.' });
+    } finally {
+        setIsAuditing(false);
+    }
+  };
+
   const calculateSectionRanks = (results: Result[]): ResultWithSectionRank[] => {
     const resultsCopy: ResultWithSectionRank[] = results.map(r => ({ ...r }));
     
@@ -284,7 +356,6 @@ export default function SeriesPage() {
     });
 
     for (const section in resultsBySection) {
-        // Rank anglers with weight
         const sectionResultsWithWeight = resultsBySection[section]
             .filter(r => r.status === 'OK' && r.weight > 0)
             .sort((a, b) => b.weight - a.weight);
@@ -296,7 +367,6 @@ export default function SeriesPage() {
             }
         });
 
-        // Rank anglers without weight (DNF, DNW, DSQ)
         const lastSectionRank = sectionResultsWithWeight.length;
         const dnwSectionRank = lastSectionRank + 1;
 
@@ -337,12 +407,12 @@ export default function SeriesPage() {
   const canEdit = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
 
   const renderSeriesList = () => {
-    if (isLoading) {
+    if (isLoading && !seriesList.length) {
       return Array.from({ length: 3 }).map((_, i) => (
          <TableRow key={i}>
             <TableCell><Skeleton className="h-4 w-[250px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[50px]" /></TableCell>
-            {canEdit && <TableCell className="text-right"><Skeleton className="h-10 w-[120px]" /></TableCell>}
+            <TableCell className="text-right"><Skeleton className="h-10 w-[120px]" /></TableCell>
           </TableRow>
       ));
     }
@@ -350,7 +420,7 @@ export default function SeriesPage() {
     if (seriesList.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={canEdit ? 3 : 2} className="h-24 text-center">
+          <TableCell colSpan={3} className="h-24 text-center">
             No series found for this club. Create the first one!
           </TableCell>
         </TableRow>
@@ -361,42 +431,42 @@ export default function SeriesPage() {
        <TableRow key={series.id}>
           <TableCell className="font-medium">{series.name}</TableCell>
           <TableCell>{series.matchCount}</TableCell>
-          {canEdit && (
-            <TableCell className="text-right space-x-2">
+          <TableCell className="text-right space-x-2">
+            {canEdit && (
               <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button variant="outline" size="icon" onClick={() => {}} disabled={series.matchCount === 0}>
-                            <HelpCircle className="h-4 w-4" />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="left">
-                        <p>Check registrations for series</p>
-                    </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button variant="outline" size="icon" onClick={() => handleOpenStandingsModal(series)} disabled={series.matchCount === 0}>
-                            <Trophy className="h-4 w-4" />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="left">
-                        <p>View league standings</p>
-                    </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button variant="outline" size="icon" onClick={() => handleEditClick(series)}>
-                            <Edit className="h-4 w-4" />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="left">
-                        <p>Edit series</p>
-                    </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </TableCell>
-          )}
+                  <Tooltip>
+                      <TooltipTrigger asChild>
+                          <Button variant="outline" size="icon" onClick={() => handleAuditClick(series)} disabled={series.matchCount === 0}>
+                              <HelpCircle className="h-4 w-4" />
+                          </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left">
+                          <p>Check registrations for series</p>
+                      </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                      <TooltipTrigger asChild>
+                          <Button variant="outline" size="icon" onClick={() => handleOpenStandingsModal(series)} disabled={series.matchCount === 0}>
+                              <Trophy className="h-4 w-4" />
+                          </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left">
+                          <p>View league standings</p>
+                      </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                      <TooltipTrigger asChild>
+                          <Button variant="outline" size="icon" onClick={() => handleEditClick(series)}>
+                              <Edit className="h-4 w-4" />
+                          </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left">
+                          <p>Edit series</p>
+                      </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+            )}
+          </TableCell>
         </TableRow>
     ));
   }
@@ -446,7 +516,7 @@ export default function SeriesPage() {
               <TableRow>
                 <TableHead>Series Name</TableHead>
                 <TableHead>Match Count</TableHead>
-                {canEdit && <TableHead className="text-right">Actions</TableHead>}
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -523,11 +593,11 @@ export default function SeriesPage() {
         </Dialog>
       )}
 
-      {selectedSeriesForStandings && (
+      {selectedSeriesForAction && (
         <Dialog open={isStandingsModalOpen} onOpenChange={setIsStandingsModalOpen}>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>League Standings: {selectedSeriesForStandings.name}</DialogTitle>
+                    <DialogTitle>League Standings: {selectedSeriesForAction.name}</DialogTitle>
                     <DialogDescription>
                         Overall standings based on the sum of section positions from all completed matches in this series.
                     </DialogDescription>
@@ -576,6 +646,51 @@ export default function SeriesPage() {
             </DialogContent>
         </Dialog>
       )}
+
+      {selectedSeriesForAction && (
+        <Dialog open={isAuditModalOpen} onOpenChange={setIsAuditModalOpen}>
+            <DialogContent className="sm:max-w-xl">
+                <DialogHeader>
+                    <DialogTitle>Registration Audit: {selectedSeriesForAction.name}</DialogTitle>
+                    <DialogDescription>
+                        A list of anglers who are not registered for all matches in this series. They should be added manually from the Matches page.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="max-h-[60vh] overflow-y-auto mt-4 p-1">
+                    {isAuditing ? (
+                         <div className="flex items-center justify-center p-8">
+                            <Skeleton className="h-24 w-full" />
+                         </div>
+                    ) : Object.keys(auditResults).length === 0 ? (
+                        <p className="text-center text-muted-foreground p-8">
+                            All anglers who have fished at least one match in this series are correctly registered for all matches.
+                        </p>
+                    ) : (
+                        <div className="space-y-4">
+                            {Object.entries(auditResults).map(([anglerName, matches]) => (
+                                <Card key={anglerName}>
+                                    <CardHeader className="p-4">
+                                        <CardTitle className="text-base">{anglerName}</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-4 pt-0">
+                                        <p className="text-sm font-medium mb-2">Missing from:</p>
+                                        <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+                                            {matches.map(matchName => <li key={matchName}>{matchName}</li>)}
+                                        </ul>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    )}
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsAuditModalOpen(false)}>Close</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+      )}
+
     </div>
   );
 }
+
