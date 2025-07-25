@@ -189,7 +189,7 @@ function ResultsPageComponent() {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [selectedClubId, selectedSeriesId, selectedMatchId, firestore, series, matches, clubName]);
+  }, [selectedClubId, selectedSeriesId, selectedMatchId, firestore, series, matches, clubName, toast]);
 
   const renderResultList = () => {
     if (isLoading) {
@@ -272,7 +272,7 @@ function ResultsPageComponent() {
             )}
              <div className="flex items-center gap-2">
                 <Label htmlFor="series-filter" className="text-nowrap">Series</Label>
-                <Select value={selectedSeriesId} onValueChange={(value) => setSelectedSeriesId(value === 'all' ? '' : value)} disabled={series.length === 0}>
+                <Select value={selectedSeriesId} onValueChange={(value) => {setSelectedSeriesId(value === 'all' ? '' : value); setSelectedMatchId('');}} disabled={series.length === 0}>
                     <SelectTrigger id="series-filter" className="w-52">
                         <SelectValue placeholder="Filter by series..." />
                     </SelectTrigger>
@@ -281,6 +281,22 @@ function ResultsPageComponent() {
                         {series.map((s) => (
                             <SelectItem key={s.id} value={s.id}>
                                 {s.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+             <div className="flex items-center gap-2">
+                <Label htmlFor="match-filter" className="text-nowrap">Match</Label>
+                <Select value={selectedMatchId} onValueChange={(value) => setSelectedMatchId(value === 'all' ? '' : value)} disabled={!selectedSeriesId || matches.filter(m => m.seriesId === selectedSeriesId).length === 0}>
+                    <SelectTrigger id="match-filter" className="w-52">
+                        <SelectValue placeholder="Filter by match..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                         <SelectItem value="all">All Matches</SelectItem>
+                        {matches.filter(m => m.seriesId === selectedSeriesId).map((match) => (
+                            <SelectItem key={match.id} value={match.id}>
+                                {match.name} - {format(new Date(match.date.seconds * 1000), 'PPP')}
                             </SelectItem>
                         ))}
                     </SelectContent>
@@ -317,3 +333,5 @@ export default function ResultsPage() {
         </Suspense>
     )
 }
+
+    
