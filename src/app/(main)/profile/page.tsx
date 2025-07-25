@@ -361,12 +361,17 @@ export default function ProfilePage() {
                 </div>
                  <div className="space-y-2">
                   <Label htmlFor="secondaryClub">Secondary Club</Label>
-                  <Select value={secondaryClubId} onValueChange={setSecondaryClubId}>
+                  <Select
+                    value={secondaryClubId || 'none'}
+                    onValueChange={(value) => {
+                      setSecondaryClubId(value === 'none' ? '' : value);
+                    }}
+                  >
                     <SelectTrigger id="secondaryClub">
                       <SelectValue placeholder="Select a secondary club" />
                     </SelectTrigger>
                     <SelectContent>
-                       <SelectItem value="">None</SelectItem>
+                       <SelectItem value="none">None</SelectItem>
                        {clubs.map((club) => (
                         <SelectItem key={club.id} value={club.id}>
                           {club.name}
