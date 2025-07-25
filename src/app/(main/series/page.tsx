@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import jsPDF from 'jspdf';
 import {
   Card,
   CardContent,
@@ -18,7 +19,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trophy, HelpCircle } from 'lucide-react';
+import { PlusCircle, Edit, Trophy, HelpCircle, Download } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -348,6 +349,62 @@ export default function SeriesPage() {
     }
   };
 
+  const handleDownloadAuditPdf = () => {
+    if (!selectedSeriesForAction || Object.keys(auditResults).length === 0) {
+        toast({
+            variant: 'destructive',
+            title: 'No Data to Export',
+            description: 'There are no audit results to generate a PDF.',
+        });
+        return;
+    }
+
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const margin = 15;
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    let currentY = margin;
+
+    // Header
+    pdf.setFontSize(18);
+    pdf.text(`Registration Audit`, pageWidth / 2, currentY, { align: 'center' });
+    currentY += 8;
+    pdf.setFontSize(14);
+    pdf.text(selectedSeriesForAction.name, pageWidth / 2, currentY, { align: 'center' });
+    currentY += 15;
+
+    // Content
+    pdf.setFontSize(12);
+    Object.entries(auditResults).forEach(([anglerName, matches]) => {
+        if (currentY > pdf.internal.pageSize.getHeight() - margin - (7 * (matches.length + 2))) {
+            pdf.addPage();
+            currentY = margin;
+        }
+        
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(anglerName, margin, currentY);
+        currentY += 7;
+        
+        pdf.setFont('helvetica', 'normal');
+        pdf.text('Missing from match(es):', margin + 5, currentY);
+        currentY += 7;
+
+        matches.forEach(matchName => {
+            if (currentY > pdf.internal.pageSize.getHeight() - margin) {
+                pdf.addPage();
+                currentY = margin;
+            }
+            pdf.text(`- ${matchName}`, margin + 10, currentY);
+            currentY += 7;
+        });
+        
+        currentY += 5; // Extra space between anglers
+    });
+
+    pdf.save(`audit_report_${selectedSeriesForAction.name.replace(/ /g, '_')}.pdf`);
+    toast({ title: 'Success', description: 'Audit report PDF has been downloaded.' });
+  };
+
+
   const calculateSectionRanks = (results: Result[]): ResultWithSectionRank[] => {
     const resultsCopy: ResultWithSectionRank[] = results.map(r => ({ ...r }));
     
@@ -362,7 +419,6 @@ export default function SeriesPage() {
     });
 
     for (const section in resultsBySection) {
-        // Rank anglers with weight
         const sectionResultsWithWeight = resultsBySection[section]
             .filter(r => r.status === 'OK' && r.weight > 0)
             .sort((a, b) => b.weight - a.weight);
@@ -374,7 +430,6 @@ export default function SeriesPage() {
             }
         });
 
-        // Rank anglers without weight (DNF, DNW, DSQ)
         const lastSectionRank = sectionResultsWithWeight.length;
         const dnwSectionRank = lastSectionRank + 1;
 
@@ -441,9 +496,6 @@ export default function SeriesPage() {
           <TableCell>{series.matchCount}</TableCell>
           {canEdit && (
             <TableCell className="text-right space-x-2">
-              <Button variant="outline" size="sm" onClick={() => handleAuditClick(series)} disabled={series.matchCount === 0}>
-                Check
-              </Button>
               <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
@@ -694,7 +746,15 @@ export default function SeriesPage() {
                         </div>
                     )}
                 </div>
-                <DialogFooter>
+                <DialogFooter className="sm:justify-between">
+                     <Button 
+                        variant="secondary" 
+                        onClick={handleDownloadAuditPdf} 
+                        disabled={isAuditing || Object.keys(auditResults).length === 0}
+                    >
+                        <Download className="mr-2 h-4 w-4"/>
+                        Download PDF
+                    </Button>
                     <Button type="button" variant="outline" onClick={() => setIsAuditModalOpen(false)}>Close</Button>
                 </DialogFooter>
             </DialogContent>
