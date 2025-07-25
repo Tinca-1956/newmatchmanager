@@ -88,68 +88,89 @@ export default function ResultsPage() {
         setSeries([]);
         return;
       }
+      const clubDocRef = doc(firestore, 'clubs', selectedClubId);
+      const unsubscribeClub = onSnapshot(clubDocRef, (clubDoc) => {
+        setClubName(clubDoc.exists() ? clubDoc.data().name : 'Selected Club');
+      });
+
       const seriesQuery = query(collection(firestore, 'series'), where('clubId', '==', selectedClubId));
-      const unsubscribe = onSnapshot(seriesQuery, (snapshot) => {
+      const unsubscribeSeries = onSnapshot(seriesQuery, (snapshot) => {
           const seriesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Series));
           setSeries(seriesData);
       });
-      return () => unsubscribe();
+
+      return () => {
+          unsubscribeClub();
+          unsubscribeSeries();
+      }
   }, [selectedClubId]);
   
-
-  // Effect to fetch results for the selected club and series
+  // New Effect: Fetch results for the selected club AND series
   useEffect(() => {
-    if (!selectedClubId || !firestore) {
-        setIsLoading(false);
-        setResults([]);
+    if (!selectedClubId || !selectedSeriesId || !firestore) {
         return;
     }
-
     setIsLoading(true);
 
-    const clubDocRef = doc(firestore, 'clubs', selectedClubId);
-    const unsubscribeClub = onSnapshot(clubDocRef, (clubDoc) => {
-      setClubName(clubDoc.exists() ? clubDoc.data().name : 'Selected Club');
-    });
+    const resultsQuery = query(
+      collection(firestore, 'results'),
+      where('clubId', '==', selectedClubId),
+      where('seriesId', '==', selectedSeriesId),
+      orderBy('date', 'desc')
+    );
 
-    let resultsQuery = query(
+    const unsubscribe = onSnapshot(resultsQuery, async (snapshot) => {
+      const resultsData = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Result));
+      const enriched = await enrichResults(resultsData);
+      setResults(enriched);
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Error fetching filtered results: ", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch results for the selected series.' });
+      setIsLoading(false);
+    });
+    return () => unsubscribe();
+  }, [selectedClubId, selectedSeriesId]);
+
+  // New Effect: Fetch results for ONLY the selected club (when no series is selected)
+  useEffect(() => {
+    if (!selectedClubId || selectedSeriesId || !firestore) {
+      if (!selectedSeriesId) {
+        setResults([]);
+      }
+      return;
+    }
+    setIsLoading(true);
+
+    const resultsQuery = query(
       collection(firestore, 'results'),
       where('clubId', '==', selectedClubId),
       orderBy('date', 'desc')
     );
-    
-    if (selectedSeriesId) {
-        resultsQuery = query(resultsQuery, where('seriesId', '==', selectedSeriesId));
-    }
 
-    const unsubscribeResults = onSnapshot(resultsQuery, async (snapshot) => {
-      const resultsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        date: (doc.data().date as Timestamp).toDate(),
-      } as Result));
-      
-      const enrichedResults = await Promise.all(resultsData.map(async (result) => {
+     const unsubscribe = onSnapshot(resultsQuery, async (snapshot) => {
+      const resultsData = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Result));
+      const enriched = await enrichResults(resultsData);
+      setResults(enriched);
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Error fetching all club results: ", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch results for the selected club.' });
+      setIsLoading(false);
+    });
+    return () => unsubscribe();
+  }, [selectedClubId, selectedSeriesId]);
+
+
+  const enrichResults = async (resultsData: Result[]): Promise<EnrichedResult[]> => {
+      return await Promise.all(resultsData.map(async (result) => {
           const foundSeries = series.find(s => s.id === result.seriesId);
           return {
               ...result,
               seriesName: foundSeries?.name || 'N/A',
           };
       }));
-
-      setResults(enrichedResults);
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Error fetching results: ", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch results.' });
-      setIsLoading(false);
-    });
-
-    return () => {
-        unsubscribeClub();
-        unsubscribeResults();
-    };
-  }, [selectedClubId, selectedSeriesId, toast, series]);
+  }
 
   const renderResultList = () => {
     if (isLoading) {
