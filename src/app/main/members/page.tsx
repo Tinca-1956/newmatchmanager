@@ -328,7 +328,7 @@ export default function MembersPage() {
                 </DropdownMenuCheckboxItem>
                 <DropdownMenuCheckboxItem
                   checked={statusFilter.includes('Blocked')}
-                  onCheckedChange={() => toggleFilter('status', 'Blocked')}
+                  onCheckedChange={() => toggle_filter('status', 'Blocked')}
                 >
                   Blocked
                 </DropdownMenuCheckboxItem>
