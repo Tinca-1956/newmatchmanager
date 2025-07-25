@@ -111,12 +111,23 @@ export default function MembersPage() {
 
     setIsLoading(true);
     let usersQuery;
-    if (currentUserProfile.role === 'Site Admin') {
-        // Site Admins fetch all users
-        usersQuery = query(collection(firestore, 'users'));
+    
+    const canViewAll = currentUserProfile.role === 'Site Admin';
+
+    if (canViewAll) {
+      // Site Admins fetch all users
+      usersQuery = query(collection(firestore, 'users'));
+    } else if (currentUserProfile.primaryClubId) {
+      // Other roles (Club Admin, Marshal, Angler) fetch only users from their primary club
+      usersQuery = query(
+        collection(firestore, 'users'), 
+        where('primaryClubId', '==', currentUserProfile.primaryClubId)
+      );
     } else {
-        // Other roles (Club Admin) fetch only users from their primary club
-        usersQuery = query(collection(firestore, 'users'), where('primaryClubId', '==', currentUserProfile.primaryClubId));
+      // User has no primary club, show no users
+      setAllUsers([]);
+      setIsLoading(false);
+      return;
     }
     
     const unsubscribeUsers = onSnapshot(usersQuery, (snapshot) => {
@@ -473,3 +484,5 @@ export default function MembersPage() {
     </div>
   );
 }
+
+    
