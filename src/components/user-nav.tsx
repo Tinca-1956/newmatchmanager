@@ -80,7 +80,7 @@ export function UserNav() {
   const handleLogout = async () => {
     if (!auth) return;
     await signOut(auth);
-    router.push('/login');
+    router.push('/auth/login');
   };
 
   if (loading) {
@@ -126,7 +126,7 @@ export function UserNav() {
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem asChild>
-            <Link href="/profile">
+            <Link href="/main/profile">
               <User className="mr-2 h-4 w-4" />
               <span>Profile</span>
             </Link>
