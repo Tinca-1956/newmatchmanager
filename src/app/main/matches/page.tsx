@@ -39,6 +39,7 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { ResultsModal } from '@/components/results-modal';
 import { AnglerListModal } from '@/components/angler-list-modal';
 import { DisplayAnglerListModal } from '@/components/display-angler-list-modal';
+import { EditMatchModal } from '@/components/edit-match-modal';
 import { useMatchActions } from '@/hooks/use-match-actions';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -57,6 +58,7 @@ export default function MatchesPage() {
     isResultsModalOpen,
     isAnglerListModalOpen,
     isDisplayAnglerListModalOpen,
+    isEditModalOpen,
     selectedMatchForModal,
     selectedMatchIdForModal,
     handleViewResults,
@@ -65,6 +67,7 @@ export default function MatchesPage() {
     closeResultsModal,
     closeAnglerListModal,
     closeDisplayAnglerListModal,
+    closeEditModal,
     handleManagePegs,
     handleWeighIn,
     handleAddAnglers,
@@ -217,11 +220,11 @@ export default function MatchesPage() {
                                   <LogIn className="h-4 w-4" />
                               </Button>
                           </TooltipTrigger>
-                          <TooltipContent><p>{isUserRegistered ? "You are registered for this match" : "Register for Match"}</p></TooltipContent>
+                          <TooltipContent><p>{isUserRegistered ? "Use your user profile to un-register" : "Register for Match"}</p></TooltipContent>
                       </Tooltip>
                        <Tooltip>
                           <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" onClick={() => handleEditMatch(match.id)}>
+                              <Button variant="ghost" size="icon" onClick={() => handleEditMatch(match)}>
                                   <Edit className="h-4 w-4" />
                               </Button>
                           </TooltipTrigger>
@@ -296,11 +299,23 @@ export default function MatchesPage() {
       </div>
 
       {selectedMatchForModal && (
-        <ResultsModal 
-          isOpen={isResultsModalOpen}
-          onClose={closeResultsModal}
-          match={selectedMatchForModal}
-        />
+        <>
+          <ResultsModal 
+            isOpen={isResultsModalOpen}
+            onClose={closeResultsModal}
+            match={selectedMatchForModal}
+          />
+          <DisplayAnglerListModal
+            isOpen={isDisplayAnglerListModalOpen}
+            onClose={closeDisplayAnglerListModal}
+            match={selectedMatchForModal}
+          />
+          <EditMatchModal
+            isOpen={isEditModalOpen}
+            onClose={closeEditModal}
+            match={selectedMatchForModal}
+          />
+        </>
       )}
 
       {selectedMatchIdForModal && (
@@ -308,14 +323,6 @@ export default function MatchesPage() {
           isOpen={isAnglerListModalOpen}
           onClose={closeAnglerListModal}
           matchId={selectedMatchIdForModal}
-        />
-      )}
-
-      {selectedMatchForModal && (
-        <DisplayAnglerListModal
-          isOpen={isDisplayAnglerListModalOpen}
-          onClose={closeDisplayAnglerListModal}
-          match={selectedMatchForModal}
         />
       )}
     </>

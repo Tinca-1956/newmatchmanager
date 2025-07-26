@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -17,6 +18,7 @@ export const useMatchActions = () => {
   const [isResultsModalOpen, setIsResultsModalOpen] = useState(false);
   const [isAnglerListModalOpen, setIsAnglerListModalOpen] = useState(false);
   const [isDisplayAnglerListModalOpen, setIsDisplayAnglerListModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const [selectedMatchForModal, setSelectedMatchForModal] = useState<Match | null>(null);
   const [selectedMatchIdForModal, setSelectedMatchIdForModal] = useState<string | null>(null);
@@ -35,11 +37,9 @@ export const useMatchActions = () => {
     }
   };
 
-  const handleEditMatch = (matchId: string) => {
-    toast({
-        title: 'Action Not Implemented',
-        description: `Edit functionality for match ${matchId} is not yet available.`,
-    });
+  const handleEditMatch = (match: Match) => {
+    setSelectedMatchForModal(match);
+    setIsEditModalOpen(true);
   };
   
   const handleAddAnglers = (matchId: string) => {
@@ -105,12 +105,18 @@ export const useMatchActions = () => {
   const closeDisplayAnglerListModal = () => {
     setIsDisplayAnglerListModalOpen(false);
     setSelectedMatchForModal(null);
+  };
+  
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setSelectedMatchForModal(null);
   }
 
   return {
     isResultsModalOpen,
     isAnglerListModalOpen,
     isDisplayAnglerListModalOpen,
+    isEditModalOpen,
     selectedMatchForModal,
     selectedMatchIdForModal,
     handleViewResults,
@@ -123,5 +129,6 @@ export const useMatchActions = () => {
     closeResultsModal,
     closeAnglerListModal,
     closeDisplayAnglerListModal,
+    closeEditModal,
   };
 };
