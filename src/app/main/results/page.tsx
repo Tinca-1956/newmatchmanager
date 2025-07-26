@@ -117,16 +117,17 @@ export default function ResultsPage() {
         const fetchClubDependentData = async () => {
             setIsLoadingDependents(true);
             try {
-                // Fetch series for the club
-                const seriesQuery = query(collection(firestore, 'series'), where('clubId', '==', selectedClubId), orderBy('name'));
+                // Fetch series for the club - REMOVED orderBy('name')
+                const seriesQuery = query(collection(firestore, 'series'), where('clubId', '==', selectedClubId));
                 const seriesSnapshot = await getDocs(seriesQuery);
                 const seriesData = seriesSnapshot.docs.map(s => ({ id: s.id, ...s.data() } as Series));
                 setSeriesForClub(seriesData);
                 
-                // Fetch all matches for the club (simplified query)
+                // Fetch all completed matches for the club
                 const matchesQuery = query(
                     collection(firestore, 'matches'),
-                    where('clubId', '==', selectedClubId)
+                    where('clubId', '==', selectedClubId),
+                    where('status', '==', 'Completed')
                 );
                 const matchesSnapshot = await getDocs(matchesQuery);
                 const matchesData = matchesSnapshot.docs.map(doc => ({
@@ -346,3 +347,5 @@ export default function ResultsPage() {
         </div>
     );
 }
+
+    
