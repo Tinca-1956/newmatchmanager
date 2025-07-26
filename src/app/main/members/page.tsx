@@ -307,11 +307,9 @@ export default function MembersPage() {
           )}
         </TableCell>
         <TableCell className="text-right">
-            {isSiteAdmin && (
-                <Button variant="ghost" size="icon" onClick={() => handleEditClick(member)}>
-                    <Edit className="h-4 w-4" />
-                </Button>
-            )}
+            <Button variant="ghost" size="icon" onClick={() => handleEditClick(member)}>
+                <Edit className="h-4 w-4" />
+            </Button>
         </TableCell>
       </TableRow>
     ));
@@ -428,7 +426,7 @@ export default function MembersPage() {
                   <TableHead>Email</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Role</TableHead>
-                  {isSiteAdmin && <TableHead className="text-right">Actions</TableHead>}
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
