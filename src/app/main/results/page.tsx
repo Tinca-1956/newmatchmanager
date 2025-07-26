@@ -46,7 +46,7 @@ export default function ResultsPage() {
 
     const [allClubs, setAllClubs] = useState<Club[]>([]);
     const [seriesForClub, setSeriesForClub] = useState<Series[]>([]);
-    const [completedMatchesForClub, setCompletedMatchesForClub] = useState<Match[]>([]);
+    const [allMatchesForClub, setAllMatchesForClub] = useState<Match[]>([]);
     const [displayResults, setDisplayResults] = useState<ResultRowData[]>([]);
 
     const [selectedClubId, setSelectedClubId] = useState<string>('');
@@ -54,9 +54,8 @@ export default function ResultsPage() {
     const [selectedMatchId, setSelectedMatchId] = useState<string>('all');
     
     const [isLoadingClubs, setIsLoadingClubs] = useState(true);
-    const [isLoadingSeries, setIsLoadingSeries] = useState(false);
-    const [isLoadingMatches, setIsLoadingMatches] = useState(false);
-    const [isLoadingResults, setIsLoadingResults] = useState(false);
+    const [isLoadingDependents, setIsLoadingDependents] = useState(false);
+    const [isDisplayLoading, setIsDisplayLoading] = useState(false);
 
     // Step 1: Fetch clubs for the dropdown (or user's primary club)
     useEffect(() => {
@@ -71,9 +70,16 @@ export default function ResultsPage() {
 
             if (isSiteAdmin) {
                 const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
-                const clubsSnapshot = await getDocs(clubsQuery);
-                const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
-                setAllClubs(clubsData);
+                const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
+                    const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+                    setAllClubs(clubsData);
+                    setIsLoadingClubs(false);
+                }, (error) => {
+                    console.error("Error fetching clubs:", error);
+                    toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch clubs.' });
+                    setIsLoadingClubs(false);
+                });
+                return unsubscribe;
             } else {
                 const userDocRef = doc(firestore, 'users', user.uid);
                 const userDoc = await getDoc(userDocRef);
@@ -84,32 +90,32 @@ export default function ResultsPage() {
                         const clubDoc = await getDoc(clubDocRef);
                         if (clubDoc.exists()) {
                             setAllClubs([{ id: clubDoc.id, ...clubDoc.data() } as Club]);
-                             // For non-admin, auto-select their primary club
-                            setSelectedClubId(userData.primaryClubId);
+                            setSelectedClubId(userData.primaryClubId); // Auto-select for non-admin
                         }
                     }
                 }
+                 setIsLoadingClubs(false);
             }
-            setIsLoadingClubs(false);
         };
         
-        fetchClubs();
+        const unsubscribePromise = fetchClubs();
+        
+        return () => {
+            unsubscribePromise.then(unsub => unsub && unsub());
+        }
 
-    }, [user, isSiteAdmin, adminLoading, firestore]);
+    }, [user, isSiteAdmin, adminLoading, firestore, toast]);
 
-
-    // Step 2: When a club is selected, fetch its series and completed matches
+    // Step 2: When a club is selected, fetch its series and all matches
     useEffect(() => {
         if (!selectedClubId || !firestore) {
             setSeriesForClub([]);
-            setCompletedMatchesForClub([]);
+            setAllMatchesForClub([]);
             return;
         }
 
         const fetchClubDependentData = async () => {
-            setIsLoadingSeries(true);
-            setIsLoadingMatches(true);
-            
+            setIsLoadingDependents(true);
             try {
                 // Fetch series for the club
                 const seriesQuery = query(collection(firestore, 'series'), where('clubId', '==', selectedClubId), orderBy('name'));
@@ -117,12 +123,10 @@ export default function ResultsPage() {
                 const seriesData = seriesSnapshot.docs.map(s => ({ id: s.id, ...s.data() } as Series));
                 setSeriesForClub(seriesData);
                 
-                // Fetch all completed matches for the club
+                // Fetch all matches for the club (simplified query)
                 const matchesQuery = query(
                     collection(firestore, 'matches'),
-                    where('clubId', '==', selectedClubId),
-                    where('status', '==', 'Completed'),
-                    orderBy('date', 'desc')
+                    where('clubId', '==', selectedClubId)
                 );
                 const matchesSnapshot = await getDocs(matchesQuery);
                 const matchesData = matchesSnapshot.docs.map(doc => ({
@@ -130,26 +134,28 @@ export default function ResultsPage() {
                     ...doc.data(),
                     date: (doc.data().date as Timestamp).toDate(),
                 } as Match));
-                setCompletedMatchesForClub(matchesData);
+                setAllMatchesForClub(matchesData);
 
             } catch (error) {
                 console.error("Error fetching club dependent data:", error);
                 toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series and matches for the selected club.' });
             } finally {
-                setIsLoadingSeries(false);
-                setIsLoadingMatches(false);
+                setIsLoadingDependents(false);
             }
         };
 
         fetchClubDependentData();
     }, [selectedClubId, firestore, toast]);
     
+   
     // Step 3: When matches or filters change, calculate and set the results to be displayed
     useEffect(() => {
         const generateResultsForDisplay = async () => {
             if (!firestore) return;
-            setIsLoadingResults(true);
-            let matchesToProcess = completedMatchesForClub;
+            setIsDisplayLoading(true);
+
+            // First, filter matches by status on the client side
+            let matchesToProcess = allMatchesForClub.filter(m => m.status === 'Completed');
 
             if (selectedSeriesId !== 'all') {
                 matchesToProcess = matchesToProcess.filter(m => m.seriesId === selectedSeriesId);
@@ -161,7 +167,7 @@ export default function ResultsPage() {
 
             if (matchesToProcess.length === 0) {
                 setDisplayResults([]);
-                setIsLoadingResults(false);
+                setIsDisplayLoading(false);
                 return;
             }
 
@@ -185,35 +191,35 @@ export default function ResultsPage() {
                 console.error("Error processing results for display: ", error);
                 toast({ variant: 'destructive', title: 'Error', description: 'Could not generate the results list.' });
             } finally {
-                 setIsLoadingResults(false);
+                 setIsDisplayLoading(false);
             }
         };
 
         generateResultsForDisplay();
-    }, [completedMatchesForClub, selectedSeriesId, selectedMatchId, firestore, toast]);
-
-    const matchesForDropdown = useMemo(() => {
-        if (selectedSeriesId === 'all') {
-            return completedMatchesForClub;
-        }
-        return completedMatchesForClub.filter(m => m.seriesId === selectedSeriesId);
-    }, [completedMatchesForClub, selectedSeriesId]);
+    }, [allMatchesForClub, selectedSeriesId, selectedMatchId, firestore, toast]);
     
+    // Memoized list of completed matches for the dropdown
+    const completedMatchesForDropdown = useMemo(() => {
+        let matches = allMatchesForClub.filter(m => m.status === 'Completed');
+        if (selectedSeriesId !== 'all') {
+            matches = matches.filter(m => m.seriesId === selectedSeriesId);
+        }
+        return matches;
+    }, [allMatchesForClub, selectedSeriesId]);
+
     const handleClubChange = (clubId: string) => {
         setSelectedClubId(clubId);
-        // Reset dependent filters
         setSelectedSeriesId('all');
         setSelectedMatchId('all');
     };
 
     const handleSeriesChange = (seriesId: string) => {
         setSelectedSeriesId(seriesId);
-        // Reset match filter
         setSelectedMatchId('all');
     };
 
     const renderResultsList = () => {
-        if (isLoadingResults) {
+        if (isDisplayLoading) {
             return Array.from({ length: 4 }).map((_, i) => (
                 <TableRow key={i}>
                     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
@@ -284,7 +290,7 @@ export default function ResultsPage() {
                             <Select 
                                 value={selectedSeriesId} 
                                 onValueChange={handleSeriesChange} 
-                                disabled={!selectedClubId || isLoadingSeries}
+                                disabled={!selectedClubId || isLoadingDependents}
                             >
                                 <SelectTrigger id="series-filter" className="w-64">
                                     <SelectValue placeholder="Select a series..." />
@@ -304,14 +310,14 @@ export default function ResultsPage() {
                             <Select 
                                 value={selectedMatchId} 
                                 onValueChange={setSelectedMatchId} 
-                                disabled={!selectedClubId || isLoadingMatches || matchesForDropdown.length === 0}
+                                disabled={!selectedClubId || isLoadingDependents || completedMatchesForDropdown.length === 0}
                             >
                                 <SelectTrigger id="match-filter" className="w-64">
                                     <SelectValue placeholder="Select a match..." />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">All Matches</SelectItem>
-                                    {matchesForDropdown.map((m) => (
+                                    {completedMatchesForDropdown.map((m) => (
                                         <SelectItem key={m.id} value={m.id}>
                                             {m.name} ({format(m.date, 'dd-MM-yy')})
                                         </SelectItem>
