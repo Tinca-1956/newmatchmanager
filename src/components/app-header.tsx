@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { Menu, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import AppSidebarContent from './app-sidebar-content';
 import { UserNav } from './user-nav';
 import { useAuth } from '@/hooks/use-auth';
@@ -71,6 +71,7 @@ export default function AppHeader() {
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="flex flex-col p-0">
+           <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
           <AppSidebarContent isMobile={true} />
         </SheetContent>
       </Sheet>
