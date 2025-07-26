@@ -79,8 +79,6 @@ export default function ResultsPage() {
                     if (clubDoc.exists()) {
                         const primaryClub = { id: clubDoc.id, ...clubDoc.data() } as Club;
                         setAllClubs([primaryClub]);
-                        // Don't auto-select, let user do it.
-                        // setSelectedClubId(primaryClub.id);
                     }
                 }
             } catch (error) {
@@ -100,7 +98,6 @@ export default function ResultsPage() {
         if (!clubId || !firestore) return;
         
         setSelectedClubId(clubId);
-        // Reset downstream selections
         setSelectedSeriesId('');
         setSelectedMatchId('');
         setSeriesForClub([]);
@@ -126,7 +123,6 @@ export default function ResultsPage() {
         if (!seriesId || !firestore) return;
 
         setSelectedSeriesId(seriesId);
-        // Reset downstream selections
         setSelectedMatchId('');
         setMatchesForSeries([]);
         setResultsForMatch([]);
@@ -158,7 +154,7 @@ export default function ResultsPage() {
 
         setIsLoadingResults(true);
         try {
-            const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', matchId), orderBy('position', 'asc'));
+            const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', matchId));
             const resultsSnapshot = await getDocs(resultsQuery);
             const resultsData = resultsSnapshot.docs.map(r => r.data() as ResultType);
             setResultsForMatch(resultsData);
@@ -221,7 +217,7 @@ export default function ResultsPage() {
                             <Select 
                                 value={selectedClubId} 
                                 onValueChange={handleClubChange}
-                                disabled={isLoadingClubs || (!isSiteAdmin && allClubs.length === 0)}
+                                disabled={isLoadingClubs || allClubs.length === 0}
                             >
                                 <SelectTrigger id="club-filter" className="w-64">
                                     <SelectValue placeholder="Select a club..." />
