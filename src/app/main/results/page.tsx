@@ -60,7 +60,6 @@ export default function ResultsPage() {
         if (adminLoading || !user || !firestore) return;
 
         const fetchInitialData = async () => {
-            setIsLoading(true);
             const userDocRef = doc(firestore, 'users', user.uid);
             const userDoc = await getDoc(userDocRef);
 
@@ -76,8 +75,6 @@ export default function ResultsPage() {
                 } else {
                     setSelectedClubId(userData.primaryClubId || '');
                 }
-            } else {
-                 setIsLoading(false);
             }
         };
 
@@ -101,7 +98,6 @@ export default function ResultsPage() {
             toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series.' });
         });
 
-        // Also fetch all completed matches for the club to populate the match dropdown
         const matchesQuery = query(
             collection(firestore, 'matches'),
             where('clubId', '==', selectedClubId),
@@ -140,13 +136,11 @@ export default function ResultsPage() {
             let baseQuery;
             
             if (selectedMatchId !== 'all') {
-                // If a specific match is selected, just query for that one.
                  baseQuery = query(
                     collection(firestore, 'matches'),
                     where('__name__', '==', selectedMatchId)
                 );
             } else {
-                 // Otherwise, build query based on club and series filters.
                  let queryConstraints: any[] = [
                     where('clubId', '==', selectedClubId),
                     where('status', '==', 'Completed'),
