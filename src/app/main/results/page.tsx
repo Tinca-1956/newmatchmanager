@@ -189,7 +189,7 @@ export default function ResultsPage() {
     }, [selectedMatchId, toast]);
     
     const calculateAllRanks = (results: ResultType[]): ResultWithSectionRank[] => {
-        // First, calculate overall position based on weight and status
+        // Calculate overall position
         const sortedByWeight = [...results]
           .filter(r => r.status === 'OK' && r.weight > 0)
           .sort((a, b) => b.weight - a.weight);
@@ -199,25 +199,24 @@ export default function ResultsPage() {
           positionMap.set(result.userId, index + 1);
         });
         
-        const lastRank = sortedByWeight.length;
-        const didNotWeighRank = lastRank + 1;
+        const lastOverallRank = sortedByWeight.length;
+        const dnwOverallRank = lastOverallRank + 1;
 
         const resultsWithOverallRank = results.map(r => {
             let position: number | null = null;
             if (r.status === 'OK' && r.weight > 0) {
                 position = positionMap.get(r.userId) || null;
             } else if (['DNW', 'DNF', 'DSQ'].includes(r.status || '')) {
-                position = didNotWeighRank;
+                position = dnwOverallRank;
             }
             return { ...r, position };
         });
 
-
-        // Second, calculate section ranks
-        const resultsWithSectionRank: ResultWithSectionRank[] = resultsWithOverallRank.map(r => ({ ...r }));
+        // Calculate section ranks
+        const finalResults: ResultWithSectionRank[] = resultsWithOverallRank.map(r => ({ ...r }));
         
         const resultsBySection: { [key: string]: ResultWithSectionRank[] } = {};
-        resultsWithSectionRank.forEach(result => {
+        finalResults.forEach(result => {
             const section = result.section || 'default';
             if (!resultsBySection[section]) {
                 resultsBySection[section] = [];
@@ -225,20 +224,30 @@ export default function ResultsPage() {
             resultsBySection[section].push(result);
         });
 
-        for (const section in resultsBySection) {
-            const sectionResultsWithWeight = resultsBySection[section]
+        for (const sectionKey in resultsBySection) {
+            const sectionResults = resultsBySection[sectionKey];
+            
+            const sectionSortedByWeight = sectionResults
                 .filter(r => r.status === 'OK' && r.weight > 0)
                 .sort((a, b) => b.weight - a.weight);
 
-            sectionResultsWithWeight.forEach((result, index) => {
-                const originalIndex = resultsWithSectionRank.findIndex(r => r.userId === result.userId && r.matchId === result.matchId);
+            const lastSectionRank = sectionSortedByWeight.length;
+            const dnwSectionRank = lastSectionRank + 1;
+
+            sectionResults.forEach(result => {
+                const originalIndex = finalResults.findIndex(r => r.userId === result.userId && r.matchId === result.matchId);
                 if (originalIndex !== -1) {
-                    resultsWithSectionRank[originalIndex].sectionRank = index + 1;
+                    if (result.status === 'OK' && result.weight > 0) {
+                        const rank = sectionSortedByWeight.findIndex(r => r.userId === result.userId);
+                        finalResults[originalIndex].sectionRank = rank !== -1 ? rank + 1 : undefined;
+                    } else if (['DNW', 'DNF', 'DSQ'].includes(result.status || '')) {
+                        finalResults[originalIndex].sectionRank = dnwSectionRank;
+                    }
                 }
             });
         }
     
-        return resultsWithSectionRank;
+        return finalResults;
     };
 
     const sortedResults = useMemo(() => {
