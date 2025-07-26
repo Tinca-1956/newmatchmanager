@@ -60,11 +60,11 @@ export default function ResultsPage() {
 
     // Step 1: Fetch clubs for the dropdown (or user's primary club)
     useEffect(() => {
-        if (adminLoading) return;
+        if (adminLoading || !firestore) return;
         setIsLoadingClubs(true);
 
         const fetchClubs = async () => {
-            if (!user || !firestore) {
+            if (!user) {
                 setIsLoadingClubs(false);
                 return;
             }
@@ -84,6 +84,8 @@ export default function ResultsPage() {
                         const clubDoc = await getDoc(clubDocRef);
                         if (clubDoc.exists()) {
                             setAllClubs([{ id: clubDoc.id, ...clubDoc.data() } as Club]);
+                             // For non-admin, auto-select their primary club
+                            setSelectedClubId(userData.primaryClubId);
                         }
                     }
                 }
@@ -93,7 +95,7 @@ export default function ResultsPage() {
         
         fetchClubs();
 
-    }, [user, isSiteAdmin, adminLoading]);
+    }, [user, isSiteAdmin, adminLoading, firestore]);
 
 
     // Step 2: When a club is selected, fetch its series and completed matches
@@ -114,8 +116,7 @@ export default function ResultsPage() {
                 const seriesSnapshot = await getDocs(seriesQuery);
                 const seriesData = seriesSnapshot.docs.map(s => ({ id: s.id, ...s.data() } as Series));
                 setSeriesForClub(seriesData);
-                setIsLoadingSeries(false);
-
+                
                 // Fetch all completed matches for the club
                 const matchesQuery = query(
                     collection(firestore, 'matches'),
@@ -130,11 +131,11 @@ export default function ResultsPage() {
                     date: (doc.data().date as Timestamp).toDate(),
                 } as Match));
                 setCompletedMatchesForClub(matchesData);
-                setIsLoadingMatches(false);
 
             } catch (error) {
                 console.error("Error fetching club dependent data:", error);
                 toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series and matches for the selected club.' });
+            } finally {
                 setIsLoadingSeries(false);
                 setIsLoadingMatches(false);
             }
@@ -146,6 +147,7 @@ export default function ResultsPage() {
     // Step 3: When matches or filters change, calculate and set the results to be displayed
     useEffect(() => {
         const generateResultsForDisplay = async () => {
+            if (!firestore) return;
             setIsLoadingResults(true);
             let matchesToProcess = completedMatchesForClub;
 
@@ -188,7 +190,7 @@ export default function ResultsPage() {
         };
 
         generateResultsForDisplay();
-    }, [completedMatchesForClub, selectedSeriesId, selectedMatchId, toast]);
+    }, [completedMatchesForClub, selectedSeriesId, selectedMatchId, firestore, toast]);
 
     const matchesForDropdown = useMemo(() => {
         if (selectedSeriesId === 'all') {
@@ -263,7 +265,7 @@ export default function ResultsPage() {
                             <Select 
                                 value={selectedClubId} 
                                 onValueChange={handleClubChange}
-                                disabled={isLoadingClubs}
+                                disabled={isLoadingClubs || allClubs.length === 0}
                             >
                                 <SelectTrigger id="club-filter" className="w-64">
                                     <SelectValue placeholder="Select a club..." />
