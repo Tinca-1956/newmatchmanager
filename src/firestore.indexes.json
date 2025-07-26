@@ -19,7 +19,7 @@
         }
       ]
     },
-     {
+    {
       "collectionGroup": "matches",
       "queryScope": "COLLECTION",
       "fields": [
@@ -94,6 +94,20 @@
         {
           "fieldPath": "date",
           "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "series",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "clubId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "name",
+          "order": "ASCENDING"
         }
       ]
     }
