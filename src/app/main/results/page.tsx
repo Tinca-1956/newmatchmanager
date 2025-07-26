@@ -48,6 +48,7 @@ export default function ResultsPage() {
     const [selectedClubId, setSelectedClubId] = useState<string>('');
     const [selectedSeriesId, setSelectedSeriesId] = useState<string>('');
     const [selectedMatchId, setSelectedMatchId] = useState<string>('');
+    const [sortBy, setSortBy] = useState<'Overall' | 'Section' | 'Peg'>('Overall');
     
     const [isLoadingClubs, setIsLoadingClubs] = useState(true);
     const [isLoadingSeries, setIsLoadingSeries] = useState(false);
@@ -97,10 +98,10 @@ export default function ResultsPage() {
         
         fetchClubs();
 
-    }, [user, isSiteAdmin, adminLoading]);
+    }, [user, isSiteAdmin, adminLoading, toast]);
 
     // Step 2: Handle Club Selection -> Fetch Series
-    const handleClubChange = async (clubId: string, isInitialLoad = false) => {
+    const handleClubChange = (clubId: string, isInitialLoad = false) => {
         if (!clubId || !firestore) return;
         
         if (!isInitialLoad) {
@@ -114,14 +115,21 @@ export default function ResultsPage() {
         setIsLoadingSeries(true);
         try {
             const seriesQuery = query(collection(firestore, 'series'), where('clubId', '==', clubId));
-            const seriesSnapshot = await getDocs(seriesQuery);
-            const seriesData = seriesSnapshot.docs.map(s => ({ id: s.id, ...s.data() } as Series));
-            setSeriesForClub(seriesData);
+            const unsubscribe = onSnapshot(seriesQuery, (seriesSnapshot) => {
+                const seriesData = seriesSnapshot.docs.map(s => ({ id: s.id, ...s.data() } as Series));
+                setSeriesForClub(seriesData);
+                setIsLoadingSeries(false);
+            }, (error) => {
+                console.error("Error fetching series:", error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series for the selected club.' });
+                setIsLoadingSeries(false);
+            });
+            // Note: This immediate unsubscribe might not be ideal in a fully reactive app, but fits the current direct-fetch model.
+            // For a real-time app, you'd return the unsubscribe function from useEffect.
         } catch (error) {
-            console.error("Error fetching series:", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series for the selected club.' });
-        } finally {
-            setIsLoadingSeries(false);
+             console.error("Error setting up series fetch:", error);
+             toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series for the selected club.' });
+             setIsLoadingSeries(false);
         }
     };
 
@@ -172,6 +180,31 @@ export default function ResultsPage() {
         }
     };
 
+    const sortedResults = useMemo(() => {
+        const resultsCopy = [...resultsForMatch];
+        if (sortBy === 'Overall') {
+            return resultsCopy.sort((a, b) => (a.position || 999) - (b.position || 999));
+        }
+        if (sortBy === 'Section') {
+            return resultsCopy.sort((a, b) => {
+                const sectionA = a.section || '';
+                const sectionB = b.section || '';
+                if (sectionA < sectionB) return -1;
+                if (sectionA > sectionB) return 1;
+                return (a.position || 999) - (b.position || 999);
+            });
+        }
+        if (sortBy === 'Peg') {
+             return resultsCopy.sort((a, b) => {
+                const pegA = a.peg || '';
+                const pegB = b.peg || '';
+                // Basic alphanumeric sort for pegs like 'A1', 'A2', 'B1'
+                return pegA.localeCompare(pegB, undefined, { numeric: true, sensitivity: 'base' });
+            });
+        }
+        return resultsCopy;
+    }, [resultsForMatch, sortBy]);
+
     const renderResultsList = () => {
         if (isLoadingResults) {
             return Array.from({ length: 4 }).map((_, i) => (
@@ -186,7 +219,7 @@ export default function ResultsPage() {
             ));
         }
 
-        if (resultsForMatch.length === 0) {
+        if (sortedResults.length === 0) {
             return (
                 <TableRow>
                     <TableCell colSpan={6} className="h-24 text-center">
@@ -195,8 +228,6 @@ export default function ResultsPage() {
                 </TableRow>
             );
         }
-
-        const sortedResults = [...resultsForMatch].sort((a, b) => (a.position || 999) - (b.position || 999));
 
         return sortedResults.map(result => (
             <TableRow key={result.userId}>
@@ -231,7 +262,7 @@ export default function ResultsPage() {
                                 onValueChange={handleClubChange}
                                 disabled={isLoadingClubs || allClubs.length === 0}
                             >
-                                <SelectTrigger id="club-filter" className="w-64">
+                                <SelectTrigger id="club-filter" className="w-52">
                                     <SelectValue placeholder="Select a club..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -250,7 +281,7 @@ export default function ResultsPage() {
                                 onValueChange={handleSeriesChange} 
                                 disabled={!selectedClubId || isLoadingSeries}
                             >
-                                <SelectTrigger id="series-filter" className="w-64">
+                                <SelectTrigger id="series-filter" className="w-52">
                                     <SelectValue placeholder="Select a series..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -273,7 +304,7 @@ export default function ResultsPage() {
                                 onValueChange={handleMatchChange} 
                                 disabled={!selectedSeriesId || isLoadingMatches}
                             >
-                                <SelectTrigger id="match-filter" className="w-64">
+                                <SelectTrigger id="match-filter" className="w-52">
                                     <SelectValue placeholder="Select a match..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -286,6 +317,23 @@ export default function ResultsPage() {
                                             </SelectItem>
                                         ))
                                     )}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <Label htmlFor="sort-by">Sort by</Label>
+                            <Select
+                                value={sortBy}
+                                onValueChange={(value) => setSortBy(value as 'Overall' | 'Section' | 'Peg')}
+                                disabled={resultsForMatch.length === 0}
+                            >
+                                <SelectTrigger id="sort-by" className="w-48">
+                                    <SelectValue placeholder="Sort by..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Overall">Overall</SelectItem>
+                                    <SelectItem value="Section">Section</SelectItem>
+                                    <SelectItem value="Peg">Peg</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
