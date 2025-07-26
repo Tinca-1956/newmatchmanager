@@ -16,17 +16,16 @@ import { Badge } from '@/components/ui/badge';
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
   
-  if (!(match.date instanceof Date)) {
-    if (match.date && typeof (match.date as any).toDate === 'function') {
-      match.date = (match.date as Timestamp).toDate();
-    } else {
-      // If date is not valid, return original status
-      return match.status;
-    }
+  let matchDate: Date;
+  if (match.date instanceof Timestamp) {
+    matchDate = match.date.toDate();
+  } else if (match.date instanceof Date) {
+    matchDate = match.date;
+  } else {
+    // If date is not valid, return original status
+    return match.status;
   }
-
-  const matchDate = new Date(match.date);
-
+  
   // Check for invalid time strings
   if (!match.drawTime || !match.endTime || !match.drawTime.includes(':') || !match.endTime.includes(':')) {
     return match.status;
@@ -133,7 +132,10 @@ export default function DashboardPage() {
         
         // --- Filter for Upcoming Matches display ---
         const trulyUpcoming = matchesData
-            .map(match => ({...match, date: (match.date as Timestamp).toDate()}))
+            .map(match => {
+                 const matchDate = match.date instanceof Timestamp ? match.date.toDate() : match.date as Date;
+                 return {...match, date: matchDate};
+            })
             .filter(match => ['Upcoming', 'In Progress'].includes(getCalculatedStatus(match)))
             .sort((a, b) => a.date.getTime() - b.date.getTime());
         
@@ -142,8 +144,12 @@ export default function DashboardPage() {
 
         // --- Filter for Recent Results display ---
         const completedMatches = matchesData
+            .map(match => {
+                const matchDate = match.date instanceof Timestamp ? match.date.toDate() : match.date as Date;
+                return {...match, date: matchDate};
+            })
             .filter(match => match.status === 'Completed')
-            .sort((a, b) => (b.date as Timestamp).toMillis() - (a.date as Timestamp).toMillis());
+            .sort((a, b) => b.date.getTime() - a.date.getTime());
         
         if (completedMatches.length > 0) {
             const recentMatch = completedMatches[0];
@@ -299,5 +305,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
