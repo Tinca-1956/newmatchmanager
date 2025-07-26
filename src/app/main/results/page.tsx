@@ -176,7 +176,7 @@ export default function ResultsPage() {
         const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', selectedMatchId));
         const unsubscribe = onSnapshot(resultsQuery, (resultsSnapshot) => {
             const resultsData = resultsSnapshot.docs.map(r => r.data() as ResultType);
-            const resultsWithRanks = calculateSectionRanks(resultsData);
+            const resultsWithRanks = calculateAllRanks(resultsData);
             setResultsForMatch(resultsWithRanks);
             setIsLoadingResults(false);
         }, (error) => {
@@ -188,8 +188,33 @@ export default function ResultsPage() {
         return () => unsubscribe();
     }, [selectedMatchId, toast]);
     
-    const calculateSectionRanks = (results: ResultType[]): ResultWithSectionRank[] => {
-        const resultsWithSectionRank: ResultWithSectionRank[] = results.map(r => ({ ...r }));
+    const calculateAllRanks = (results: ResultType[]): ResultWithSectionRank[] => {
+        // First, calculate overall position based on weight and status
+        const sortedByWeight = [...results]
+          .filter(r => r.status === 'OK' && r.weight > 0)
+          .sort((a, b) => b.weight - a.weight);
+
+        const positionMap = new Map<string, number>();
+        sortedByWeight.forEach((result, index) => {
+          positionMap.set(result.userId, index + 1);
+        });
+        
+        const lastRank = sortedByWeight.length;
+        const didNotWeighRank = lastRank + 1;
+
+        const resultsWithOverallRank = results.map(r => {
+            let position: number | null = null;
+            if (r.status === 'OK' && r.weight > 0) {
+                position = positionMap.get(r.userId) || null;
+            } else if (['DNW', 'DNF', 'DSQ'].includes(r.status || '')) {
+                position = didNotWeighRank;
+            }
+            return { ...r, position };
+        });
+
+
+        // Second, calculate section ranks
+        const resultsWithSectionRank: ResultWithSectionRank[] = resultsWithOverallRank.map(r => ({ ...r }));
         
         const resultsBySection: { [key: string]: ResultWithSectionRank[] } = {};
         resultsWithSectionRank.forEach(result => {
@@ -447,5 +472,3 @@ export default function ResultsPage() {
         </div>
     );
 }
-
-    
