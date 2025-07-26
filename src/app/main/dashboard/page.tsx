@@ -259,9 +259,9 @@ export default function DashboardPage() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Date & Series</TableHead>
+                            <TableHead>Date &amp; Series</TableHead>
                             <TableHead>Match</TableHead>
-                            <TableHead>Venue & Status</TableHead>
+                            <TableHead>Venue &amp; Status</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -300,3 +300,4 @@ export default function DashboardPage() {
   );
 }
 
+    
