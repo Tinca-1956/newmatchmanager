@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -73,12 +73,18 @@ export default function ResultsPage() {
                     const clubsSnapshot = await getDocs(clubsQuery);
                     const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
                     setAllClubs(clubsData);
+                    if (userData?.primaryClubId) {
+                      setSelectedClubId(userData.primaryClubId);
+                      handleClubChange(userData.primaryClubId, true);
+                    }
                 } else if (userData?.primaryClubId) {
                     const clubDocRef = doc(firestore, 'clubs', userData.primaryClubId);
                     const clubDoc = await getDoc(clubDocRef);
                     if (clubDoc.exists()) {
                         const primaryClub = { id: clubDoc.id, ...clubDoc.data() } as Club;
                         setAllClubs([primaryClub]);
+                        setSelectedClubId(primaryClub.id);
+                        handleClubChange(primaryClub.id, true);
                     }
                 }
             } catch (error) {
@@ -91,18 +97,19 @@ export default function ResultsPage() {
         
         fetchClubs();
 
-    }, [user, isSiteAdmin, adminLoading, firestore, toast]);
+    }, [user, isSiteAdmin, adminLoading]);
 
     // Step 2: Handle Club Selection -> Fetch Series
-    const handleClubChange = async (clubId: string) => {
+    const handleClubChange = async (clubId: string, isInitialLoad = false) => {
         if (!clubId || !firestore) return;
         
-        setSelectedClubId(clubId);
-        setSelectedSeriesId('');
-        setSelectedMatchId('');
-        setSeriesForClub([]);
-        setMatchesForSeries([]);
-        setResultsForMatch([]);
+        if (!isInitialLoad) {
+            setSelectedClubId(clubId);
+            setSelectedSeriesId('');
+            setSelectedMatchId('');
+            setMatchesForSeries([]);
+            setResultsForMatch([]);
+        }
 
         setIsLoadingSeries(true);
         try {
@@ -124,7 +131,6 @@ export default function ResultsPage() {
 
         setSelectedSeriesId(seriesId);
         setSelectedMatchId('');
-        setMatchesForSeries([]);
         setResultsForMatch([]);
 
         setIsLoadingMatches(true);
@@ -172,6 +178,8 @@ export default function ResultsPage() {
                 <TableRow key={i}>
                     <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                 </TableRow>
@@ -181,17 +189,21 @@ export default function ResultsPage() {
         if (resultsForMatch.length === 0) {
             return (
                 <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center">
                        {selectedMatchId ? "No results found for this match." : "Select a match to view results."}
                     </TableCell>
                 </TableRow>
             );
         }
 
-        return resultsForMatch.map(result => (
+        const sortedResults = [...resultsForMatch].sort((a, b) => (a.position || 999) - (b.position || 999));
+
+        return sortedResults.map(result => (
             <TableRow key={result.userId}>
                 <TableCell>{result.position}</TableCell>
                 <TableCell className="font-medium">{result.userName}</TableCell>
+                <TableCell>{result.peg || '-'}</TableCell>
+                <TableCell>{result.section || '-'}</TableCell>
                 <TableCell>{result.weight.toFixed(3)}</TableCell>
                 <TableCell><Badge variant="outline">{result.status || 'OK'}</Badge></TableCell>
             </TableRow>
@@ -284,6 +296,8 @@ export default function ResultsPage() {
                             <TableRow>
                                 <TableHead>Position</TableHead>
                                 <TableHead>Angler</TableHead>
+                                <TableHead>Peg</TableHead>
+                                <TableHead>Section</TableHead>
                                 <TableHead>Weight (Kg)</TableHead>
                                 <TableHead>Status</TableHead>
                             </TableRow>
