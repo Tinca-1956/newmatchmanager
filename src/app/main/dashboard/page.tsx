@@ -17,16 +17,15 @@ const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
   
   let matchDate: Date;
-  if (match.date instanceof Timestamp) {
-    matchDate = match.date.toDate();
-  } else if (match.date instanceof Date) {
-    matchDate = match.date;
-  } else {
-    // If date is not valid, return original status
-    return match.status;
-  }
+    if (match.date instanceof Timestamp) {
+        matchDate = match.date.toDate();
+    } else if (match.date instanceof Date) {
+        matchDate = match.date;
+    } else {
+        // Fallback for invalid date format
+        return match.status;
+    }
   
-  // Check for invalid time strings
   if (!match.drawTime || !match.endTime || !match.drawTime.includes(':') || !match.endTime.includes(':')) {
     return match.status;
   }
@@ -49,7 +48,7 @@ const getCalculatedStatus = (match: Match): MatchStatus => {
 
 const formatAnglerName = (fullName: string) => {
     if (!fullName) return '';
-    const parts = fullName.split(' ');
+    const parts = fullName.trim().split(' ');
     if (parts.length < 2) return fullName;
     const firstName = parts[0];
     const lastName = parts.slice(1).join(' ');
@@ -104,10 +103,14 @@ export default function DashboardPage() {
         const allMatchesSnapshot = await getDocs(allMatchesQuery);
         const matchesData = allMatchesSnapshot.docs.map(doc => {
             const data = doc.data();
+            let date = data.date;
+            if (date instanceof Timestamp) {
+                date = date.toDate();
+            }
             return {
                 id: doc.id,
                 ...data,
-                date: data.date instanceof Timestamp ? data.date.toDate() : data.date,
+                date,
             } as Match
         });
         
@@ -199,7 +202,7 @@ export default function DashboardPage() {
       <TableRow key={match.id}>
         <TableCell>
             <div className="flex flex-col">
-                <span>{format(match.date, 'dd/MM/yyyy')}</span>
+                <span>{format(match.date as Date, 'dd/MM/yyyy')}</span>
                 <span className="text-xs text-muted-foreground">{match.seriesName}</span>
             </div>
         </TableCell>
@@ -236,7 +239,11 @@ export default function DashboardPage() {
 
     return recentResults.map(result => (
       <TableRow key={result.userId}>
-        <TableCell><Badge variant="secondary">{result.position}</Badge></TableCell>
+        <TableCell>
+            <div className="w-6 h-6 flex items-center justify-center rounded-full bg-muted text-muted-foreground text-xs">
+              {result.position || '-'}
+            </div>
+        </TableCell>
         <TableCell className="font-medium">{formatAnglerName(result.userName)}</TableCell>
       </TableRow>
     ));
