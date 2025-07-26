@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -31,7 +31,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
 import { collection, onSnapshot, doc, query, where, getDocs, getDoc, orderBy, Timestamp } from 'firebase/firestore';
-import type { Match, User, Club } from '@/lib/types';
+import type { Match, User, Club, MatchStatus } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -43,6 +43,36 @@ import { EditMatchModal } from '@/components/edit-match-modal';
 import { useMatchActions } from '@/hooks/use-match-actions';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
+const getCalculatedStatus = (match: Match): MatchStatus => {
+  const now = new Date();
+  
+  if (!(match.date instanceof Date)) {
+    // If it's still a Timestamp, convert it. If it's invalid, return original status.
+    if (match.date && typeof (match.date as any).toDate === 'function') {
+      match.date = (match.date as Timestamp).toDate();
+    } else {
+      return match.status;
+    }
+  }
+
+  const matchDate = new Date(match.date);
+
+  const [drawHours, drawMinutes] = match.drawTime.split(':').map(Number);
+  const drawDateTime = new Date(matchDate.getFullYear(), matchDate.getMonth(), matchDate.getDate(), drawHours, drawMinutes);
+
+  const [endHours, endMinutes] = match.endTime.split(':').map(Number);
+  const endDateTime = new Date(matchDate.getFullYear(), matchDate.getMonth(), matchDate.getDate(), endHours, endMinutes);
+  
+  const weighInProgressUntil = new Date(endDateTime.getTime() + 90 * 60 * 1000);
+
+  if (now > weighInProgressUntil) return 'Completed';
+  if (now > endDateTime) return 'Weigh-in';
+  if (now > drawDateTime) return 'In Progress';
+  
+  return 'Upcoming';
+};
+
+
 export default function MatchesPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -53,6 +83,8 @@ export default function MatchesPage() {
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   
   const [isLoading, setIsLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
 
   const {
     isResultsModalOpen,
@@ -100,6 +132,14 @@ export default function MatchesPage() {
     fetchInitialData();
   }, [user, isSiteAdmin, adminLoading]);
   
+   // Effect to update current time every minute
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // 60 seconds
+
+    return () => clearInterval(timer);
+  }, []);
 
   // Effect to fetch matches for the selected club
   useEffect(() => {
@@ -136,6 +176,13 @@ export default function MatchesPage() {
     };
   }, [selectedClubId, toast]);
 
+  const displayedMatches = useMemo(() => {
+    return matches.map(match => ({
+      ...match,
+      calculatedStatus: getCalculatedStatus(match),
+    }));
+  }, [matches, currentTime]);
+
   const renderMatchList = () => {
     if (isLoading) {
       return Array.from({ length: 5 }).map((_, i) => (
@@ -152,7 +199,7 @@ export default function MatchesPage() {
       ));
     }
 
-    if (matches.length === 0) {
+    if (displayedMatches.length === 0) {
       return (
         <TableRow>
           <TableCell colSpan={8} className="h-24 text-center">
@@ -162,7 +209,7 @@ export default function MatchesPage() {
       );
     }
 
-    return matches.map((match) => {
+    return displayedMatches.map((match) => {
       const isUserRegistered = user ? match.registeredAnglers?.includes(user.uid) : false;
 
       return (
@@ -173,7 +220,7 @@ export default function MatchesPage() {
           <TableCell>{format(match.date, 'E, dd MMM yyyy')}</TableCell>
           <TableCell>{match.capacity}</TableCell>
           <TableCell>{match.registeredCount}</TableCell>
-          <TableCell><Badge variant="outline">{match.status}</Badge></TableCell>
+          <TableCell><Badge variant="outline">{match.calculatedStatus}</Badge></TableCell>
           <TableCell>
               <TooltipProvider>
                   <div className="flex items-center gap-1">
@@ -328,3 +375,5 @@ export default function MatchesPage() {
     </>
   );
 }
+
+    
