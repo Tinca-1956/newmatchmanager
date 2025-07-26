@@ -84,6 +84,7 @@ export default function ResultsPage() {
     useEffect(() => {
         if (!selectedClubId || !firestore) {
             setSeries([]);
+            setSelectedSeriesId('all');
             return;
         }
         const seriesQuery = query(collection(firestore, 'series'), where('clubId', '==', selectedClubId));
@@ -98,6 +99,7 @@ export default function ResultsPage() {
     useEffect(() => {
         if (!selectedClubId || !firestore) {
             setResults([]);
+            setMatches([]);
             setIsLoading(false);
             return;
         }
@@ -109,14 +111,15 @@ export default function ResultsPage() {
         if (selectedMatchId && selectedMatchId !== 'all') {
              matchesQuery = query(
                 collection(firestore, 'matches'),
-                where('__name__', '==', selectedMatchId)
+                where('__name__', '==', selectedMatchId),
+                where('status', '==', 'Completed')
             );
         } else if (selectedSeriesId && selectedSeriesId !== 'all') {
             matchesQuery = query(
                 collection(firestore, 'matches'),
                 where('clubId', '==', selectedClubId),
-                where('status', '==', 'Completed'),
                 where('seriesId', '==', selectedSeriesId),
+                where('status', '==', 'Completed'),
                 orderBy('date', 'desc')
             );
         } else {
@@ -155,9 +158,7 @@ export default function ResultsPage() {
                 resultsData.push({ ...match, winnerName });
             }
             
-            if (selectedMatchId === 'all') {
-                setMatches(matchesData);
-            }
+            setMatches(matchesData);
             setResults(resultsData);
             setIsLoading(false);
         }, (error) => {
