@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -56,10 +55,7 @@ export const useMatchActions = () => {
   };
 
    const handleWeighIn = (matchId: string) => {
-     toast({
-        title: 'Action Not Implemented',
-        description: `Weigh-in for match ${matchId} is not yet available.`,
-    });
+     router.push(`/main/matches/${matchId}/weigh-in`);
   };
 
   const handleRegister = (matchId: string) => {
