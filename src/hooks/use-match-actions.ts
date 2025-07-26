@@ -8,14 +8,12 @@ import { useToast } from './use-toast';
 import { useAuth } from './use-auth';
 import { firestore } from '@/lib/firebase-client';
 import { doc, updateDoc, arrayUnion, increment } from 'firebase/firestore';
-import { useIsMobile } from './use-mobile';
 
 
 export const useMatchActions = () => {
   const router = useRouter();
   const { toast } = useToast();
   const { user } = useAuth();
-  const isMobile = useIsMobile();
   
   const [isResultsModalOpen, setIsResultsModalOpen] = useState(false);
   const [isAnglerListModalOpen, setIsAnglerListModalOpen] = useState(false);
@@ -27,12 +25,8 @@ export const useMatchActions = () => {
 
 
   const handleViewResults = (match: Match) => {
-    if (isMobile) {
-      router.push(`/main/result-viewer/${match.id}`);
-    } else {
-      setSelectedMatchForModal(match);
-      setIsResultsModalOpen(true);
-    }
+    setSelectedMatchForModal(match);
+    setIsResultsModalOpen(true);
   };
 
   const handleEditMatch = (match: Match) => {
