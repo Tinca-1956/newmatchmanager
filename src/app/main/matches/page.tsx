@@ -159,71 +159,80 @@ export default function MatchesPage() {
       );
     }
 
-    return matches.map((match) => (
-      <TableRow key={match.id}>
-        <TableCell className="font-medium">{match.seriesName}</TableCell>
-        <TableCell>{match.name}</TableCell>
-        <TableCell>{match.location}</TableCell>
-        <TableCell>{format(match.date, 'E, dd MMM yyyy')}</TableCell>
-        <TableCell>{match.capacity}</TableCell>
-        <TableCell>{match.registeredCount}</TableCell>
-        <TableCell><Badge variant="outline">{match.status}</Badge></TableCell>
-        <TableCell>
-            <TooltipProvider>
-                <div className="flex items-center gap-1">
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" onClick={() => handleAddAnglers(match.id)}>
-                                <UserPlus className="h-4 w-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>Add anglers to match</p></TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" onClick={() => handleViewAnglerList(match)}>
-                                <FileText className="h-4 w-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>Angler List</p></TooltipContent>
-                    </Tooltip>
-                     <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" onClick={() => handleViewResults(match)}>
-                                <Trophy className="h-4 w-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>View Results</p></TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                             <Button variant="ghost" size="icon" onClick={() => handleWeighIn(match.id)}>
-                                <Scale className="h-4 w-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>Manage Weigh-in</p></TooltipContent>
-                    </Tooltip>
-                     <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" onClick={() => handleRegister(match.id)}>
-                                <LogIn className="h-4 w-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>Register for Match</p></TooltipContent>
-                    </Tooltip>
-                     <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" onClick={() => handleEditMatch(match.id)}>
-                                <Edit className="h-4 w-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>Edit Match</p></TooltipContent>
-                    </Tooltip>
-                </div>
-            </TooltipProvider>
-        </TableCell>
-      </TableRow>
-    ));
+    return matches.map((match) => {
+      const isUserRegistered = user ? match.registeredAnglers?.includes(user.uid) : false;
+
+      return (
+        <TableRow key={match.id}>
+          <TableCell className="font-medium">{match.seriesName}</TableCell>
+          <TableCell>{match.name}</TableCell>
+          <TableCell>{match.location}</TableCell>
+          <TableCell>{format(match.date, 'E, dd MMM yyyy')}</TableCell>
+          <TableCell>{match.capacity}</TableCell>
+          <TableCell>{match.registeredCount}</TableCell>
+          <TableCell><Badge variant="outline">{match.status}</Badge></TableCell>
+          <TableCell>
+              <TooltipProvider>
+                  <div className="flex items-center gap-1">
+                      <Tooltip>
+                          <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" onClick={() => handleAddAnglers(match.id)}>
+                                  <UserPlus className="h-4 w-4" />
+                              </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p>Add anglers to match</p></TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                          <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" onClick={() => handleViewAnglerList(match)}>
+                                  <FileText className="h-4 w-4" />
+                              </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p>Angler List</p></TooltipContent>
+                      </Tooltip>
+                       <Tooltip>
+                          <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" onClick={() => handleViewResults(match)}>
+                                  <Trophy className="h-4 w-4" />
+                              </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p>View Results</p></TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                          <TooltipTrigger asChild>
+                               <Button variant="ghost" size="icon" onClick={() => handleWeighIn(match.id)}>
+                                  <Scale className="h-4 w-4" />
+                              </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p>Manage Weigh-in</p></TooltipContent>
+                      </Tooltip>
+                       <Tooltip>
+                          <TooltipTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => handleRegister(match)}
+                                disabled={isUserRegistered}
+                              >
+                                  <LogIn className="h-4 w-4" />
+                              </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p>{isUserRegistered ? "You are registered for this match" : "Register for Match"}</p></TooltipContent>
+                      </Tooltip>
+                       <Tooltip>
+                          <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" onClick={() => handleEditMatch(match.id)}>
+                                  <Edit className="h-4 w-4" />
+                              </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p>Edit Match</p></TooltipContent>
+                      </Tooltip>
+                  </div>
+              </TooltipProvider>
+          </TableCell>
+        </TableRow>
+      );
+    });
   };
   
   return (
