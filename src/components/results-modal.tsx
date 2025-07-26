@@ -109,6 +109,8 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
     
     const title = `Full Results: ${match.name}`;
     const subtitle = `${match.seriesName} - ${format(match.date as Date, 'PPP')}`;
+    const paidPlaces = match?.paidPlaces || 0;
+
 
     doc.setFontSize(18);
     doc.text(title, 14, 22);
@@ -128,13 +130,26 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
             r.status || 'OK'
         ]),
         theme: 'striped',
-        headStyles: { fillColor: [34, 49, 63] }
+        headStyles: { fillColor: [34, 49, 63] },
+        didParseCell: function(data: any) {
+            const row = data.row;
+            const position = row.cells[0].raw;
+            if (typeof position === 'number' && position > 0 && position <= paidPlaces) {
+                data.cell.styles.fillColor = '#dcfce7'; // green-100
+            }
+        }
     });
+    
+    const finalY = (doc as any).lastAutoTable.finalY;
+    doc.setFontSize(10);
+    doc.text("NOTE: Anglers highlighted are those that are in overall paid places.", 14, finalY + 10);
 
     doc.save(`results-${match.name.replace(/\s+/g, '-')}.pdf`);
   };
 
   if (!match) return null;
+  
+  const paidPlaces = match.paidPlaces || 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -180,30 +195,39 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
                         </TableCell>
                     </TableRow>
                 ) : (
-                    results.map((result) => (
-                    <TableRow key={result.userId}>
-                        <TableCell>
-                            <div className="w-8 h-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground text-xs font-bold">
-                                {result.position || '-'}
-                            </div>
-                        </TableCell>
-                        <TableCell className="font-medium">{result.userName}</TableCell>
-                        <TableCell>{result.weight.toFixed(3)}</TableCell>
-                        <TableCell>{result.peg || '-'}</TableCell>
-                        <TableCell>{result.section || '-'}</TableCell>
-                        <TableCell>{result.sectionRank || '-'}</TableCell>
-                        <TableCell>
-                            <Badge variant={result.status === 'OK' ? 'outline' : 'secondary'}>{result.status}</Badge>
-                        </TableCell>
-                    </TableRow>
-                    ))
+                    results.map((result) => {
+                      const isPaidPlace = result.position !== null && paidPlaces > 0 && result.position <= paidPlaces;
+                      return (
+                        <TableRow 
+                          key={result.userId}
+                          className={isPaidPlace ? 'bg-green-100 dark:bg-green-900/30' : ''}
+                        >
+                            <TableCell>
+                                <div className="w-8 h-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground text-xs font-bold">
+                                    {result.position || '-'}
+                                </div>
+                            </TableCell>
+                            <TableCell className="font-medium">{result.userName}</TableCell>
+                            <TableCell>{result.weight.toFixed(3)}</TableCell>
+                            <TableCell>{result.peg || '-'}</TableCell>
+                            <TableCell>{result.section || '-'}</TableCell>
+                            <TableCell>{result.sectionRank || '-'}</TableCell>
+                            <TableCell>
+                                <Badge variant={result.status === 'OK' ? 'outline' : 'secondary'}>{result.status}</Badge>
+                            </TableCell>
+                        </TableRow>
+                      )
+                    })
                 )}
                 </TableBody>
             </Table>
             </ScrollArea>
         </div>
 
-        <DialogFooter className="pt-4">
+        <DialogFooter className="pt-4 items-center">
+            <p className="text-sm text-muted-foreground mr-auto">
+                NOTE: Anglers highlighted are those in overall paid places.
+            </p>
           <Button variant="outline" onClick={handleDownloadPdf} disabled={results.length === 0}>
             <Download className="mr-2 h-4 w-4" />
             Download as PDF
