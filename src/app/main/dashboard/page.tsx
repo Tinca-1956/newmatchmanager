@@ -5,13 +5,43 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
 import { doc, onSnapshot, collection, query, where, Timestamp } from 'firebase/firestore';
-import type { User, Match } from '@/lib/types';
+import type { User, Match, MatchStatus } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+
+const getCalculatedStatus = (match: Match): MatchStatus => {
+  const now = new Date();
+  
+  if (!(match.date instanceof Date)) {
+    // If it's still a Timestamp, convert it. If it's invalid, return original status.
+    if (match.date && typeof (match.date as any).toDate === 'function') {
+      match.date = (match.date as Timestamp).toDate();
+    } else {
+      return match.status;
+    }
+  }
+
+  const matchDate = new Date(match.date);
+
+  const [drawHours, drawMinutes] = match.drawTime.split(':').map(Number);
+  const drawDateTime = new Date(matchDate.getFullYear(), matchDate.getMonth(), matchDate.getDate(), drawHours, drawMinutes);
+
+  const [endHours, endMinutes] = match.endTime.split(':').map(Number);
+  const endDateTime = new Date(matchDate.getFullYear(), matchDate.getMonth(), matchDate.getDate(), endHours, endMinutes);
+  
+  const weighInProgressUntil = new Date(endDateTime.getTime() + 90 * 60 * 1000);
+
+  if (now > weighInProgressUntil) return 'Completed';
+  if (now > endDateTime) return 'Weigh-in';
+  if (now > drawDateTime) return 'In Progress';
+  
+  return 'Upcoming';
+};
+
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -42,10 +72,12 @@ export default function DashboardPage() {
     }
 
     setIsLoading(true);
+    // Query all matches for the club that are not cancelled or completed
+    // We will calculate the exact status on the client.
     const matchesQuery = query(
         collection(firestore, 'matches'),
         where('clubId', '==', userProfile.primaryClubId),
-        where('status', '==', 'Upcoming')
+        where('status', 'in', ['Upcoming', 'In Progress', 'Weigh-in'])
     );
 
     const unsubscribeMatches = onSnapshot(matchesQuery, (snapshot) => {
@@ -54,9 +86,16 @@ export default function DashboardPage() {
             ...doc.data(),
             date: (doc.data().date as Timestamp).toDate(),
         } as Match));
-        // Sort matches on the client-side
-        matchesData.sort((a, b) => a.date.getTime() - b.date.getTime());
-        setUpcomingMatches(matchesData);
+        
+        // Filter for truly upcoming matches and calculate status on client
+        const trulyUpcoming = matchesData.map(match => ({
+          ...match,
+          calculatedStatus: getCalculatedStatus(match),
+        })).filter(match => match.calculatedStatus === 'Upcoming');
+
+        // Sort matches on the client-side by date
+        trulyUpcoming.sort((a, b) => a.date.getTime() - b.date.getTime());
+        setUpcomingMatches(trulyUpcoming);
         setIsLoading(false);
     }, (error) => {
         console.error("Error fetching upcoming matches: ", error);
