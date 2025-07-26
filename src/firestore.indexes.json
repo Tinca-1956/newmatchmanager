@@ -19,7 +19,7 @@
         }
       ]
     },
-    {
+     {
       "collectionGroup": "matches",
       "queryScope": "COLLECTION",
       "fields": [
