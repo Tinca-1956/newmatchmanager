@@ -60,6 +60,7 @@ export default function ResultsPage() {
         if (adminLoading || !user || !firestore) return;
 
         const fetchInitialData = async () => {
+            setIsLoading(true);
             const userDocRef = doc(firestore, 'users', user.uid);
             const userDoc = await getDoc(userDocRef);
 
@@ -74,13 +75,15 @@ export default function ResultsPage() {
                 } else {
                     setSelectedClubId(userData.primaryClubId || '');
                 }
+            } else {
+                 setIsLoading(false);
             }
         };
 
         fetchInitialData();
     }, [user, isSiteAdmin, adminLoading]);
 
-    // Effect to fetch Series for the selected club
+    // Effect to fetch Series and *completed* matches for the selected club
     useEffect(() => {
         if (!selectedClubId || !firestore) {
             setSeries([]);
@@ -88,7 +91,7 @@ export default function ResultsPage() {
             return;
         }
 
-        const seriesQuery = query(collection(firestore, 'series'), where('clubId', '==', selectedClubId));
+        const seriesQuery = query(collection(firestore, 'series'), where('clubId', '==', selectedClubId), orderBy('name'));
         const unsubscribeSeries = onSnapshot(seriesQuery, (snapshot) => {
             const seriesData = snapshot.docs.map(s => ({ id: s.id, ...s.data() } as Series));
             setSeries(seriesData);
@@ -116,7 +119,7 @@ export default function ResultsPage() {
         };
     }, [selectedClubId, firestore]);
     
-     // Main data fetching effect for results
+     // Main data fetching effect for results table
     useEffect(() => {
         if (!selectedClubId || !firestore) {
             setResults([]);
@@ -128,27 +131,26 @@ export default function ResultsPage() {
 
         const fetchAllMatchResults = async () => {
             let baseQuery;
+            
             if (selectedMatchId !== 'all') {
-                baseQuery = query(
+                // If a specific match is selected, just query for that one.
+                 baseQuery = query(
                     collection(firestore, 'matches'),
                     where('__name__', '==', selectedMatchId)
                 );
-            } else if (selectedSeriesId !== 'all') {
-                baseQuery = query(
-                    collection(firestore, 'matches'),
-                    where('clubId', '==', selectedClubId),
-                    where('seriesId', '==', selectedSeriesId),
-                    where('status', '==', 'Completed'),
-                    orderBy('date', 'desc')
-                );
             } else {
-                baseQuery = query(
-                    collection(firestore, 'matches'),
+                 // Otherwise, build query based on club and series filters.
+                 let queryConstraints = [
                     where('clubId', '==', selectedClubId),
                     where('status', '==', 'Completed'),
-                    orderBy('date', 'desc')
-                );
+                ];
+                if (selectedSeriesId !== 'all') {
+                    queryConstraints.push(where('seriesId', '==', selectedSeriesId));
+                }
+                queryConstraints.push(orderBy('date', 'desc'));
+                baseQuery = query(collection(firestore, 'matches'), ...queryConstraints);
             }
+
 
             try {
                 const matchesSnapshot = await getDocs(baseQuery);
