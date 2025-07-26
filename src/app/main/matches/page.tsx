@@ -177,7 +177,7 @@ export default function MatchesPage() {
                                 <FileText className="h-4 w-4" />
                             </Button>
                         </TooltipTrigger>
-                        <TooltipContent><p>Manage Pegs</p></TooltipContent>
+                        <TooltipContent><p>Angler List</p></TooltipContent>
                     </Tooltip>
                      <Tooltip>
                         <TooltipTrigger asChild>
