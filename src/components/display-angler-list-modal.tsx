@@ -113,8 +113,9 @@ export function DisplayAnglerListModal({ isOpen, onClose, match }: DisplayAngler
             a.section,
             a.peg
         ]),
-        theme: 'striped',
-        headStyles: { fillColor: [34, 49, 63] }
+        theme: 'grid',
+        styles: { lineColor: [0, 0, 0], lineWidth: 0.1 },
+        headStyles: { fillColor: [34, 49, 63], textColor: [255, 255, 255] }
     });
 
     doc.save(`angler-list-${match.name.replace(/\s+/g, '-')}.pdf`);
