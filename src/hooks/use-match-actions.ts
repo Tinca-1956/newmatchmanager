@@ -25,16 +25,8 @@ export const useMatchActions = () => {
 
 
   const handleViewResults = (match: Match) => {
-    if (match.status === 'Completed') {
-      setSelectedMatchForModal(match);
-      setIsResultsModalOpen(true);
-    } else {
-      toast({
-        variant: 'default',
-        title: 'Results Not Available',
-        description: 'Results are only available for completed matches.',
-      });
-    }
+    setSelectedMatchForModal(match);
+    setIsResultsModalOpen(true);
   };
 
   const handleEditMatch = (match: Match) => {
