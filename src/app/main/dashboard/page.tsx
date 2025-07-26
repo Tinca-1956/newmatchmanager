@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -58,6 +57,8 @@ export default function DashboardPage() {
   const [upcomingMatches, setUpcomingMatches] = useState<Match[]>([]);
   const [recentResults, setRecentResults] = useState<Result[]>([]);
   const [recentMatchName, setRecentMatchName] = useState<string>('');
+  const [recentSeriesName, setRecentSeriesName] = useState<string>('');
+
 
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingResults, setIsLoadingResults] = useState(true);
@@ -119,6 +120,8 @@ export default function DashboardPage() {
     const fetchRecentResults = async () => {
         if (!userProfile.primaryClubId || !firestore) return;
         setIsLoadingResults(true);
+        setRecentMatchName('');
+        setRecentSeriesName('');
 
         // 1. Find the most recent completed match
         const allCompletedMatchesQuery = query(
@@ -143,6 +146,8 @@ export default function DashboardPage() {
             const matchId = recentMatch.id;
             
             setRecentMatchName(recentMatch.name);
+            setRecentSeriesName(recentMatch.seriesName);
+
 
             // 2. Fetch results for that match
             const resultsQuery = query(
@@ -235,6 +240,8 @@ export default function DashboardPage() {
       </TableRow>
     ));
   };
+  
+  const recentResultsTitle = recentSeriesName && recentMatchName ? `${recentSeriesName} - ${recentMatchName}` : 'Last completed match'
 
   return (
     <div className="flex flex-col gap-8">
@@ -273,7 +280,7 @@ export default function DashboardPage() {
                  {isLoadingResults ? (
                     <Skeleton className="h-5 w-32" />
                 ) : (
-                    <CardDescription>{recentMatchName || 'Last completed match'}</CardDescription>
+                    <CardDescription>{recentResultsTitle}</CardDescription>
                 )}
             </CardHeader>
             <CardContent>
