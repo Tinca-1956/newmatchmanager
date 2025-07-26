@@ -155,9 +155,8 @@ export default function ResultsPage() {
                 resultsData.push({ ...match, winnerName });
             }
             
-            // Only update matches for the dropdown if we are not filtering by a specific match
             if (selectedMatchId === 'all') {
-              setMatches(matchesData);
+                setMatches(matchesData);
             }
             setResults(resultsData);
             setIsLoading(false);
