@@ -38,7 +38,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, List, LayoutGrid } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
-import { doc, getDoc, collection, query, where, onSnapshot, writeBatch, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, onSnapshot, writeBatch, Timestamp, getDocs } from 'firebase/firestore';
 import type { Match, User, Result, WeighInStatus } from '@/lib/types';
 import { format } from 'date-fns';
 
