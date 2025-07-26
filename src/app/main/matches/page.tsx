@@ -169,7 +169,7 @@ export default function MatchesPage() {
                                 <UserPlus className="h-4 w-4" />
                             </Button>
                         </TooltipTrigger>
-                        <TooltipContent><p>Angler List</p></TooltipContent>
+                        <TooltipContent><p>Add anglers to match</p></TooltipContent>
                     </Tooltip>
                     <Tooltip>
                         <TooltipTrigger asChild>
