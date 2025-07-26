@@ -106,17 +106,18 @@ export default function ResultsPage() {
 
     // Step 2: Handle Club Selection -> Fetch Series
     useEffect(() => {
+        setSeriesForClub([]);
+        setMatchesForSeries([]);
+        setResultsForMatch([]);
+        setSelectedSeriesId('');
+        setSelectedMatchId('');
+
         if (!selectedClubId || !firestore) {
-            setSeriesForClub([]);
-            setMatchesForSeries([]);
-            setResultsForMatch([]);
-            setSelectedSeriesId('');
-            setSelectedMatchId('');
             return;
         }
 
         setIsLoadingSeries(true);
-        const seriesQuery = query(collection(firestore, 'series'), where('clubId', '==', selectedClubId), orderBy('name'));
+        const seriesQuery = query(collection(firestore, 'series'), where('clubId', '==', selectedClubId));
         const unsubscribe = onSnapshot(seriesQuery, (seriesSnapshot) => {
             const seriesData = seriesSnapshot.docs.map(s => ({ id: s.id, ...s.data() } as Series));
             setSeriesForClub(seriesData);
@@ -132,10 +133,11 @@ export default function ResultsPage() {
 
     // Step 3: Handle Series Selection -> Fetch Matches
     useEffect(() => {
+        setMatchesForSeries([]);
+        setResultsForMatch([]);
+        setSelectedMatchId('');
+        
         if (!selectedSeriesId || !firestore) {
-            setMatchesForSeries([]);
-            setResultsForMatch([]);
-            setSelectedMatchId('');
             return;
         }
 
@@ -164,8 +166,9 @@ export default function ResultsPage() {
 
     // Step 4: Handle Match Selection -> Fetch Results
     useEffect(() => {
+        setResultsForMatch([]);
+
         if (!selectedMatchId || !firestore) {
-            setResultsForMatch([]);
             return;
         }
 
@@ -358,7 +361,9 @@ export default function ResultsPage() {
                                     <SelectValue placeholder="Select a series..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {seriesForClub.length === 0 && selectedClubId ? (
+                                    {isLoadingSeries ? (
+                                        <SelectItem value="loading" disabled>Loading...</SelectItem>
+                                    ) : seriesForClub.length === 0 && selectedClubId ? (
                                         <SelectItem value="none" disabled>No series found</SelectItem>
                                     ) : (
                                         seriesForClub.map((s) => (
@@ -381,7 +386,9 @@ export default function ResultsPage() {
                                     <SelectValue placeholder="Select a match..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                     {matchesForSeries.length === 0 && selectedSeriesId ? (
+                                     {isLoadingMatches ? (
+                                        <SelectItem value="loading" disabled>Loading...</SelectItem>
+                                     ) : matchesForSeries.length === 0 && selectedSeriesId ? (
                                         <SelectItem value="none" disabled>No matches found</SelectItem>
                                     ) : (
                                         matchesForSeries.map((m) => (
@@ -440,3 +447,5 @@ export default function ResultsPage() {
         </div>
     );
 }
+
+    
