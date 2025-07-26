@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -29,6 +29,9 @@ import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Download } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 
 interface ResultsModalProps {
   isOpen: boolean;
@@ -41,6 +44,8 @@ type ResultWithSectionRank = Result & { sectionRank?: number };
 export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
   const [results, setResults] = useState<ResultWithSectionRank[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [sortBy, setSortBy] = useState<'Overall' | 'Section' | 'Peg'>('Overall');
+
 
   useEffect(() => {
     if (isOpen && match && firestore) {
@@ -71,7 +76,7 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
               const sectionResults = resultsBySection[section]
                   .filter(r => r.status === 'OK' && r.weight > 0)
                   .sort((a, b) => b.weight - a.weight);
-
+              
               const lastSectionRank = sectionResults.length;
               const dnwSectionRank = lastSectionRank + 1;
 
@@ -88,9 +93,7 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
               });
           }
           
-          const sortedByPosition = rankedResults.sort((a,b) => (a.position || 999) - (b.position || 999))
-
-          setResults(sortedByPosition);
+          setResults(rankedResults);
         } catch (error) {
           console.error("Error fetching match results:", error);
           // Handle toast notification here if needed
@@ -102,8 +105,32 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
     }
   }, [isOpen, match]);
 
+  const sortedResults = useMemo(() => {
+    const resultsCopy = [...results];
+    if (sortBy === 'Overall') {
+        return resultsCopy.sort((a, b) => (a.position || 999) - (b.position || 999));
+    }
+    if (sortBy === 'Section') {
+        return resultsCopy.sort((a, b) => {
+            const sectionA = a.section || '';
+            const sectionB = b.section || '';
+            if (sectionA < sectionB) return -1;
+            if (sectionA > sectionB) return 1;
+            return (a.sectionRank || 999) - (b.sectionRank || 999);
+        });
+    }
+    if (sortBy === 'Peg') {
+         return resultsCopy.sort((a, b) => {
+            const pegA = a.peg || '';
+            const pegB = b.peg || '';
+            return pegA.localeCompare(pegB, undefined, { numeric: true, sensitivity: 'base' });
+        });
+    }
+    return resultsCopy;
+  }, [results, sortBy]);
+
   const handleDownloadPdf = () => {
-    if (!match || results.length === 0) return;
+    if (!match || sortedResults.length === 0) return;
     
     const doc = new jsPDF();
     
@@ -120,7 +147,7 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
     (doc as any).autoTable({
         startY: 40,
         head: [['Overall', 'Name', 'Kg', 'Peg', 'Section', 'Section Rank', 'Status']],
-        body: results.map(r => [
+        body: sortedResults.map(r => [
             r.position,
             r.userName,
             r.weight.toFixed(3),
@@ -161,7 +188,27 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
           </DialogDescription>
         </DialogHeader>
         
-        <div className="flex-grow overflow-hidden">
+        <div className="flex justify-end">
+            <div className="flex flex-col gap-1.5 w-[180px]">
+                <Label htmlFor="sort-by">Sort by</Label>
+                <Select
+                    value={sortBy}
+                    onValueChange={(value) => setSortBy(value as 'Overall' | 'Section' | 'Peg')}
+                    disabled={results.length === 0}
+                >
+                    <SelectTrigger id="sort-by">
+                        <SelectValue placeholder="Sort by..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="Overall">Overall</SelectItem>
+                        <SelectItem value="Section">Section</SelectItem>
+                        <SelectItem value="Peg">Peg</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+        </div>
+
+        <div className="flex-grow overflow-hidden pt-2">
             <ScrollArea className="h-full pr-6">
             <Table>
                 <TableHeader>
@@ -188,14 +235,14 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
                         <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                     </TableRow>
                     ))
-                ) : results.length === 0 ? (
+                ) : sortedResults.length === 0 ? (
                     <TableRow>
                         <TableCell colSpan={7} className="text-center h-24">
                             No results have been recorded for this match yet.
                         </TableCell>
                     </TableRow>
                 ) : (
-                    results.map((result) => {
+                    sortedResults.map((result) => {
                       const isPaidPlace = result.position !== null && paidPlaces > 0 && result.position <= paidPlaces;
                       return (
                         <TableRow 
@@ -228,7 +275,7 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
             <p className="text-sm text-muted-foreground mr-auto">
                 NOTE: Anglers highlighted are those in overall paid places.
             </p>
-          <Button variant="outline" onClick={handleDownloadPdf} disabled={results.length === 0}>
+          <Button variant="outline" onClick={handleDownloadPdf} disabled={sortedResults.length === 0}>
             <Download className="mr-2 h-4 w-4" />
             Download as PDF
           </Button>
@@ -246,5 +293,3 @@ declare global {
     jsPDF: any;
   }
 }
-
-    
