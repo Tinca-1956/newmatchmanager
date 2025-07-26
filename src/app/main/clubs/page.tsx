@@ -130,9 +130,6 @@ export default function ClubsPage() {
       return Array.from({ length: 4 }).map((_, i) => (
         <TableRow key={i}>
           <TableCell>
-            <Skeleton className="h-10 w-10 rounded-full" />
-          </TableCell>
-          <TableCell>
             <Skeleton className="h-4 w-32" />
           </TableCell>
           <TableCell>
@@ -149,16 +146,6 @@ export default function ClubsPage() {
     
     return clubs.map(club => (
       <TableRow key={club.id}>
-        <TableCell>
-             <Image
-                src={club.imageUrl || 'https://placehold.co/100x100.png'}
-                alt={club.name}
-                width={40}
-                height={40}
-                className="rounded-full"
-                data-ai-hint="club logo"
-            />
-        </TableCell>
         <TableCell className="font-medium">{club.name}</TableCell>
         <TableCell>{club.description}</TableCell>
         {isSiteAdmin && (
@@ -197,7 +184,6 @@ export default function ClubsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[80px]">Logo</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Description</TableHead>
                   {isSiteAdmin && <TableHead className="text-right">Actions</TableHead>}
