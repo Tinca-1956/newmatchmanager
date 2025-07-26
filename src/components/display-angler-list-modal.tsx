@@ -25,7 +25,7 @@ import { firestore } from '@/lib/firebase-client';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import type { Match, User, Result } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { Download, Trash2 } from 'lucide-react';
+import { Download } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
@@ -141,7 +141,6 @@ export function DisplayAnglerListModal({ isOpen, onClose, match }: DisplayAngler
                             <TableHead>Last Name</TableHead>
                             <TableHead>Section</TableHead>
                             <TableHead>Peg</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -152,12 +151,11 @@ export function DisplayAnglerListModal({ isOpen, onClose, match }: DisplayAngler
                                     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                     <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                                     <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                                    <TableCell className="text-right"><Skeleton className="h-8 w-8" /></TableCell>
                                 </TableRow>
                             ))
                         ) : anglerDetails.length === 0 ? (
                              <TableRow>
-                                <TableCell colSpan={5} className="text-center h-24">
+                                <TableCell colSpan={4} className="text-center h-24">
                                     No anglers are registered for this match yet.
                                 </TableCell>
                             </TableRow>
@@ -168,11 +166,6 @@ export function DisplayAnglerListModal({ isOpen, onClose, match }: DisplayAngler
                                     <TableCell>{angler.lastName}</TableCell>
                                     <TableCell>{angler.section}</TableCell>
                                     <TableCell>{angler.peg}</TableCell>
-                                    <TableCell className="text-right">
-                                        <Button variant="ghost" size="icon" disabled>
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </TableCell>
                                 </TableRow>
                             ))
                         )}
