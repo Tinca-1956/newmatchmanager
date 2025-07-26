@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
+  CardFooter,
 } from '@/components/ui/card';
 import {
     Table,
@@ -317,6 +318,10 @@ export default function ResultsPage() {
                 }
             }
         });
+        
+        const finalY = (doc as any).lastAutoTable.finalY;
+        doc.setFontSize(10);
+        doc.text("NOTE: Anglers highlighted are those that are in overall paid places.", 14, finalY + 10);
 
         doc.save(`results-${match?.name.replace(/\s+/g, '-') || 'export'}.pdf`);
     };
@@ -494,9 +499,14 @@ export default function ResultsPage() {
                         </TableBody>
                     </Table>
                 </CardContent>
+                {sortedResults.length > 0 && (
+                    <CardFooter>
+                        <p className="text-sm text-muted-foreground">
+                            NOTE: Anglers highlighted are those that are in overall paid places.
+                        </p>
+                    </CardFooter>
+                )}
             </Card>
         </div>
     );
 }
-
-    
