@@ -11,7 +11,7 @@
         },
         {
           "fieldPath": "date",
-          "order": "DESCENDING"
+          "order": "ASCENDING"
         }
       ]
     },
@@ -33,7 +33,7 @@
         }
       ]
     },
-    {
+     {
       "collectionGroup": "matches",
       "queryScope": "COLLECTION",
       "fields": [
@@ -88,24 +88,6 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "clubId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "seriesId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "date",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "results",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
           "fieldPath": "matchId",
           "order": "ASCENDING"
         },
@@ -118,4 +100,5 @@
   ],
   "fieldOverrides": []
 }
+
 
