@@ -47,121 +47,114 @@ export default function ResultsPage() {
     const [clubs, setClubs] = useState<Club[]>([]);
     const [series, setSeries] = useState<Series[]>([]);
     const [allMatchesForClub, setAllMatchesForClub] = useState<Match[]>([]);
+    const [results, setResults] = useState<ResultRowData[]>([]);
 
     const [selectedClubId, setSelectedClubId] = useState<string>('');
     const [selectedSeriesId, setSelectedSeriesId] = useState<string>('all');
     const [selectedMatchId, setSelectedMatchId] = useState<string>('all');
     
-    const [results, setResults] = useState<ResultRowData[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Effect to get the user's primary club or all clubs for admin
+    // Step 1: Determine the club to show (user's primary or admin's selection)
     useEffect(() => {
         if (adminLoading || !user || !firestore) return;
 
-        const fetchInitialData = async () => {
-            const userDocRef = doc(firestore, 'users', user.uid);
-            const userDoc = await getDoc(userDocRef);
-
-            if (userDoc.exists()) {
-                const userData = userDoc.data() as User;
+        const determineClub = async () => {
+            setIsLoading(true);
+            try {
                 if (isSiteAdmin) {
                     const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
                     const clubsSnapshot = await getDocs(clubsQuery);
                     const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
                     setClubs(clubsData);
-                    // Set selected club to user's primary, or first in list if none.
-                    setSelectedClubId(userData.primaryClubId || (clubsData.length > 0 ? clubsData[0].id : ''));
+                    if (clubsData.length > 0) {
+                        setSelectedClubId(clubsData[0].id);
+                    } else {
+                        setIsLoading(false);
+                    }
                 } else {
-                    setSelectedClubId(userData.primaryClubId || '');
+                    const userDocRef = doc(firestore, 'users', user.uid);
+                    const userDoc = await getDoc(userDocRef);
+                    if (userDoc.exists()) {
+                        const userData = userDoc.data() as User;
+                        setSelectedClubId(userData.primaryClubId || '');
+                    } else {
+                        setIsLoading(false);
+                    }
                 }
+            } catch (error) {
+                console.error("Error determining club:", error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not determine the club to display.' });
+                setIsLoading(false);
             }
         };
 
-        fetchInitialData();
-    }, [user, isSiteAdmin, adminLoading]);
+        determineClub();
+    }, [user, isSiteAdmin, adminLoading, toast]);
 
-    // Effect to fetch Series and *completed* matches for the selected club
+    // Step 2: Once a club is selected, fetch all necessary data for that club
     useEffect(() => {
         if (!selectedClubId || !firestore) {
             setSeries([]);
             setAllMatchesForClub([]);
-            return;
-        }
-
-        const seriesQuery = query(collection(firestore, 'series'), where('clubId', '==', selectedClubId), orderBy('name'));
-        const unsubscribeSeries = onSnapshot(seriesQuery, (snapshot) => {
-            const seriesData = snapshot.docs.map(s => ({ id: s.id, ...s.data() } as Series));
-            setSeries(seriesData);
-        }, err => {
-            console.error("Error fetching series:", err);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series.' });
-        });
-
-        const matchesQuery = query(
-            collection(firestore, 'matches'),
-            where('clubId', '==', selectedClubId),
-            where('status', '==', 'Completed'),
-            orderBy('date', 'desc')
-        );
-        const unsubscribeMatches = onSnapshot(matchesQuery, (snapshot) => {
-            const matchesData = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                date: (doc.data().date as Timestamp).toDate(),
-            } as Match));
-            setAllMatchesForClub(matchesData);
-        }, err => {
-             console.error("Error fetching matches for dropdown:", err);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches.' });
-        });
-
-        return () => {
-            unsubscribeSeries();
-            unsubscribeMatches();
-        };
-    }, [selectedClubId, firestore, toast]);
-    
-     // Main data fetching effect for results table
-    useEffect(() => {
-        if (!selectedClubId || !firestore) {
             setResults([]);
             setIsLoading(false);
             return;
         }
 
         setIsLoading(true);
+        
+        const fetchClubData = async () => {
+            try {
+                // Fetch series for the club
+                const seriesQuery = query(collection(firestore, 'series'), where('clubId', '==', selectedClubId), orderBy('name'));
+                const seriesSnapshot = await getDocs(seriesQuery);
+                const seriesData = seriesSnapshot.docs.map(s => ({ id: s.id, ...s.data() } as Series));
+                setSeries(seriesData);
 
-        const fetchAllMatchResults = async () => {
-            let baseQuery;
-            
-            if (selectedMatchId !== 'all') {
-                 baseQuery = query(
+                // Fetch all completed matches for the club
+                const matchesQuery = query(
                     collection(firestore, 'matches'),
-                    where('__name__', '==', selectedMatchId)
-                );
-            } else {
-                 let queryConstraints: any[] = [
                     where('clubId', '==', selectedClubId),
                     where('status', '==', 'Completed'),
-                ];
-                if (selectedSeriesId !== 'all') {
-                    queryConstraints.push(where('seriesId', '==', selectedSeriesId));
-                }
-                queryConstraints.push(orderBy('date', 'desc'));
-                baseQuery = query(collection(firestore, 'matches'), ...queryConstraints);
-            }
-
-
-            try {
-                const matchesSnapshot = await getDocs(baseQuery);
+                    orderBy('date', 'desc')
+                );
+                const matchesSnapshot = await getDocs(matchesQuery);
                 const matchesData = matchesSnapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data(),
                     date: (doc.data().date as Timestamp).toDate(),
                 } as Match));
+                setAllMatchesForClub(matchesData);
+                
+            } catch (error) {
+                console.error("Error fetching club data:", error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series and matches.' });
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        
+        fetchClubData();
 
-                const resultsPromises = matchesData.map(async (match) => {
+    }, [selectedClubId, firestore, toast]);
+
+    // Step 3: Filter the already-fetched matches to generate results for the table
+     useEffect(() => {
+        const generateResults = async () => {
+            setIsLoading(true);
+            let matchesToProcess = allMatchesForClub;
+
+            if (selectedSeriesId !== 'all') {
+                matchesToProcess = matchesToProcess.filter(m => m.seriesId === selectedSeriesId);
+            }
+
+            if (selectedMatchId !== 'all') {
+                matchesToProcess = matchesToProcess.filter(m => m.id === selectedMatchId);
+            }
+
+            try {
+                const resultsPromises = matchesToProcess.map(async (match) => {
                     const winnerQuery = query(
                         collection(firestore, 'results'),
                         where('matchId', '==', match.id),
@@ -175,17 +168,22 @@ export default function ResultsPage() {
                 
                 const resolvedResults = await Promise.all(resultsPromises);
                 setResults(resolvedResults);
+
             } catch (error) {
-                 console.error("Error fetching results data: ", error);
-                 toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch match results. Check console for details.' });
+                console.error("Error processing results: ", error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not generate results list.' });
             } finally {
-                setIsLoading(false);
+                 setIsLoading(false);
             }
         };
 
-        fetchAllMatchResults();
+        if (allMatchesForClub.length > 0) {
+            generateResults();
+        } else {
+            setResults([]);
+        }
 
-    }, [selectedClubId, selectedSeriesId, selectedMatchId, firestore, toast]);
+    }, [allMatchesForClub, selectedSeriesId, selectedMatchId, toast]);
 
     const filteredMatchesForDropdown = useMemo(() => {
         if (selectedSeriesId === 'all') {
@@ -275,7 +273,7 @@ export default function ResultsPage() {
                                     setSelectedSeriesId(value);
                                     setSelectedMatchId('all');
                                 }} 
-                                disabled={!selectedClubId}
+                                disabled={!selectedClubId || isLoading}
                             >
                                 <SelectTrigger id="series-filter" className="w-64">
                                     <SelectValue placeholder="Select a series..." />
@@ -295,7 +293,7 @@ export default function ResultsPage() {
                             <Select 
                                 value={selectedMatchId} 
                                 onValueChange={setSelectedMatchId} 
-                                disabled={!selectedClubId || filteredMatchesForDropdown.length === 0}
+                                disabled={!selectedClubId || isLoading || filteredMatchesForDropdown.length === 0}
                             >
                                 <SelectTrigger id="match-filter" className="w-64">
                                     <SelectValue placeholder="Select a match..." />
