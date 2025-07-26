@@ -23,11 +23,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import type { Match, Result } from '@/lib/types';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { Download } from 'lucide-react';
 
 interface ResultsModalProps {
   isOpen: boolean;
@@ -48,8 +49,7 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
         try {
           const resultsQuery = query(
             collection(firestore, 'results'),
-            where('matchId', '==', match.id),
-            orderBy('position', 'asc')
+            where('matchId', '==', match.id)
           );
           const resultsSnapshot = await getDocs(resultsQuery);
           const resultsData = resultsSnapshot.docs.map(doc => doc.data() as Result);
@@ -65,22 +65,32 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
               }
           });
 
-          const rankedResults: ResultWithSectionRank[] = [...resultsData];
+          const rankedResults: ResultWithSectionRank[] = [...resultsData].map(r => ({...r}));
 
           for (const section in resultsBySection) {
               const sectionResults = resultsBySection[section]
-                  .filter(r => r.weight > 0)
+                  .filter(r => r.status === 'OK' && r.weight > 0)
                   .sort((a, b) => b.weight - a.weight);
-              
-              sectionResults.forEach((result, index) => {
+
+              const lastSectionRank = sectionResults.length;
+              const dnwSectionRank = lastSectionRank + 1;
+
+              resultsBySection[section].forEach(result => {
                   const originalResult = rankedResults.find(r => r.userId === result.userId);
                   if (originalResult) {
-                      originalResult.sectionRank = index + 1;
+                      if(result.status === 'OK' && result.weight > 0) {
+                        const rank = sectionResults.findIndex(r => r.userId === result.userId);
+                        originalResult.sectionRank = rank !== -1 ? rank + 1 : undefined;
+                      } else if (['DNW', 'DNF', 'DSQ'].includes(result.status || '')) {
+                        originalResult.sectionRank = dnwSectionRank;
+                      }
                   }
               });
           }
+          
+          const sortedByPosition = rankedResults.sort((a,b) => (a.position || 999) - (b.position || 999))
 
-          setResults(rankedResults);
+          setResults(sortedByPosition);
         } catch (error) {
           console.error("Error fetching match results:", error);
           // Handle toast notification here if needed
@@ -135,19 +145,6 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
             {match.seriesName} - {format(match.date as Date, 'PPP')}
           </DialogDescription>
         </DialogHeader>
-
-        {/* Placeholder for Sort Results dropdown */}
-        <div className="py-4">
-            {/* <Select defaultValue="overall">
-                <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Sort Results" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="overall">Overall</SelectItem>
-                    <SelectItem value="section">By Section</SelectItem>
-                </SelectContent>
-            </Select> */}
-        </div>
         
         <div className="flex-grow overflow-hidden">
             <ScrollArea className="h-full pr-6">
@@ -176,11 +173,19 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
                         <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                     </TableRow>
                     ))
+                ) : results.length === 0 ? (
+                    <TableRow>
+                        <TableCell colSpan={7} className="text-center h-24">
+                            No results have been recorded for this match yet.
+                        </TableCell>
+                    </TableRow>
                 ) : (
                     results.map((result) => (
                     <TableRow key={result.userId}>
                         <TableCell>
-                            <Badge variant="secondary" className="rounded-full w-8 h-8 flex items-center justify-center">{result.position}</Badge>
+                            <div className="w-8 h-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground text-xs font-bold">
+                                {result.position || '-'}
+                            </div>
                         </TableCell>
                         <TableCell className="font-medium">{result.userName}</TableCell>
                         <TableCell>{result.weight.toFixed(3)}</TableCell>
@@ -188,7 +193,7 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
                         <TableCell>{result.section || '-'}</TableCell>
                         <TableCell>{result.sectionRank || '-'}</TableCell>
                         <TableCell>
-                            <Badge variant={result.status === 'OK' ? 'outline' : 'destructive'}>{result.status}</Badge>
+                            <Badge variant={result.status === 'OK' ? 'outline' : 'secondary'}>{result.status}</Badge>
                         </TableCell>
                     </TableRow>
                     ))
@@ -200,6 +205,7 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
 
         <DialogFooter className="pt-4">
           <Button variant="outline" onClick={handleDownloadPdf} disabled={results.length === 0}>
+            <Download className="mr-2 h-4 w-4" />
             Download as PDF
           </Button>
           <Button variant="default" onClick={onClose}>
