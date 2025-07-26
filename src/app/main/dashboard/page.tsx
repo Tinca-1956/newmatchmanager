@@ -89,8 +89,7 @@ export default function DashboardPage() {
     setIsLoading(true);
     const matchesQuery = query(
         collection(firestore, 'matches'),
-        where('clubId', '==', userProfile.primaryClubId),
-        where('status', 'in', ['Upcoming', 'In Progress', 'Weigh-in'])
+        where('clubId', '==', userProfile.primaryClubId)
     );
 
     const unsubscribeMatches = onSnapshot(matchesQuery, (snapshot) => {
@@ -103,7 +102,7 @@ export default function DashboardPage() {
         const trulyUpcoming = matchesData.map(match => ({
           ...match,
           calculatedStatus: getCalculatedStatus(match),
-        })).filter(match => match.calculatedStatus === 'Upcoming');
+        })).filter(match => match.calculatedStatus === 'Upcoming' || match.calculatedStatus === 'In Progress');
 
         trulyUpcoming.sort((a, b) => a.date.getTime() - b.date.getTime());
         setUpcomingMatches(trulyUpcoming);
@@ -124,7 +123,6 @@ export default function DashboardPage() {
         setRecentMatchName('');
         setRecentSeriesName('');
 
-        // 1. Find the most recent completed match
         const allCompletedMatchesQuery = query(
             collection(firestore, 'matches'),
             where('clubId', '==', userProfile.primaryClubId),
@@ -139,18 +137,21 @@ export default function DashboardPage() {
                 return;
             }
             
-            // Sort on the client
             const completedMatches = allCompletedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as Match, date: (doc.data().date as Timestamp).toDate() }));
             completedMatches.sort((a, b) => b.date.getTime() - a.date.getTime());
             
+            if (completedMatches.length === 0) {
+                 setRecentResults([]);
+                 setIsLoadingResults(false);
+                 return;
+            }
+
             const recentMatch = completedMatches[0];
             const matchId = recentMatch.id;
             
             setRecentMatchName(recentMatch.name);
             setRecentSeriesName(recentMatch.seriesName);
 
-
-            // 2. Fetch results for that match
             const resultsQuery = query(
                 collection(firestore, 'results'),
                 where('matchId', '==', matchId),
