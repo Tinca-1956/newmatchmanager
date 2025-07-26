@@ -36,6 +36,7 @@ const navItems = [
   { href: '/main/series', icon: Trophy, label: 'Series' },
   { href: '/main/matches', icon: Swords, label: 'Matches' },
   { href: '/main/results', icon: Medal, label: 'Results' },
+  { href: '/main/admin/edit-seed-users', icon: UserCog, label: 'Edit Seed Users', adminOnly: true },
   { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users', adminOnly: true },
   { href: '/main/admin/seed', icon: Beaker, label: 'Seed Data', adminOnly: true },
   { href: '/main/emulator', icon: FlaskConical, label: 'Emulator', adminOnly: true, emulatorOnly: true },
@@ -92,7 +93,7 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
       }
       return true;
   }).sort((a, b) => {
-      const adminOrder = ['/main/users/deleted', '/main/admin/seed', '/main/emulator'];
+      const adminOrder = ['/main/admin/edit-seed-users', '/main/users/deleted', '/main/admin/seed', '/main/emulator'];
       const aIndex = adminOrder.indexOf(a.href);
       const bIndex = adminOrder.indexOf(b.href);
       
