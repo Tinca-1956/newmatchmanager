@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
-import { collection, writeBatch, doc, Timestamp, getDocs } from 'firebase/firestore';
+import { collection, writeBatch, doc, Timestamp, getDocs, query, where } from 'firebase/firestore';
 import type { Club, Series, User, Match, Result } from '@/lib/types';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
