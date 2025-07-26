@@ -15,7 +15,7 @@
         },
         {
           "fieldPath": "date",
-          "order": "ASCENDING"
+          "order": "DESCENDING"
         }
       ]
     },
@@ -68,21 +68,9 @@
           "order": "ASCENDING"
         }
       ]
-    },
-    {
-      "collectionGroup": "matches",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "clubId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "date",
-          "order": "DESCENDING"
-        }
-      ]
     }
   ],
   "fieldOverrides": []
 }
+
+    

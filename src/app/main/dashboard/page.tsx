@@ -45,7 +45,7 @@ export default function DashboardPage() {
         collection(firestore, 'matches'),
         where('clubId', '==', userProfile.primaryClubId),
         where('status', '==', 'Upcoming'),
-        orderBy('date', 'asc')
+        orderBy('date', 'desc')
     );
 
     const unsubscribeMatches = onSnapshot(matchesQuery, (snapshot) => {
