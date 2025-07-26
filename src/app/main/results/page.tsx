@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -28,16 +28,12 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, onSnapshot, query, where, getDocs, getDoc, doc, orderBy, Timestamp, limit } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, getDocs, getDoc, doc, orderBy, Timestamp } from 'firebase/firestore';
 import type { Match, User, Club, Series, Result as ResultType } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
-
-interface ResultRowData extends Match {
-    winnerName: string;
-}
 
 export default function ResultsPage() {
     const { user } = useAuth();
@@ -46,16 +42,17 @@ export default function ResultsPage() {
 
     const [allClubs, setAllClubs] = useState<Club[]>([]);
     const [seriesForClub, setSeriesForClub] = useState<Series[]>([]);
-    const [allMatchesForClub, setAllMatchesForClub] = useState<Match[]>([]);
-    const [displayResults, setDisplayResults] = useState<ResultRowData[]>([]);
+    const [matchesForSeries, setMatchesForSeries] = useState<Match[]>([]);
+    const [resultsForMatch, setResultsForMatch] = useState<ResultType[]>([]);
 
     const [selectedClubId, setSelectedClubId] = useState<string>('');
-    const [selectedSeriesId, setSelectedSeriesId] = useState<string>('all');
-    const [selectedMatchId, setSelectedMatchId] = useState<string>('all');
+    const [selectedSeriesId, setSelectedSeriesId] = useState<string>('');
+    const [selectedMatchId, setSelectedMatchId] = useState<string>('');
     
     const [isLoadingClubs, setIsLoadingClubs] = useState(true);
-    const [isLoadingDependents, setIsLoadingDependents] = useState(false);
-    const [isDisplayLoading, setIsDisplayLoading] = useState(false);
+    const [isLoadingSeries, setIsLoadingSeries] = useState(false);
+    const [isLoadingMatches, setIsLoadingMatches] = useState(false);
+    const [isLoadingResults, setIsLoadingResults] = useState(false);
 
     // Step 1: Fetch clubs for the dropdown (or user's primary club)
     useEffect(() => {
@@ -67,9 +64,9 @@ export default function ResultsPage() {
         const fetchClubs = async () => {
             setIsLoadingClubs(true);
             try {
-                 const userDocRef = doc(firestore, 'users', user.uid);
-                 const userDoc = await getDoc(userDocRef);
-                 const userData = userDoc.exists() ? userDoc.data() as User : null;
+                const userDocRef = doc(firestore, 'users', user.uid);
+                const userDoc = await getDoc(userDocRef);
+                const userData = userDoc.exists() ? userDoc.data() as User : null;
 
                 if (isSiteAdmin) {
                     const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
@@ -82,7 +79,8 @@ export default function ResultsPage() {
                     if (clubDoc.exists()) {
                         const primaryClub = { id: clubDoc.id, ...clubDoc.data() } as Club;
                         setAllClubs([primaryClub]);
-                        setSelectedClubId(primaryClub.id);
+                        // Don't auto-select, let user do it.
+                        // setSelectedClubId(primaryClub.id);
                     }
                 }
             } catch (error) {
@@ -97,150 +95,109 @@ export default function ResultsPage() {
 
     }, [user, isSiteAdmin, adminLoading, firestore, toast]);
 
-    // Step 2: When a club is selected, fetch its series and all completed matches
-    useEffect(() => {
-        if (!selectedClubId || !firestore) {
-            setSeriesForClub([]);
-            setAllMatchesForClub([]);
-            return;
-        }
-
-        const fetchClubDependentData = async () => {
-            setIsLoadingDependents(true);
-            try {
-                // Fetch series for the club
-                const seriesQuery = query(collection(firestore, 'series'), where('clubId', '==', selectedClubId));
-                const seriesSnapshot = await getDocs(seriesQuery);
-                const seriesData = seriesSnapshot.docs.map(s => ({ id: s.id, ...s.data() } as Series));
-                setSeriesForClub(seriesData);
-                
-                // Fetch all completed matches for the club
-                const matchesQuery = query(
-                    collection(firestore, 'matches'),
-                    where('clubId', '==', selectedClubId),
-                    where('status', '==', 'Completed')
-                );
-                const matchesSnapshot = await getDocs(matchesQuery);
-                const matchesData = matchesSnapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data(),
-                    date: (doc.data().date as Timestamp).toDate(),
-                } as Match));
-                setAllMatchesForClub(matchesData);
-
-            } catch (error) {
-                console.error("Error fetching club dependent data:", error);
-                toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series and matches for the selected club.' });
-            } finally {
-                setIsLoadingDependents(false);
-            }
-        };
-
-        fetchClubDependentData();
-    }, [selectedClubId, firestore, toast]);
-    
-   
-    // Step 3: When matches or filters change, calculate and set the results to be displayed
-    useEffect(() => {
-        const generateResultsForDisplay = async () => {
-            if (!firestore) return;
-            setIsDisplayLoading(true);
-
-            let matchesToProcess = [...allMatchesForClub];
-
-            if (selectedSeriesId !== 'all') {
-                matchesToProcess = matchesToProcess.filter(m => m.seriesId === selectedSeriesId);
-            }
-
-            if (selectedMatchId !== 'all') {
-                matchesToProcess = matchesToProcess.filter(m => m.id === selectedMatchId);
-            }
-
-            if (matchesToProcess.length === 0) {
-                setDisplayResults([]);
-                setIsDisplayLoading(false);
-                return;
-            }
-
-            try {
-                const resultsPromises = matchesToProcess.map(async (match) => {
-                    const winnerQuery = query(
-                        collection(firestore, 'results'),
-                        where('matchId', '==', match.id),
-                        where('position', '==', 1),
-                        limit(1)
-                    );
-                    const winnerSnapshot = await getDocs(winnerQuery);
-                    const winnerName = winnerSnapshot.empty ? 'N/A' : (winnerSnapshot.docs[0].data() as ResultType).userName;
-                    return { ...match, winnerName };
-                });
-                
-                const resolvedResults = await Promise.all(resultsPromises);
-                // Sort results by date descending
-                resolvedResults.sort((a, b) => (b.date as Date).getTime() - (a.date as Date).getTime());
-                setDisplayResults(resolvedResults);
-
-            } catch (error) {
-                console.error("Error processing results for display: ", error);
-                toast({ variant: 'destructive', title: 'Error', description: 'Could not generate the results list.' });
-            } finally {
-                 setIsDisplayLoading(false);
-            }
-        };
+    // Step 2: Handle Club Selection -> Fetch Series
+    const handleClubChange = async (clubId: string) => {
+        if (!clubId || !firestore) return;
         
-        generateResultsForDisplay();
-
-    }, [allMatchesForClub, selectedSeriesId, selectedMatchId, firestore, toast]);
-    
-    // Memoized list of completed matches for the dropdown
-    const completedMatchesForDropdown = useMemo(() => {
-        if (selectedSeriesId === 'all') {
-            return allMatchesForClub;
-        }
-        return allMatchesForClub.filter(m => m.seriesId === selectedSeriesId);
-    }, [allMatchesForClub, selectedSeriesId]);
-
-    const handleClubChange = (clubId: string) => {
         setSelectedClubId(clubId);
-        setSelectedSeriesId('all');
-        setSelectedMatchId('all');
+        // Reset downstream selections
+        setSelectedSeriesId('');
+        setSelectedMatchId('');
+        setSeriesForClub([]);
+        setMatchesForSeries([]);
+        setResultsForMatch([]);
+
+        setIsLoadingSeries(true);
+        try {
+            const seriesQuery = query(collection(firestore, 'series'), where('clubId', '==', clubId));
+            const seriesSnapshot = await getDocs(seriesQuery);
+            const seriesData = seriesSnapshot.docs.map(s => ({ id: s.id, ...s.data() } as Series));
+            setSeriesForClub(seriesData);
+        } catch (error) {
+            console.error("Error fetching series:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series for the selected club.' });
+        } finally {
+            setIsLoadingSeries(false);
+        }
     };
 
-    const handleSeriesChange = (seriesId: string) => {
+    // Step 3: Handle Series Selection -> Fetch Matches
+    const handleSeriesChange = async (seriesId: string) => {
+        if (!seriesId || !firestore) return;
+
         setSelectedSeriesId(seriesId);
-        setSelectedMatchId('all');
+        // Reset downstream selections
+        setSelectedMatchId('');
+        setMatchesForSeries([]);
+        setResultsForMatch([]);
+
+        setIsLoadingMatches(true);
+        try {
+            const matchesQuery = query(collection(firestore, 'matches'), where('seriesId', '==', seriesId));
+            const matchesSnapshot = await getDocs(matchesQuery);
+            const matchesData = matchesSnapshot.docs.map(m => ({
+                id: m.id,
+                ...m.data(),
+                date: (m.data().date as Timestamp).toDate(),
+            } as Match));
+            setMatchesForSeries(matchesData);
+        } catch (error) {
+            console.error("Error fetching matches:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches for the selected series.' });
+        } finally {
+            setIsLoadingMatches(false);
+        }
+    };
+
+    // Step 4: Handle Match Selection -> Fetch Results
+    const handleMatchChange = async (matchId: string) => {
+        if (!matchId || !firestore) return;
+
+        setSelectedMatchId(matchId);
+        setResultsForMatch([]);
+
+        setIsLoadingResults(true);
+        try {
+            const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', matchId), orderBy('position', 'asc'));
+            const resultsSnapshot = await getDocs(resultsQuery);
+            const resultsData = resultsSnapshot.docs.map(r => r.data() as ResultType);
+            setResultsForMatch(resultsData);
+        } catch (error) {
+            console.error("Error fetching results:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch results for the selected match.' });
+        } finally {
+            setIsLoadingResults(false);
+        }
     };
 
     const renderResultsList = () => {
-        if (isDisplayLoading) {
+        if (isLoadingResults) {
             return Array.from({ length: 4 }).map((_, i) => (
                 <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                 </TableRow>
             ));
         }
 
-        if (displayResults.length === 0) {
+        if (resultsForMatch.length === 0) {
             return (
                 <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
-                        {!selectedClubId ? "Please select a club to view results." : "No completed matches found with the selected filters."}
+                    <TableCell colSpan={4} className="h-24 text-center">
+                       {selectedMatchId ? "No results found for this match." : "Select a match to view results."}
                     </TableCell>
                 </TableRow>
             );
         }
 
-        return displayResults.map(result => (
-            <TableRow key={result.id}>
-                <TableCell>{format(result.date, 'PPP')}</TableCell>
-                <TableCell className="font-medium">{result.seriesName}</TableCell>
-                <TableCell>{result.name}</TableCell>
-                <TableCell>{result.winnerName}</TableCell>
-                <TableCell><Badge variant="outline">{result.status}</Badge></TableCell>
+        return resultsForMatch.map(result => (
+            <TableRow key={result.userId}>
+                <TableCell>{result.position}</TableCell>
+                <TableCell className="font-medium">{result.userName}</TableCell>
+                <TableCell>{result.weight.toFixed(3)}</TableCell>
+                <TableCell><Badge variant="outline">{result.status || 'OK'}</Badge></TableCell>
             </TableRow>
         ));
     };
@@ -264,7 +221,7 @@ export default function ResultsPage() {
                             <Select 
                                 value={selectedClubId} 
                                 onValueChange={handleClubChange}
-                                disabled={isLoadingClubs || !isSiteAdmin}
+                                disabled={isLoadingClubs || (!isSiteAdmin && allClubs.length === 0)}
                             >
                                 <SelectTrigger id="club-filter" className="w-64">
                                     <SelectValue placeholder="Select a club..." />
@@ -283,18 +240,21 @@ export default function ResultsPage() {
                             <Select 
                                 value={selectedSeriesId} 
                                 onValueChange={handleSeriesChange} 
-                                disabled={!selectedClubId || isLoadingDependents}
+                                disabled={!selectedClubId || isLoadingSeries}
                             >
                                 <SelectTrigger id="series-filter" className="w-64">
                                     <SelectValue placeholder="Select a series..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">All Series</SelectItem>
-                                    {seriesForClub.map((s) => (
-                                        <SelectItem key={s.id} value={s.id}>
-                                            {s.name}
-                                        </SelectItem>
-                                    ))}
+                                    {seriesForClub.length === 0 && selectedClubId ? (
+                                        <SelectItem value="none" disabled>No series found</SelectItem>
+                                    ) : (
+                                        seriesForClub.map((s) => (
+                                            <SelectItem key={s.id} value={s.id}>
+                                                {s.name}
+                                            </SelectItem>
+                                        ))
+                                    )}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -302,19 +262,22 @@ export default function ResultsPage() {
                             <Label htmlFor="match-filter">Match</Label>
                             <Select 
                                 value={selectedMatchId} 
-                                onValueChange={setSelectedMatchId} 
-                                disabled={!selectedClubId || isLoadingDependents || completedMatchesForDropdown.length === 0}
+                                onValueChange={handleMatchChange} 
+                                disabled={!selectedSeriesId || isLoadingMatches}
                             >
                                 <SelectTrigger id="match-filter" className="w-64">
                                     <SelectValue placeholder="Select a match..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">All Matches</SelectItem>
-                                    {completedMatchesForDropdown.map((m) => (
-                                        <SelectItem key={m.id} value={m.id}>
-                                            {m.name} ({format(m.date, 'dd-MM-yy')})
-                                        </SelectItem>
-                                    ))}
+                                     {matchesForSeries.length === 0 && selectedSeriesId ? (
+                                        <SelectItem value="none" disabled>No matches found</SelectItem>
+                                    ) : (
+                                        matchesForSeries.map((m) => (
+                                            <SelectItem key={m.id} value={m.id}>
+                                                {m.name} ({format(m.date, 'dd-MM-yy')})
+                                            </SelectItem>
+                                        ))
+                                    )}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -323,10 +286,9 @@ export default function ResultsPage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Date</TableHead>
-                                <TableHead>Series</TableHead>
-                                <TableHead>Match</TableHead>
-                                <TableHead>Winner</TableHead>
+                                <TableHead>Position</TableHead>
+                                <TableHead>Angler</TableHead>
+                                <TableHead>Weight (Kg)</TableHead>
                                 <TableHead>Status</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -339,5 +301,3 @@ export default function ResultsPage() {
         </div>
     );
 }
-
-    
