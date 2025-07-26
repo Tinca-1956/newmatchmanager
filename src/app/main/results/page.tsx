@@ -288,6 +288,7 @@ export default function ResultsPage() {
         const club = allClubs.find(c => c.id === selectedClubId);
         const series = seriesForClub.find(s => s.id === selectedSeriesId);
         const match = matchesForSeries.find(m => m.id === selectedMatchId);
+        const paidPlaces = match?.paidPlaces || 0;
 
         doc.setFontSize(18);
         doc.text(`Results for ${match?.name || 'Match'}`, 14, 22);
@@ -308,12 +309,22 @@ export default function ResultsPage() {
             ]),
             theme: 'striped',
             headStyles: { fillColor: [34, 49, 63] },
+            didParseCell: function(data: any) {
+                const row = data.row;
+                const position = row.cells[0].raw;
+                if (typeof position === 'number' && position > 0 && position <= paidPlaces) {
+                    data.cell.styles.fillColor = '#dcfce7'; // green-100
+                }
+            }
         });
 
         doc.save(`results-${match?.name.replace(/\s+/g, '-') || 'export'}.pdf`);
     };
 
     const renderResultsList = () => {
+        const selectedMatch = matchesForSeries.find(m => m.id === selectedMatchId);
+        const paidPlaces = selectedMatch?.paidPlaces || 0;
+
         if (isLoadingResults) {
             return Array.from({ length: 4 }).map((_, i) => (
                 <TableRow key={i}>
@@ -338,17 +349,23 @@ export default function ResultsPage() {
             );
         }
 
-        return sortedResults.map(result => (
-            <TableRow key={result.userId}>
-                <TableCell>{result.position}</TableCell>
-                <TableCell className="font-medium">{result.userName}</TableCell>
-                <TableCell>{result.peg || '-'}</TableCell>
-                <TableCell>{result.section || '-'}</TableCell>
-                <TableCell>{result.sectionRank || '-'}</TableCell>
-                <TableCell>{result.weight.toFixed(3)}</TableCell>
-                <TableCell><Badge variant="outline">{result.status || 'OK'}</Badge></TableCell>
-            </TableRow>
-        ));
+        return sortedResults.map(result => {
+            const isPaidPlace = result.position !== null && paidPlaces > 0 && result.position <= paidPlaces;
+            return (
+                <TableRow 
+                    key={result.userId}
+                    className={isPaidPlace ? 'bg-green-100 dark:bg-green-900/30' : ''}
+                >
+                    <TableCell>{result.position}</TableCell>
+                    <TableCell className="font-medium">{result.userName}</TableCell>
+                    <TableCell>{result.peg || '-'}</TableCell>
+                    <TableCell>{result.section || '-'}</TableCell>
+                    <TableCell>{result.sectionRank || '-'}</TableCell>
+                    <TableCell>{result.weight.toFixed(3)}</TableCell>
+                    <TableCell><Badge variant="outline">{result.status || 'OK'}</Badge></TableCell>
+                </TableRow>
+            );
+        });
     };
 
     return (
@@ -481,3 +498,5 @@ export default function ResultsPage() {
         </div>
     );
 }
+
+    
