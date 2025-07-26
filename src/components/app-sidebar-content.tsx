@@ -36,7 +36,6 @@ const navItems = [
   { href: '/main/series', icon: Trophy, label: 'Series' },
   { href: '/main/matches', icon: Swords, label: 'Matches' },
   { href: '/main/results', icon: Medal, label: 'Results' },
-  { href: '/main/admin/edit-seed-users', icon: UserCog, label: 'Edit Seed Users', adminOnly: true },
   { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users', adminOnly: true },
   { href: '/main/admin/seed', icon: Beaker, label: 'Seed Data', adminOnly: true },
   { href: '/main/emulator', icon: FlaskConical, label: 'Emulator', adminOnly: true, emulatorOnly: true },
