@@ -16,8 +16,8 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore, auth } from '@/lib/firebase-client';
-import { doc, onSnapshot, updateDoc, getDoc, collection } from 'firebase/firestore';
-import type { User, Club } from '@/lib/types';
+import { doc, onSnapshot, updateDoc, getDoc, collection, query, where, getDocs, arrayRemove, increment, Timestamp } from 'firebase/firestore';
+import type { User, Club, Match } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
@@ -38,6 +38,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { format } from 'date-fns';
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -54,6 +55,9 @@ export default function ProfilePage() {
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   
   const [selectedSecondaryClubId, setSelectedSecondaryClubId] = useState<string>('');
+
+  const [upcomingMatches, setUpcomingMatches] = useState<Match[]>([]);
+  const [isMatchesLoading, setIsMatchesLoading] = useState(true);
 
   useEffect(() => {
     if (!user || !firestore) {
@@ -87,6 +91,37 @@ export default function ProfilePage() {
         unsubscribeUser();
         unsubscribeClubs();
     };
+  }, [user, toast]);
+  
+  useEffect(() => {
+    if (!user || !firestore) {
+      setIsMatchesLoading(false);
+      return;
+    }
+
+    setIsMatchesLoading(true);
+    const matchesQuery = query(
+      collection(firestore, 'matches'),
+      where('registeredAnglers', 'array-contains', user.uid),
+      where('status', '==', 'Upcoming')
+    );
+    
+    const unsubscribeMatches = onSnapshot(matchesQuery, (snapshot) => {
+      const matchesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        date: (doc.data().date as Timestamp).toDate(),
+      } as Match));
+      setUpcomingMatches(matchesData);
+      setIsMatchesLoading(false);
+    }, (error) => {
+       console.error("Error fetching upcoming matches:", error);
+       toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch your registered matches.' });
+       setIsMatchesLoading(false);
+    });
+
+    return () => unsubscribeMatches();
+
   }, [user, toast]);
 
   useEffect(() => {
@@ -170,6 +205,25 @@ export default function ProfilePage() {
         title: 'Club Ready to Add',
         description: 'This is where the logic to add the club will be implemented.',
       });
+  };
+
+  const handleUnregister = async (matchId: string) => {
+    if (!user || !firestore) return;
+    
+    setIsSaving(true);
+    try {
+      const matchDocRef = doc(firestore, 'matches', matchId);
+      await updateDoc(matchDocRef, {
+        registeredAnglers: arrayRemove(user.uid),
+        registeredCount: increment(-1),
+      });
+      toast({ title: 'Success', description: "You have been unregistered from the match." });
+    } catch (error) {
+      console.error("Error unregistering from match: ", error);
+      toast({ variant: 'destructive', title: 'Error', description: "Could not unregister you from the match." });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const renderProfileForm = () => {
@@ -302,6 +356,43 @@ export default function ProfilePage() {
       </form>
     );
   };
+  
+  const renderUpcomingMatches = () => {
+    if (isMatchesLoading) {
+      return Array.from({ length: 2 }).map((_, i) => (
+        <div key={i} className="flex items-center justify-between p-4 border-b">
+          <div className="space-y-2">
+            <Skeleton className="h-5 w-48" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <Skeleton className="h-10 w-28" />
+        </div>
+      ));
+    }
+
+    if (upcomingMatches.length === 0) {
+      return <p className="text-sm text-muted-foreground p-4">You are not registered for any upcoming matches.</p>;
+    }
+
+    return upcomingMatches.map((match) => (
+      <div key={match.id} className="flex items-center justify-between p-4 border-b last:border-b-0">
+        <div>
+          <p className="font-semibold">{match.name}</p>
+          <p className="text-sm text-muted-foreground">
+            {match.seriesName} at {match.location} on {format(match.date, 'PPP')}
+          </p>
+        </div>
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={() => handleUnregister(match.id)}
+          disabled={isSaving}
+        >
+          Unregister
+        </Button>
+      </div>
+    ));
+  };
 
   return (
     <>
@@ -320,6 +411,18 @@ export default function ProfilePage() {
             </CardDescription>
           </CardHeader>
           {renderProfileForm()}
+        </Card>
+        
+        <Card>
+           <CardHeader>
+            <CardTitle>My Upcoming Matches</CardTitle>
+            <CardDescription>
+              A list of upcoming matches you are registered for.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            {renderUpcomingMatches()}
+          </CardContent>
         </Card>
       </div>
 
