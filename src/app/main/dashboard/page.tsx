@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -45,7 +46,6 @@ export default function DashboardPage() {
         collection(firestore, 'matches'),
         where('clubId', '==', userProfile.primaryClubId),
         where('status', '==', 'Upcoming')
-        // NOTE: orderBy('date') is removed to avoid index issues. Sorting is done on the client.
     );
 
     const unsubscribeMatches = onSnapshot(matchesQuery, (snapshot) => {
@@ -76,9 +76,9 @@ export default function DashboardPage() {
     if (isLoading) {
       return Array.from({ length: 3 }).map((_, i) => (
         <TableRow key={i}>
-          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-          <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-full" /></TableCell>
         </TableRow>
       ));
     }
@@ -86,7 +86,7 @@ export default function DashboardPage() {
     if (upcomingMatches.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={3} className="text-center h-24">
+          <TableCell colSpan={4} className="text-center h-24">
             No upcoming matches
           </TableCell>
         </TableRow>
@@ -95,9 +95,19 @@ export default function DashboardPage() {
 
     return upcomingMatches.map(match => (
       <TableRow key={match.id}>
-        <TableCell>{format(match.date, 'E, dd MMM yyyy')}</TableCell>
+        <TableCell>
+            <div className="flex flex-col">
+                <span>{format(match.date, 'dd/MM/yyyy')}</span>
+                <span className="text-xs text-muted-foreground">{match.seriesName}</span>
+            </div>
+        </TableCell>
         <TableCell className="font-medium">{match.name}</TableCell>
-        <TableCell>{match.location}</TableCell>
+        <TableCell>
+             <div className="flex flex-col">
+                <span>{match.location}</span>
+                <span className="text-xs text-muted-foreground">{match.status}</span>
+            </div>
+        </TableCell>
       </TableRow>
     ));
   };
@@ -121,9 +131,9 @@ export default function DashboardPage() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Date</TableHead>
+                            <TableHead>Date & Series</TableHead>
                             <TableHead>Match</TableHead>
-                            <TableHead>Venue</TableHead>
+                            <TableHead>Venue & Status</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
