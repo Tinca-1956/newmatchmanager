@@ -59,6 +59,7 @@ export default function DashboardPage() {
   const [recentResults, setRecentResults] = useState<Result[]>([]);
   const [recentMatchName, setRecentMatchName] = useState<string>('');
   const [recentSeriesName, setRecentSeriesName] = useState<string>('');
+  const [debugMatchName, setDebugMatchName] = useState<string>('');
 
 
   const [isLoading, setIsLoading] = useState(true);
@@ -122,6 +123,7 @@ export default function DashboardPage() {
         setIsLoadingResults(true);
         setRecentMatchName('');
         setRecentSeriesName('');
+        setDebugMatchName('');
 
         const allCompletedMatchesQuery = query(
             collection(firestore, 'matches'),
@@ -151,6 +153,7 @@ export default function DashboardPage() {
             
             setRecentMatchName(recentMatch.name);
             setRecentSeriesName(recentMatch.seriesName);
+            setDebugMatchName(recentMatch.name); // Set debug match name
 
             const resultsQuery = query(
                 collection(firestore, 'results'),
@@ -253,6 +256,11 @@ export default function DashboardPage() {
           Welcome back, {userProfile?.firstName || 'Angler'}. Here&apos;s what&apos;s happening in
           your club.
         </p>
+         {debugMatchName && (
+            <p className="mt-4 p-2 bg-yellow-100 border border-yellow-400 text-yellow-800 rounded-md">
+                DEBUG: Most recent match found: <strong>{debugMatchName}</strong>
+            </p>
+        )}
       </div>
 
       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
