@@ -20,11 +20,17 @@ const getCalculatedStatus = (match: Match): MatchStatus => {
     if (match.date && typeof (match.date as any).toDate === 'function') {
       match.date = (match.date as Timestamp).toDate();
     } else {
+      // If date is not valid, return original status
       return match.status;
     }
   }
 
   const matchDate = new Date(match.date);
+
+  // Check for invalid time strings
+  if (!match.drawTime || !match.endTime || !match.drawTime.includes(':') || !match.endTime.includes(':')) {
+    return match.status;
+  }
 
   const [drawHours, drawMinutes] = match.drawTime.split(':').map(Number);
   const drawDateTime = new Date(matchDate.getFullYear(), matchDate.getMonth(), matchDate.getDate(), drawHours, drawMinutes);
@@ -87,8 +93,10 @@ export default function DashboardPage() {
         return;
     }
 
-    const updateStatusesAndFetchMatches = async () => {
+    const processMatches = async () => {
         setIsLoading(true);
+        setIsLoadingResults(true);
+
         const allMatchesQuery = query(
             collection(firestore, 'matches'),
             where('clubId', '==', userProfile.primaryClubId)
@@ -98,7 +106,6 @@ export default function DashboardPage() {
         const matchesData = allMatchesSnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
-            date: (doc.data().date as Timestamp).toDate(),
         } as Match));
         
         // --- Status Update Logic ---
@@ -110,6 +117,7 @@ export default function DashboardPage() {
                 const matchRef = doc(firestore, 'matches', match.id);
                 batch.update(matchRef, { status: calculatedStatus });
                 updatesMade++;
+                match.status = calculatedStatus; // Update local copy
             }
         });
 
@@ -122,64 +130,43 @@ export default function DashboardPage() {
             }
         }
         // --- End Status Update Logic ---
-
-        // Now filter for display
+        
+        // --- Filter for Upcoming Matches display ---
         const trulyUpcoming = matchesData
-            .map(match => ({...match, calculatedStatus: getCalculatedStatus(match)}))
-            .filter(match => ['Upcoming', 'In Progress'].includes(match.calculatedStatus))
+            .map(match => ({...match, date: (match.date as Timestamp).toDate()}))
+            .filter(match => ['Upcoming', 'In Progress'].includes(getCalculatedStatus(match)))
             .sort((a, b) => a.date.getTime() - b.date.getTime());
         
         setUpcomingMatches(trulyUpcoming);
         setIsLoading(false);
-    };
 
-    const fetchRecentResults = async () => {
-        if (!userProfile.primaryClubId || !firestore) return;
-        setIsLoadingResults(true);
-        setRecentMatchName('');
-        setRecentSeriesName('');
-
-        const completedMatchesQuery = query(
-            collection(firestore, 'matches'),
-            where('clubId', '==', userProfile.primaryClubId),
-            where('status', '==', 'Completed'),
-            orderBy('date', 'desc'),
-            limit(1)
-        );
-
-        try {
-            const completedMatchesSnapshot = await getDocs(completedMatchesQuery);
-            if (completedMatchesSnapshot.empty) {
-                setRecentResults([]);
-                setIsLoadingResults(false);
-                return;
-            }
-            
-            const recentMatch = completedMatchesSnapshot.docs[0].data() as Match;
-            const matchId = completedMatchesSnapshot.docs[0].id;
-            
+        // --- Filter for Recent Results display ---
+        const completedMatches = matchesData
+            .filter(match => match.status === 'Completed')
+            .sort((a, b) => (b.date as Timestamp).toMillis() - (a.date as Timestamp).toMillis());
+        
+        if (completedMatches.length > 0) {
+            const recentMatch = completedMatches[0];
             setRecentMatchName(recentMatch.name);
             setRecentSeriesName(recentMatch.seriesName);
-
+            
             const resultsQuery = query(
                 collection(firestore, 'results'),
-                where('matchId', '==', matchId),
+                where('matchId', '==', recentMatch.id),
                 orderBy('position', 'asc')
             );
-            
             const resultsSnapshot = await getDocs(resultsQuery);
-            const resultsData = resultsSnapshot.docs.map(doc => doc.data() as Result);
+            const resultsData = resultsSnapshot.docs.map(d => d.data() as Result);
             setRecentResults(resultsData);
-        } catch (error) {
-            console.error("Error fetching recent results:", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch recent results.'});
-        } finally {
-            setIsLoadingResults(false);
+        } else {
+            setRecentResults([]);
+            setRecentMatchName('');
+            setRecentSeriesName('');
         }
+        setIsLoadingResults(false);
     };
-    
-    updateStatusesAndFetchMatches();
-    fetchRecentResults();
+
+    processMatches();
 
   }, [userProfile, toast]);
 
@@ -312,3 +299,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
