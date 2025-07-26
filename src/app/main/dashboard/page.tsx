@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { doc, onSnapshot, collection, query, where, Timestamp, orderBy, limit, getDocs } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, Timestamp, orderBy, limit, getDocs, writeBatch } from 'firebase/firestore';
 import type { User, Match, MatchStatus, Result } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -34,6 +34,7 @@ const getCalculatedStatus = (match: Match): MatchStatus => {
   
   const weighInProgressUntil = new Date(endDateTime.getTime() + 90 * 60 * 1000);
 
+  if (match.status === 'Cancelled') return 'Cancelled';
   if (now > weighInProgressUntil) return 'Completed';
   if (now > endDateTime) return 'Weigh-in';
   if (now > drawDateTime) return 'In Progress';
@@ -86,36 +87,51 @@ export default function DashboardPage() {
         return;
     }
 
-    setIsLoading(true);
-    const matchesQuery = query(
-        collection(firestore, 'matches'),
-        where('clubId', '==', userProfile.primaryClubId)
-    );
+    const updateStatusesAndFetchMatches = async () => {
+        setIsLoading(true);
+        const allMatchesQuery = query(
+            collection(firestore, 'matches'),
+            where('clubId', '==', userProfile.primaryClubId)
+        );
 
-    const unsubscribeMatches = onSnapshot(matchesQuery, (snapshot) => {
-        const matchesData = snapshot.docs.map(doc => ({
+        const allMatchesSnapshot = await getDocs(allMatchesQuery);
+        const matchesData = allMatchesSnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
             date: (doc.data().date as Timestamp).toDate(),
         } as Match));
         
-        const trulyUpcoming = matchesData.map(match => ({
-          ...match,
-          calculatedStatus: getCalculatedStatus(match),
-        })).filter(match => match.calculatedStatus === 'Upcoming' || match.calculatedStatus === 'In Progress');
+        // --- Status Update Logic ---
+        const batch = writeBatch(firestore);
+        let updatesMade = 0;
+        matchesData.forEach(match => {
+            const calculatedStatus = getCalculatedStatus(match);
+            if(match.status !== calculatedStatus) {
+                const matchRef = doc(firestore, 'matches', match.id);
+                batch.update(matchRef, { status: calculatedStatus });
+                updatesMade++;
+            }
+        });
 
-        trulyUpcoming.sort((a, b) => a.date.getTime() - b.date.getTime());
+        if (updatesMade > 0) {
+            try {
+                await batch.commit();
+                console.log(`Updated status for ${updatesMade} matches.`);
+            } catch (error) {
+                console.error("Failed to batch update match statuses:", error);
+            }
+        }
+        // --- End Status Update Logic ---
+
+        // Now filter for display
+        const trulyUpcoming = matchesData
+            .map(match => ({...match, calculatedStatus: getCalculatedStatus(match)}))
+            .filter(match => ['Upcoming', 'In Progress'].includes(match.calculatedStatus))
+            .sort((a, b) => a.date.getTime() - b.date.getTime());
+        
         setUpcomingMatches(trulyUpcoming);
         setIsLoading(false);
-    }, (error) => {
-        console.error("Error fetching upcoming matches: ", error);
-        toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: 'Could not fetch upcoming matches.'
-        });
-        setIsLoading(false);
-    });
+    };
 
     const fetchRecentResults = async () => {
         if (!userProfile.primaryClubId || !firestore) return;
@@ -161,10 +177,9 @@ export default function DashboardPage() {
             setIsLoadingResults(false);
         }
     };
-
+    
+    updateStatusesAndFetchMatches();
     fetchRecentResults();
-
-    return () => unsubscribeMatches();
 
   }, [userProfile, toast]);
 
@@ -201,7 +216,7 @@ export default function DashboardPage() {
         <TableCell>
              <div className="flex flex-col">
                 <span>{match.location}</span>
-                <span className="text-xs text-muted-foreground">{match.status}</span>
+                <span className="text-xs text-muted-foreground">{getCalculatedStatus(match)}</span>
             </div>
         </TableCell>
       </TableRow>

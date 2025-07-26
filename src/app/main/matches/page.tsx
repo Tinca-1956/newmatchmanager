@@ -30,7 +30,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, onSnapshot, doc, query, where, getDocs, getDoc, orderBy, Timestamp, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, doc, query, where, getDocs, getDoc, orderBy, Timestamp } from 'firebase/firestore';
 import type { Match, User, Club, MatchStatus } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -65,6 +65,7 @@ const getCalculatedStatus = (match: Match): MatchStatus => {
   
   const weighInProgressUntil = new Date(endDateTime.getTime() + 90 * 60 * 1000);
 
+  if (match.status === 'Cancelled') return 'Cancelled';
   if (now > weighInProgressUntil) return 'Completed';
   if (now > endDateTime) return 'Weigh-in';
   if (now > drawDateTime) return 'In Progress';
@@ -131,7 +132,7 @@ export default function MatchesPage() {
     fetchInitialData();
   }, [user, isSiteAdmin, adminLoading]);
   
-  // Effect to fetch matches for the selected club and update statuses
+  // Effect to fetch matches for the selected club
   useEffect(() => {
     if (!selectedClubId || !firestore) {
         setIsLoading(false);
@@ -147,7 +148,7 @@ export default function MatchesPage() {
       orderBy('date', 'desc')
     );
 
-    const unsubscribeMatches = onSnapshot(matchesQuery, async (snapshot) => {
+    const unsubscribeMatches = onSnapshot(matchesQuery, (snapshot) => {
       const matchesData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
@@ -156,28 +157,6 @@ export default function MatchesPage() {
 
       setMatches(matchesData);
       setIsLoading(false);
-      
-      // Update statuses in the background
-      const batch = writeBatch(firestore);
-      let updatesMade = 0;
-      matchesData.forEach(match => {
-        const calculatedStatus = getCalculatedStatus(match);
-        if(match.status !== calculatedStatus && match.status !== 'Cancelled') {
-            const matchRef = doc(firestore, 'matches', match.id);
-            batch.update(matchRef, { status: calculatedStatus });
-            updatesMade++;
-        }
-      });
-
-      if (updatesMade > 0) {
-        try {
-            await batch.commit();
-            console.log(`Updated status for ${updatesMade} matches.`);
-        } catch (error) {
-            console.error("Failed to batch update match statuses:", error);
-        }
-      }
-
     }, (error) => {
       console.error("Error fetching matches: ", error);
       toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches.' });
@@ -224,6 +203,7 @@ export default function MatchesPage() {
 
     return displayedMatches.map((match) => {
       const isUserRegistered = user ? match.registeredAnglers?.includes(user.uid) : false;
+      const status = getCalculatedStatus(match);
 
       return (
         <TableRow key={match.id}>
@@ -233,7 +213,7 @@ export default function MatchesPage() {
           <TableCell>{format(match.date, 'dd/MM/yyyy')}</TableCell>
           <TableCell>{match.capacity}</TableCell>
           <TableCell>{match.registeredCount}</TableCell>
-          <TableCell><Badge variant="outline">{match.calculatedStatus}</Badge></TableCell>
+          <TableCell><Badge variant="outline">{status}</Badge></TableCell>
           <TableCell>
               <TooltipProvider>
                   <div className="flex items-center gap-1">
