@@ -28,7 +28,7 @@ export const useMatchActions = () => {
 
   const handleViewResults = (match: Match) => {
     if (isMobile) {
-      router.push(`/main/results/${match.id}`);
+      router.push(`/main/result-viewer/${match.id}`);
     } else {
       setSelectedMatchForModal(match);
       setIsResultsModalOpen(true);
