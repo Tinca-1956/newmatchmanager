@@ -12,6 +12,7 @@ export const useMatchActions = () => {
   
   const [isResultsModalOpen, setIsResultsModalOpen] = useState(false);
   const [isAnglerListModalOpen, setIsAnglerListModalOpen] = useState(false);
+  const [isDisplayAnglerListModalOpen, setIsDisplayAnglerListModalOpen] = useState(false);
 
   const [selectedMatchForModal, setSelectedMatchForModal] = useState<Match | null>(null);
   const [selectedMatchIdForModal, setSelectedMatchIdForModal] = useState<string | null>(null);
@@ -37,9 +38,14 @@ export const useMatchActions = () => {
     });
   };
   
-  const handleViewAnglers = (matchId: string) => {
+  const handleAddAnglers = (matchId: string) => {
      setSelectedMatchIdForModal(matchId);
      setIsAnglerListModalOpen(true);
+  };
+
+  const handleViewAnglerList = (match: Match) => {
+    setSelectedMatchForModal(match);
+    setIsDisplayAnglerListModalOpen(true);
   };
   
   const handleManagePegs = (matchId: string) => {
@@ -71,20 +77,28 @@ export const useMatchActions = () => {
   const closeAnglerListModal = () => {
     setIsAnglerListModalOpen(false);
     setSelectedMatchIdForModal(null);
+  };
+  
+  const closeDisplayAnglerListModal = () => {
+    setIsDisplayAnglerListModalOpen(false);
+    setSelectedMatchForModal(null);
   }
 
   return {
     isResultsModalOpen,
     isAnglerListModalOpen,
+    isDisplayAnglerListModalOpen,
     selectedMatchForModal,
     selectedMatchIdForModal,
     handleViewResults,
     handleEditMatch,
     handleRegister,
-    handleViewAnglers,
+    handleAddAnglers,
+    handleViewAnglerList,
     handleManagePegs,
     handleWeighIn,
     closeResultsModal,
     closeAnglerListModal,
+    closeDisplayAnglerListModal,
   };
 };

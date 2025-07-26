@@ -38,6 +38,7 @@ import { format } from 'date-fns';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { ResultsModal } from '@/components/results-modal';
 import { AnglerListModal } from '@/components/angler-list-modal';
+import { DisplayAnglerListModal } from '@/components/display-angler-list-modal';
 import { useMatchActions } from '@/hooks/use-match-actions';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -55,6 +56,7 @@ export default function MatchesPage() {
   const {
     isResultsModalOpen,
     isAnglerListModalOpen,
+    isDisplayAnglerListModalOpen,
     selectedMatchForModal,
     selectedMatchIdForModal,
     handleViewResults,
@@ -62,9 +64,11 @@ export default function MatchesPage() {
     handleRegister,
     closeResultsModal,
     closeAnglerListModal,
+    closeDisplayAnglerListModal,
     handleManagePegs,
     handleWeighIn,
-    handleViewAnglers,
+    handleAddAnglers,
+    handleViewAnglerList,
   } = useMatchActions();
 
   // Effect to get the user's primary club or all clubs for admin
@@ -169,7 +173,7 @@ export default function MatchesPage() {
                 <div className="flex items-center gap-1">
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" onClick={() => handleViewAnglers(match.id)}>
+                            <Button variant="ghost" size="icon" onClick={() => handleAddAnglers(match.id)}>
                                 <UserPlus className="h-4 w-4" />
                             </Button>
                         </TooltipTrigger>
@@ -177,7 +181,7 @@ export default function MatchesPage() {
                     </Tooltip>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" onClick={() => handleManagePegs(match.id)}>
+                            <Button variant="ghost" size="icon" onClick={() => handleViewAnglerList(match)}>
                                 <FileText className="h-4 w-4" />
                             </Button>
                         </TooltipTrigger>
@@ -295,6 +299,14 @@ export default function MatchesPage() {
           isOpen={isAnglerListModalOpen}
           onClose={closeAnglerListModal}
           matchId={selectedMatchIdForModal}
+        />
+      )}
+
+      {selectedMatchForModal && (
+        <DisplayAnglerListModal
+          isOpen={isDisplayAnglerListModalOpen}
+          onClose={closeDisplayAnglerListModal}
+          match={selectedMatchForModal}
         />
       )}
     </>
