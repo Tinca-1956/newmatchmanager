@@ -67,25 +67,22 @@ export default function ResultsPage() {
         const fetchClubs = async () => {
             setIsLoadingClubs(true);
             try {
+                 const userDocRef = doc(firestore, 'users', user.uid);
+                 const userDoc = await getDoc(userDocRef);
+                 const userData = userDoc.exists() ? userDoc.data() as User : null;
+
                 if (isSiteAdmin) {
                     const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
                     const clubsSnapshot = await getDocs(clubsQuery);
                     const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
                     setAllClubs(clubsData);
-                } else {
-                    const userDocRef = doc(firestore, 'users', user.uid);
-                    const userDoc = await getDoc(userDocRef);
-                    if (userDoc.exists()) {
-                        const userData = userDoc.data() as User;
-                        if (userData.primaryClubId) {
-                            const clubDocRef = doc(firestore, 'clubs', userData.primaryClubId);
-                            const clubDoc = await getDoc(clubDocRef);
-                            if (clubDoc.exists()) {
-                                const primaryClub = { id: clubDoc.id, ...clubDoc.data() } as Club;
-                                setAllClubs([primaryClub]);
-                                setSelectedClubId(primaryClub.id); // Auto-select for non-admin
-                            }
-                        }
+                } else if (userData?.primaryClubId) {
+                    const clubDocRef = doc(firestore, 'clubs', userData.primaryClubId);
+                    const clubDoc = await getDoc(clubDocRef);
+                    if (clubDoc.exists()) {
+                        const primaryClub = { id: clubDoc.id, ...clubDoc.data() } as Club;
+                        setAllClubs([primaryClub]);
+                        setSelectedClubId(primaryClub.id);
                     }
                 }
             } catch (error) {
@@ -100,7 +97,7 @@ export default function ResultsPage() {
 
     }, [user, isSiteAdmin, adminLoading, firestore, toast]);
 
-    // Step 2: When a club is selected, fetch its series and all matches
+    // Step 2: When a club is selected, fetch its series and all completed matches
     useEffect(() => {
         if (!selectedClubId || !firestore) {
             setSeriesForClub([]);
@@ -191,12 +188,7 @@ export default function ResultsPage() {
             }
         };
         
-        if (allMatchesForClub.length > 0) {
-            generateResultsForDisplay();
-        } else {
-            setDisplayResults([]);
-            setIsDisplayLoading(false);
-        }
+        generateResultsForDisplay();
 
     }, [allMatchesForClub, selectedSeriesId, selectedMatchId, firestore, toast]);
     
@@ -347,3 +339,5 @@ export default function ResultsPage() {
         </div>
     );
 }
+
+    
