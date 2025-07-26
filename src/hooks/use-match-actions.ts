@@ -9,13 +9,18 @@ import { useToast } from './use-toast';
 export const useMatchActions = () => {
   const router = useRouter();
   const { toast } = useToast();
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  const [isResultsModalOpen, setIsResultsModalOpen] = useState(false);
+  const [isAnglerListModalOpen, setIsAnglerListModalOpen] = useState(false);
+
   const [selectedMatchForModal, setSelectedMatchForModal] = useState<Match | null>(null);
+  const [selectedMatchIdForModal, setSelectedMatchIdForModal] = useState<string | null>(null);
+
 
   const handleViewResults = (match: Match) => {
     if (match.status === 'Completed') {
       setSelectedMatchForModal(match);
-      setIsModalOpen(true);
+      setIsResultsModalOpen(true);
     } else {
       toast({
         variant: 'default',
@@ -33,16 +38,14 @@ export const useMatchActions = () => {
   };
   
   const handleViewAnglers = (matchId: string) => {
-     toast({
-        title: 'Action Not Implemented',
-        description: `View/Manage Anglers for match ${matchId} is not yet available.`,
-    });
+     setSelectedMatchIdForModal(matchId);
+     setIsAnglerListModalOpen(true);
   };
   
   const handleManagePegs = (matchId: string) => {
      toast({
         title: 'Action Not Implemented',
-        description: `Manage Pegs for match ${matchId} is not yet available.`,
+        description: `Angler List for match ${matchId} is not yet available.`,
     });
   };
 
@@ -60,20 +63,28 @@ export const useMatchActions = () => {
     });
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
+  const closeResultsModal = () => {
+    setIsResultsModalOpen(false);
     setSelectedMatchForModal(null);
   };
+  
+  const closeAnglerListModal = () => {
+    setIsAnglerListModalOpen(false);
+    setSelectedMatchIdForModal(null);
+  }
 
   return {
-    isModalOpen,
+    isResultsModalOpen,
+    isAnglerListModalOpen,
     selectedMatchForModal,
+    selectedMatchIdForModal,
     handleViewResults,
     handleEditMatch,
     handleRegister,
     handleViewAnglers,
     handleManagePegs,
     handleWeighIn,
-    closeModal,
+    closeResultsModal,
+    closeAnglerListModal,
   };
 };

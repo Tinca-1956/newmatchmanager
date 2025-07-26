@@ -37,6 +37,7 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { ResultsModal } from '@/components/results-modal';
+import { AnglerListModal } from '@/components/angler-list-modal';
 import { useMatchActions } from '@/hooks/use-match-actions';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -52,12 +53,15 @@ export default function MatchesPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const {
-    isModalOpen,
+    isResultsModalOpen,
+    isAnglerListModalOpen,
     selectedMatchForModal,
+    selectedMatchIdForModal,
     handleViewResults,
     handleEditMatch,
     handleRegister,
-    closeModal,
+    closeResultsModal,
+    closeAnglerListModal,
     handleManagePegs,
     handleWeighIn,
     handleViewAnglers,
@@ -280,9 +284,17 @@ export default function MatchesPage() {
 
       {selectedMatchForModal && (
         <ResultsModal 
-          isOpen={isModalOpen}
-          onClose={closeModal}
+          isOpen={isResultsModalOpen}
+          onClose={closeResultsModal}
           match={selectedMatchForModal}
+        />
+      )}
+
+      {selectedMatchIdForModal && (
+        <AnglerListModal
+          isOpen={isAnglerListModalOpen}
+          onClose={closeAnglerListModal}
+          matchId={selectedMatchIdForModal}
         />
       )}
     </>
