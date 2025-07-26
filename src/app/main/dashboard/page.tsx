@@ -102,10 +102,14 @@ export default function DashboardPage() {
         );
 
         const allMatchesSnapshot = await getDocs(allMatchesQuery);
-        const matchesData = allMatchesSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-        } as Match));
+        const matchesData = allMatchesSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+                date: data.date instanceof Timestamp ? data.date.toDate() : data.date,
+            } as Match
+        });
         
         // --- Status Update Logic ---
         const batch = writeBatch(firestore);
@@ -132,24 +136,16 @@ export default function DashboardPage() {
         
         // --- Filter for Upcoming Matches display ---
         const trulyUpcoming = matchesData
-            .map(match => {
-                 const matchDate = match.date instanceof Timestamp ? match.date.toDate() : match.date as Date;
-                 return {...match, date: matchDate};
-            })
             .filter(match => ['Upcoming', 'In Progress'].includes(getCalculatedStatus(match)))
-            .sort((a, b) => a.date.getTime() - b.date.getTime());
+            .sort((a, b) => (a.date as Date).getTime() - (b.date as Date).getTime());
         
         setUpcomingMatches(trulyUpcoming);
         setIsLoading(false);
 
         // --- Filter for Recent Results display ---
         const completedMatches = matchesData
-            .map(match => {
-                const matchDate = match.date instanceof Timestamp ? match.date.toDate() : match.date as Date;
-                return {...match, date: matchDate};
-            })
             .filter(match => match.status === 'Completed')
-            .sort((a, b) => b.date.getTime() - a.date.getTime());
+            .sort((a, b) => (b.date as Date).getTime() - (a.date as Date).getTime());
         
         if (completedMatches.length > 0) {
             const recentMatch = completedMatches[0];
@@ -158,12 +154,14 @@ export default function DashboardPage() {
             
             const resultsQuery = query(
                 collection(firestore, 'results'),
-                where('matchId', '==', recentMatch.id),
-                orderBy('position', 'asc')
+                where('matchId', '==', recentMatch.id)
             );
             const resultsSnapshot = await getDocs(resultsQuery);
             const resultsData = resultsSnapshot.docs.map(d => d.data() as Result);
-            setRecentResults(resultsData);
+            
+            const sortedResults = resultsData.sort((a, b) => (a.position || 999) - (b.position || 999));
+            setRecentResults(sortedResults);
+
         } else {
             setRecentResults([]);
             setRecentMatchName('');
