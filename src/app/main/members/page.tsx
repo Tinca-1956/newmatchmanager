@@ -34,7 +34,7 @@ import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, getDocs }
 import type { User, Club, MembershipStatus, UserRole } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { ListFilter, Search } from 'lucide-react';
+import { ListFilter, Search, Edit } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -43,6 +43,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
 export default function MembersPage() {
   const { user } = useAuth();
@@ -60,6 +69,10 @@ export default function MembersPage() {
   const [statusFilter, setStatusFilter] = useState<MembershipStatus[]>([]);
   const [roleFilter, setRoleFilter] = useState<UserRole[]>([]);
   const [userPrimaryClubId, setUserPrimaryClubId] = useState<string>('');
+  
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
 
   // Fetch initial data based on user role
@@ -144,6 +157,33 @@ export default function MembersPage() {
     };
 
   }, [user, adminLoading, isSiteAdmin, toast]);
+  
+  const handleEditClick = (userToEdit: User) => {
+    setSelectedUser({ ...userToEdit }); // Create a copy to edit
+    setIsEditDialogOpen(true);
+  };
+  
+  const handleUserUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUser || !firestore) return;
+
+    setIsSaving(true);
+    try {
+      const userDocRef = doc(firestore, 'users', selectedUser.id);
+      await updateDoc(userDocRef, {
+        firstName: selectedUser.firstName,
+        lastName: selectedUser.lastName,
+      });
+      toast({ title: 'Success!', description: "Member's name has been updated." });
+      setIsEditDialogOpen(false);
+      setSelectedUser(null);
+    } catch (error) {
+      console.error('Error updating user:', error);
+      toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not update user details.' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
 
   const handleStatusChange = async (memberId: string, newStatus: MembershipStatus) => {
@@ -211,12 +251,13 @@ export default function MembersPage() {
           <TableCell><Skeleton className="h-4 w-48" /></TableCell>
           <TableCell><Skeleton className="h-8 w-24" /></TableCell>
           <TableCell><Skeleton className="h-8 w-32" /></TableCell>
+          <TableCell><Skeleton className="h-8 w-20" /></TableCell>
         </TableRow>
       ));
     }
     
     if (filteredMembers.length === 0) {
-        return <TableRow><TableCell colSpan={4} className="h-24 text-center">No members found.</TableCell></TableRow>;
+        return <TableRow><TableCell colSpan={5} className="h-24 text-center">No members found.</TableCell></TableRow>;
     }
     
     return filteredMembers.map(member => (
@@ -265,128 +306,186 @@ export default function MembersPage() {
             <span>{member.role}</span>
           )}
         </TableCell>
+        <TableCell className="text-right">
+            {isSiteAdmin && (
+                <Button variant="ghost" size="icon" onClick={() => handleEditClick(member)}>
+                    <Edit className="h-4 w-4" />
+                </Button>
+            )}
+        </TableCell>
       </TableRow>
     ));
   };
 
 
   return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Members</h1>
-        <p className="text-muted-foreground">View and manage club members.</p>
-      </div>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>Member List</CardTitle>
-          <CardDescription>A list of all members in the selected club.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4 mb-4">
-             {isSiteAdmin && (
-              <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={clubs.length === 0}>
-                  <SelectTrigger className="w-48">
-                      <SelectValue placeholder="Select a club..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                      {clubs.map((club) => (
-                          <SelectItem key={club.id} value={club.id}>
-                              {club.name}
-                          </SelectItem>
-                      ))}
-                  </SelectContent>
-              </Select>
-            )}
-            <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                    type="search"
-                    placeholder="Search by name..."
-                    className="pl-8"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="ml-auto">
-                  <ListFilter className="mr-2 h-4 w-4" />
-                  Filter
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuCheckboxItem
-                  checked={statusFilter.includes('Pending')}
-                  onCheckedChange={() => toggleFilter('status', 'Pending')}
-                >
-                  Pending
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  checked={statusFilter.includes('Member')}
-                  onCheckedChange={() => toggleFilter('status', 'Member')}
-                >
-                  Member
-                </DropdownMenuCheckboxItem>
-                 <DropdownMenuCheckboxItem
-                  checked={statusFilter.includes('Suspended')}
-                  onCheckedChange={() => toggleFilter('status', 'Suspended')}
-                >
-                  Suspended
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  checked={statusFilter.includes('Blocked')}
-                  onCheckedChange={() => toggleFilter('status', 'Blocked')}
-                >
-                  Blocked
-                </DropdownMenuCheckboxItem>
+    <>
+      <div className="flex flex-col gap-8">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Members</h1>
+          <p className="text-muted-foreground">View and manage club members.</p>
+        </div>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Member List</CardTitle>
+            <CardDescription>A list of all members in the selected club.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4 mb-4">
+               {isSiteAdmin && (
+                <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={clubs.length === 0}>
+                    <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Select a club..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {clubs.map((club) => (
+                            <SelectItem key={club.id} value={club.id}>
+                                {club.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+              )}
+              <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                      type="search"
+                      placeholder="Search by name..."
+                      className="pl-8"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="ml-auto">
+                    <ListFilter className="mr-2 h-4 w-4" />
+                    Filter
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuCheckboxItem
+                    checked={statusFilter.includes('Pending')}
+                    onCheckedChange={() => toggleFilter('status', 'Pending')}
+                  >
+                    Pending
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={statusFilter.includes('Member')}
+                    onCheckedChange={() => toggleFilter('status', 'Member')}
+                  >
+                    Member
+                  </DropdownMenuCheckboxItem>
+                   <DropdownMenuCheckboxItem
+                    checked={statusFilter.includes('Suspended')}
+                    onCheckedChange={() => toggleFilter('status', 'Suspended')}
+                  >
+                    Suspended
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={statusFilter.includes('Blocked')}
+                    onCheckedChange={() => toggleFilter('status', 'Blocked')}
+                  >
+                    Blocked
+                  </DropdownMenuCheckboxItem>
 
-                <DropdownMenuLabel>Filter by Role</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                 <DropdownMenuCheckboxItem
-                  checked={roleFilter.includes('Angler')}
-                  onCheckedChange={() => toggleFilter('role', 'Angler')}
-                >
-                  Angler
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  checked={roleFilter.includes('Marshal')}
-                  onCheckedChange={() => toggleFilter('role', 'Marshal')}
-                >
-                  Marshal
-                </DropdownMenuCheckboxItem>
-                 <DropdownMenuCheckboxItem
-                  checked={roleFilter.includes('Club Admin')}
-                  onCheckedChange={() => toggleFilter('role', 'Club Admin')}
-                >
-                  Club Admin
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  checked={roleFilter.includes('Site Admin')}
-                  onCheckedChange={() => toggleFilter('role', 'Site Admin')}
-                >
-                  Site Admin
-                </DropdownMenuCheckboxItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Role</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {renderMemberList()}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </div>
+                  <DropdownMenuLabel>Filter by Role</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                   <DropdownMenuCheckboxItem
+                    checked={roleFilter.includes('Angler')}
+                    onCheckedChange={() => toggleFilter('role', 'Angler')}
+                  >
+                    Angler
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={roleFilter.includes('Marshal')}
+                    onCheckedChange={() => toggleFilter('role', 'Marshal')}
+                  >
+                    Marshal
+                  </DropdownMenuCheckboxItem>
+                   <DropdownMenuCheckboxItem
+                    checked={roleFilter.includes('Club Admin')}
+                    onCheckedChange={() => toggleFilter('role', 'Club Admin')}
+                  >
+                    Club Admin
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={roleFilter.includes('Site Admin')}
+                    onCheckedChange={() => toggleFilter('role', 'Site Admin')}
+                  >
+                    Site Admin
+                  </DropdownMenuCheckboxItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {renderMemberList()}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+
+      {selectedUser && (
+        <Dialog open={isEditDialogOpen} onOpenChange={() => { setIsEditDialogOpen(false); setSelectedUser(null); }}>
+          <DialogContent className="sm:max-w-md">
+            <form onSubmit={handleUserUpdate}>
+              <DialogHeader>
+                <DialogTitle>Edit Member</DialogTitle>
+                <DialogDescription>
+                  Update the name for {selectedUser.firstName} {selectedUser.lastName}.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="firstName">First Name</Label>
+                        <Input
+                            id="firstName"
+                            value={selectedUser.firstName}
+                            onChange={(e) => setSelectedUser({ ...selectedUser, firstName: e.target.value })}
+                            required
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="lastName">Last Name</Label>
+                        <Input
+                            id="lastName"
+                            value={selectedUser.lastName}
+                            onChange={(e) => setSelectedUser({ ...selectedUser, lastName: e.target.value })}
+                            required
+                        />
+                    </div>
+                </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" value={selectedUser.email} disabled />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={() => { setIsEditDialogOpen(false); setSelectedUser(null); }}>Cancel</Button>
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   );
 }
+
