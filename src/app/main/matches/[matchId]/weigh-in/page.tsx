@@ -39,8 +39,9 @@ import { ArrowLeft, List, LayoutGrid } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
 import { doc, getDoc, collection, query, where, onSnapshot, writeBatch, Timestamp, getDocs } from 'firebase/firestore';
-import type { Match, User, Result, WeighInStatus } from '@/lib/types';
+import type { Match, User, Result, WeighInStatus, UserRole } from '@/lib/types';
 import { format } from 'date-fns';
+import { useAuth } from '@/hooks/use-auth';
 
 interface AnglerResultData {
   userId: string;
@@ -56,14 +57,33 @@ interface AnglerResultData {
 export default function WeighInPage() {
   const router = useRouter();
   const params = useParams();
+  const { user: authUser } = useAuth();
   const { toast } = useToast();
   const matchId = params.matchId as string;
 
   const [match, setMatch] = useState<Match | null>(null);
   const [results, setResults] = useState<AnglerResultData[]>([]);
+  const [userProfile, setUserProfile] = useState<User | null>(null);
+  const [canEdit, setCanEdit] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const [isSaving, setIsSaving] = useState<string | null>(null); // Store userId of saving angler
+
+  // Fetch user profile to check role
+  useEffect(() => {
+    if (!authUser || !firestore) return;
+
+    const userDocRef = doc(firestore, 'users', authUser.uid);
+    const unsubscribe = onSnapshot(userDocRef, (doc) => {
+      if (doc.exists()) {
+        const profile = doc.data() as User;
+        setUserProfile(profile);
+        const editableRoles: UserRole[] = ['Marshal', 'Club Admin', 'Site Admin'];
+        setCanEdit(editableRoles.includes(profile.role));
+      }
+    });
+    return () => unsubscribe();
+  }, [authUser]);
 
   // Main data fetching and subscription effect
   useEffect(() => {
@@ -159,7 +179,7 @@ export default function WeighInPage() {
 
     return currentResults.map(r => {
         let position: number | null = null;
-        if (r.status === 'OK') {
+        if (r.status === 'OK' && r.weight > 0) {
             position = positionMap.get(r.userId) || null;
         } else if (['DNW', 'DNF', 'DSQ'].includes(r.status)) {
             position = didNotWeighRank;
@@ -329,21 +349,21 @@ export default function WeighInPage() {
                     <CardContent className="space-y-4">
                         <div className="flex gap-4">
                             <div className="space-y-2 flex-1">
-                                <Label>Peg</Label>
-                                <Input value={angler.peg} disabled />
+                                <Label htmlFor={`peg-${angler.userId}`}>Peg</Label>
+                                <Input id={`peg-${angler.userId}`} value={angler.peg} onChange={e => handleFieldChange(angler.userId, 'peg', e.target.value)} disabled={!canEdit} />
                             </div>
                              <div className="space-y-2 flex-1">
-                                <Label>Section</Label>
-                                <Input value={angler.section} disabled />
+                                <Label htmlFor={`section-${angler.userId}`}>Section</Label>
+                                <Input id={`section-${angler.userId}`} value={angler.section} onChange={e => handleFieldChange(angler.userId, 'section', e.target.value)} disabled={!canEdit} />
                             </div>
                         </div>
                         <div className="space-y-2">
                              <Label htmlFor={`weight-${angler.userId}`}>Weight (Kg)</Label>
-                             <Input id={`weight-${angler.userId}`} type="number" step="0.001" value={angler.weight} onChange={e => handleFieldChange(angler.userId, 'weight', e.target.value)} />
+                             <Input id={`weight-${angler.userId}`} type="number" step="0.001" value={angler.weight} onChange={e => handleFieldChange(angler.userId, 'weight', e.target.value)} disabled={!canEdit} />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor={`status-${angler.userId}`}>Status</Label>
-                            <Select value={angler.status} onValueChange={(value) => handleFieldChange(angler.userId, 'status', value)}>
+                            <Select value={angler.status} onValueChange={(value) => handleFieldChange(angler.userId, 'status', value)} disabled={!canEdit}>
                                 <SelectTrigger id={`status-${angler.userId}`}>
                                     <SelectValue placeholder="Select status" />
                                 </SelectTrigger>
@@ -358,7 +378,7 @@ export default function WeighInPage() {
                         </div>
                     </CardContent>
                     <CardFooter>
-                        <Button className="w-full" onClick={() => handleSaveResult(angler.userId)} disabled={isSaving === angler.userId}>
+                        <Button className="w-full" onClick={() => handleSaveResult(angler.userId)} disabled={isSaving === angler.userId || !canEdit}>
                             {isSaving === angler.userId ? 'Saving...' : 'Save'}
                         </Button>
                     </CardFooter>
@@ -373,8 +393,8 @@ export default function WeighInPage() {
       return Array.from({length: 5}).map((_, i) => (
         <TableRow key={i}>
           <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-          <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-          <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+          <TableCell><Skeleton className="h-10 w-20" /></TableCell>
+          <TableCell><Skeleton className="h-10 w-20" /></TableCell>
           <TableCell><Skeleton className="h-10 w-24" /></TableCell>
           <TableCell><Skeleton className="h-10 w-32" /></TableCell>
           <TableCell><Skeleton className="h-4 w-12" /></TableCell>
@@ -388,8 +408,8 @@ export default function WeighInPage() {
             <TableHeader>
                 <TableRow>
                     <TableHead>Angler</TableHead>
-                    <TableHead>Peg</TableHead>
-                    <TableHead>Section</TableHead>
+                    <TableHead className="w-[120px]">Peg</TableHead>
+                    <TableHead className="w-[120px]">Section</TableHead>
                     <TableHead className="w-[150px]">Weight (Kg)</TableHead>
                     <TableHead className="w-[180px]">Status</TableHead>
                     <TableHead>Rank</TableHead>
@@ -400,13 +420,17 @@ export default function WeighInPage() {
                 {results.map(angler => (
                     <TableRow key={angler.userId}>
                         <TableCell className="font-medium">{angler.userName}</TableCell>
-                        <TableCell>{angler.peg}</TableCell>
-                        <TableCell>{angler.section}</TableCell>
                         <TableCell>
-                            <Input type="number" step="0.001" value={angler.weight} onChange={e => handleFieldChange(angler.userId, 'weight', e.target.value)} className="h-9"/>
+                            <Input value={angler.peg} onChange={e => handleFieldChange(angler.userId, 'peg', e.target.value)} disabled={!canEdit} className="h-9"/>
+                        </TableCell>
+                         <TableCell>
+                            <Input value={angler.section} onChange={e => handleFieldChange(angler.userId, 'section', e.target.value)} disabled={!canEdit} className="h-9"/>
                         </TableCell>
                         <TableCell>
-                             <Select value={angler.status} onValueChange={(value) => handleFieldChange(angler.userId, 'status', value)}>
+                            <Input type="number" step="0.001" value={angler.weight} onChange={e => handleFieldChange(angler.userId, 'weight', e.target.value)} disabled={!canEdit} className="h-9"/>
+                        </TableCell>
+                        <TableCell>
+                             <Select value={angler.status} onValueChange={(value) => handleFieldChange(angler.userId, 'status', value)} disabled={!canEdit}>
                                 <SelectTrigger className="h-9">
                                     <SelectValue placeholder="Select status" />
                                 </SelectTrigger>
@@ -421,7 +445,7 @@ export default function WeighInPage() {
                         </TableCell>
                         <TableCell>{angler.position || '-'}</TableCell>
                         <TableCell>
-                            <Button size="sm" onClick={() => handleSaveResult(angler.userId)} disabled={isSaving === angler.userId}>
+                            <Button size="sm" onClick={() => handleSaveResult(angler.userId)} disabled={isSaving === angler.userId || !canEdit}>
                                {isSaving === angler.userId ? 'Saving...' : 'Save'}
                             </Button>
                         </TableCell>
@@ -439,3 +463,5 @@ export default function WeighInPage() {
     </div>
   );
 }
+
+    
