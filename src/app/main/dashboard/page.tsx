@@ -85,7 +85,7 @@ export default function DashboardPage() {
       return (
         <TableRow>
           <TableCell colSpan={3} className="text-center h-24">
-            No upcoming matches found for your primary club.
+            No upcoming matches
           </TableCell>
         </TableRow>
       );
