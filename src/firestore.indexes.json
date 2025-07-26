@@ -83,6 +83,20 @@
         }
       ]
     },
+     {
+      "collectionGroup": "matches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "clubId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
     {
       "collectionGroup": "results",
       "queryScope": "COLLECTION",
