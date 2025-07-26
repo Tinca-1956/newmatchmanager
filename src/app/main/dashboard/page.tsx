@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { doc, onSnapshot, collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, Timestamp } from 'firebase/firestore';
 import type { User, Match } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -44,8 +44,8 @@ export default function DashboardPage() {
     const matchesQuery = query(
         collection(firestore, 'matches'),
         where('clubId', '==', userProfile.primaryClubId),
-        where('status', '==', 'Upcoming'),
-        orderBy('date', 'desc')
+        where('status', '==', 'Upcoming')
+        // NOTE: orderBy('date') is removed to avoid index issues. Sorting is done on the client.
     );
 
     const unsubscribeMatches = onSnapshot(matchesQuery, (snapshot) => {
@@ -54,6 +54,8 @@ export default function DashboardPage() {
             ...doc.data(),
             date: (doc.data().date as Timestamp).toDate(),
         } as Match));
+        // Sort matches on the client-side
+        matchesData.sort((a, b) => a.date.getTime() - b.date.getTime());
         setUpcomingMatches(matchesData);
         setIsLoading(false);
     }, (error) => {
