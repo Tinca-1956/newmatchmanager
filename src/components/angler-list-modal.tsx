@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -11,22 +11,14 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-  TableHead
-} from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, getDocs, doc, getDoc, updateDoc, arrayUnion, arrayRemove, increment } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, writeBatch } from 'firebase/firestore';
 import type { Match, User } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Trash2, Search } from 'lucide-react';
+import { ChevronRight, XIcon } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface AnglerListModalProps {
   isOpen: boolean;
@@ -36,18 +28,19 @@ interface AnglerListModalProps {
 
 export function AnglerListModal({ isOpen, onClose, matchId }: AnglerListModalProps) {
   const [match, setMatch] = useState<Match | null>(null);
-  const [registeredAnglers, setRegisteredAnglers] = useState<User[]>([]);
   const [availableAnglers, setAvailableAnglers] = useState<User[]>([]);
+  const [anglersToAssign, setAnglersToAssign] = useState<User[]>([]);
+
   const [isLoading, setIsLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     if (isOpen && matchId && firestore) {
       const fetchMatchAndAnglers = async () => {
         setIsLoading(true);
+        setAnglersToAssign([]); // Reset on open
         try {
-          // Fetch match details
           const matchDocRef = doc(firestore, 'matches', matchId);
           const matchDoc = await getDoc(matchDocRef);
           if (!matchDoc.exists()) {
@@ -58,19 +51,14 @@ export function AnglerListModal({ isOpen, onClose, matchId }: AnglerListModalPro
           const matchData = { id: matchDoc.id, ...matchDoc.data() } as Match;
           setMatch(matchData);
 
-          // Fetch all users in the club
           const usersQuery = query(collection(firestore, 'users'), where('primaryClubId', '==', matchData.clubId));
           const usersSnapshot = await getDocs(usersQuery);
           const allClubUsers = usersSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as User));
 
-          // Separate registered vs available anglers
           const registeredIds = new Set(matchData.registeredAnglers || []);
-          const registered = allClubUsers.filter(u => registeredIds.has(u.id));
           const available = allClubUsers.filter(u => !registeredIds.has(u.id));
 
-          setRegisteredAnglers(registered);
           setAvailableAnglers(available);
-
         } catch (error) {
           console.error("Error fetching match/angler data:", error);
           toast({ variant: 'destructive', title: 'Error', description: 'Could not load angler data.' });
@@ -82,156 +70,140 @@ export function AnglerListModal({ isOpen, onClose, matchId }: AnglerListModalPro
     }
   }, [isOpen, matchId, toast]);
 
-  const handleAddAngler = async (angler: User) => {
-    if (!matchId || !firestore || !match) return;
-
-    if (match.registeredCount >= match.capacity) {
-        toast({
-            variant: 'destructive',
-            title: 'Match Full',
-            description: 'Cannot add more anglers, the match has reached its capacity.',
-        });
-        return;
-    }
-
-    try {
-        const matchDocRef = doc(firestore, 'matches', matchId);
-        await updateDoc(matchDocRef, {
-            registeredAnglers: arrayUnion(angler.id),
-            registeredCount: increment(1)
-        });
-
-        // Update local state
-        setRegisteredAnglers(prev => [...prev, angler]);
-        setAvailableAnglers(prev => prev.filter(a => a.id !== angler.id));
-        setMatch(prev => prev ? { ...prev, registeredCount: prev.registeredCount + 1 } : null);
-
-        toast({ title: 'Success', description: `${angler.firstName} ${angler.lastName} added to match.` });
-    } catch (error) {
-        console.error("Error adding angler: ", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not add angler to the match.' });
-    }
+  const handleAddAngler = (angler: User) => {
+    setAvailableAnglers(prev => prev.filter(a => a.id !== angler.id));
+    setAnglersToAssign(prev => [...prev, angler]);
   };
 
-  const handleRemoveAngler = async (angler: User) => {
-    if (!matchId || !firestore) return;
-
-    try {
-        const matchDocRef = doc(firestore, 'matches', matchId);
-        await updateDoc(matchDocRef, {
-            registeredAnglers: arrayRemove(angler.id),
-            registeredCount: increment(-1)
-        });
-
-        // Update local state
-        setAvailableAnglers(prev => [...prev, angler]);
-        setRegisteredAnglers(prev => prev.filter(a => a.id !== angler.id));
-        setMatch(prev => prev ? { ...prev, registeredCount: prev.registeredCount - 1 } : null);
-
-        toast({ title: 'Success', description: `${angler.firstName} ${angler.lastName} removed from match.` });
-    } catch (error) {
-        console.error("Error removing angler: ", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not remove angler from the match.' });
-    }
+  const handleRemoveAngler = (angler: User) => {
+    setAnglersToAssign(prev => prev.filter(a => a.id !== angler.id));
+    setAvailableAnglers(prev => [...prev, angler]);
   };
 
-  const filteredAvailableAnglers = useMemo(() => {
-    return availableAnglers.filter(angler => 
-        `${angler.firstName} ${angler.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [availableAnglers, searchTerm]);
+  const handleSaveAssignments = async () => {
+    if (!matchId || !match || !firestore || anglersToAssign.length === 0) {
+      toast({ title: 'No changes', description: 'No anglers were selected to be added.' });
+      return;
+    }
+    
+    const newTotal = match.registeredCount + anglersToAssign.length;
+    if (newTotal > match.capacity) {
+      toast({
+        variant: 'destructive',
+        title: 'Capacity Exceeded',
+        description: `Adding these anglers would exceed the match capacity of ${match.capacity}.`,
+      });
+      return;
+    }
 
-  const renderAnglerTable = (anglers: User[], action: 'add' | 'remove') => {
-    if (isLoading) {
-        return <TableRow><TableCell colSpan={3}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+    setIsSaving(true);
+    try {
+      const matchDocRef = doc(firestore, 'matches', matchId);
+      const batch = writeBatch(firestore);
+
+      const anglerIdsToAdd = anglersToAssign.map(a => a.id);
+      
+      batch.update(matchDocRef, {
+        registeredAnglers: [...(match.registeredAnglers || []), ...anglerIdsToAdd],
+        registeredCount: newTotal
+      });
+
+      await batch.commit();
+
+      toast({ title: 'Success', description: `${anglersToAssign.length} angler(s) have been added to the match.` });
+      onClose();
+    } catch (error) {
+      console.error("Error saving assignments: ", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not save the angler assignments.' });
+    } finally {
+      setIsSaving(false);
     }
-    if (anglers.length === 0) {
-        return <TableRow><TableCell colSpan={3} className="text-center h-24">No anglers found.</TableCell></TableRow>
-    }
-    return anglers.map(angler => (
-        <TableRow key={angler.id}>
-            <TableCell>{`${angler.firstName} ${angler.lastName}`}</TableCell>
-            <TableCell>{angler.email}</TableCell>
-            <TableCell className="text-right">
-                <Button 
-                    variant={action === 'add' ? 'outline' : 'destructive'} 
-                    size="icon"
-                    onClick={() => action === 'add' ? handleAddAngler(angler) : handleRemoveAngler(angler)}
-                >
-                    {action === 'add' ? <PlusCircle className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
-                </Button>
-            </TableCell>
-        </TableRow>
-    ));
-  }
+  };
 
   if (!matchId) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
-          <DialogTitle className="text-2xl">Manage Anglers: {match?.name || ''}</DialogTitle>
+          <DialogTitle className="text-2xl">Assign Anglers to: {match?.name || 'Test Match'}</DialogTitle>
           <DialogDescription>
-            Add or remove anglers from this match. Capacity: {match?.registeredCount} / {match?.capacity}
+            Select members from the left list to assign them to the match on the right.
           </DialogDescription>
         </DialogHeader>
-        
-        <div className="grid grid-cols-2 gap-6 flex-grow overflow-hidden pt-4">
-            {/* Registered Anglers */}
-            <div className="flex flex-col gap-4">
-                <h3 className="text-lg font-semibold">Registered Anglers</h3>
-                <ScrollArea className="h-full border rounded-md">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead className="text-right">Action</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {renderAnglerTable(registeredAnglers, 'remove')}
-                        </TableBody>
-                    </Table>
-                </ScrollArea>
-            </div>
 
-            {/* Available Anglers */}
-            <div className="flex flex-col gap-4">
-                <h3 className="text-lg font-semibold">Available Club Members</h3>
-                <div className="relative">
-                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                     <Input 
-                        placeholder="Search for an angler..."
-                        className="pl-8"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                     />
-                </div>
-                <ScrollArea className="h-full border rounded-md">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead className="text-right">Action</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                         <TableBody>
-                            {renderAnglerTable(filteredAvailableAnglers, 'add')}
-                        </TableBody>
-                    </Table>
+        <div className="grid grid-cols-2 gap-6 pt-4">
+          {/* Available Club Members */}
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Available Club Members</h3>
+            <Card>
+              <CardContent className="p-2">
+                <ScrollArea className="h-72">
+                  {isLoading ? (
+                    <div className="p-2 space-y-2">
+                        {Array.from({length: 5}).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
+                    </div>
+                  ) : availableAnglers.length === 0 ? (
+                    <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+                      No available members.
+                    </div>
+                  ) : (
+                    <div className="space-y-1 p-2">
+                        {availableAnglers.map(angler => (
+                        <button
+                            key={angler.id}
+                            onClick={() => handleAddAngler(angler)}
+                            className="w-full flex items-center justify-between text-sm p-2 rounded-md hover:bg-accent"
+                        >
+                            <span>{`${angler.firstName} ${angler.lastName}`}</span>
+                            <ChevronRight className="h-4 w-4" />
+                        </button>
+                        ))}
+                    </div>
+                  )}
                 </ScrollArea>
-            </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* To Be Assigned */}
+          <div>
+            <h3 className="text-lg font-semibold mb-2">To Be Assigned ({anglersToAssign.length})</h3>
+            <Card>
+              <CardContent className="p-2">
+                <ScrollArea className="h-72">
+                   {anglersToAssign.length === 0 ? (
+                    <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+                      Select members to assign.
+                    </div>
+                  ) : (
+                     <div className="space-y-1 p-2">
+                        {anglersToAssign.map(angler => (
+                           <div key={angler.id} className="w-full flex items-center justify-between text-sm p-2 rounded-md bg-muted/50">
+                                <span>{`${angler.firstName} ${angler.lastName}`}</span>
+                                <button onClick={() => handleRemoveAngler(angler)} className="p-1 rounded-full hover:bg-destructive/20 text-destructive">
+                                    <XIcon className="h-4 w-4"/>
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         <DialogFooter className="pt-4">
-          <Button variant="default" onClick={onClose}>
-            Close
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleSaveAssignments} disabled={isSaving || anglersToAssign.length === 0}>
+            {isSaving ? 'Saving...' : 'Save Assignments'}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
