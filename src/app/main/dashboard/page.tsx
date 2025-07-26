@@ -17,7 +17,6 @@ const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
   
   if (!(match.date instanceof Date)) {
-    // If it's still a Timestamp, convert it. If it's invalid, return original status.
     if (match.date && typeof (match.date as any).toDate === 'function') {
       match.date = (match.date as Timestamp).toDate();
     } else {
@@ -86,8 +85,6 @@ export default function DashboardPage() {
     }
 
     setIsLoading(true);
-    // Query all matches for the club that are not cancelled or completed
-    // We will calculate the exact status on the client.
     const matchesQuery = query(
         collection(firestore, 'matches'),
         where('clubId', '==', userProfile.primaryClubId),
@@ -101,13 +98,11 @@ export default function DashboardPage() {
             date: (doc.data().date as Timestamp).toDate(),
         } as Match));
         
-        // Filter for truly upcoming matches and calculate status on client
         const trulyUpcoming = matchesData.map(match => ({
           ...match,
           calculatedStatus: getCalculatedStatus(match),
         })).filter(match => match.calculatedStatus === 'Upcoming');
 
-        // Sort matches on the client-side by date
         trulyUpcoming.sort((a, b) => a.date.getTime() - b.date.getTime());
         setUpcomingMatches(trulyUpcoming);
         setIsLoading(false);
@@ -121,31 +116,33 @@ export default function DashboardPage() {
         setIsLoading(false);
     });
 
-    // Fetch Recent Results
     const fetchRecentResults = async () => {
         if (!userProfile.primaryClubId || !firestore) return;
         setIsLoadingResults(true);
 
         // 1. Find the most recent completed match
-        const recentMatchQuery = query(
+        const allCompletedMatchesQuery = query(
             collection(firestore, 'matches'),
             where('clubId', '==', userProfile.primaryClubId),
-            where('status', '==', 'Completed'),
-            orderBy('date', 'desc'),
-            limit(1)
+            where('status', '==', 'Completed')
         );
 
         try {
-            const recentMatchSnapshot = await getDocs(recentMatchQuery);
-            if (recentMatchSnapshot.empty) {
+            const allCompletedSnapshot = await getDocs(allCompletedMatchesQuery);
+            if (allCompletedSnapshot.empty) {
                 setRecentResults([]);
                 setIsLoadingResults(false);
                 return;
             }
-
-            const recentMatch = recentMatchSnapshot.docs[0].data() as Match;
+            
+            // Sort on the client
+            const completedMatches = allCompletedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as Match, date: (doc.data().date as Timestamp).toDate() }));
+            completedMatches.sort((a, b) => b.date.getTime() - a.date.getTime());
+            
+            const recentMatch = completedMatches[0];
+            const matchId = recentMatch.id;
+            
             setRecentMatchName(recentMatch.name);
-            const matchId = recentMatchSnapshot.docs[0].id;
 
             // 2. Fetch results for that match
             const resultsQuery = query(
@@ -166,7 +163,6 @@ export default function DashboardPage() {
     };
 
     fetchRecentResults();
-
 
     return () => unsubscribeMatches();
 
@@ -299,5 +295,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
