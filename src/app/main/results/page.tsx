@@ -44,73 +44,77 @@ export default function ResultsPage() {
     const { toast } = useToast();
     const { isSiteAdmin, loading: adminLoading } = useAdminAuth();
 
-    const [clubs, setClubs] = useState<Club[]>([]);
-    const [series, setSeries] = useState<Series[]>([]);
-    const [allMatchesForClub, setAllMatchesForClub] = useState<Match[]>([]);
-    const [results, setResults] = useState<ResultRowData[]>([]);
+    const [allClubs, setAllClubs] = useState<Club[]>([]);
+    const [seriesForClub, setSeriesForClub] = useState<Series[]>([]);
+    const [completedMatchesForClub, setCompletedMatchesForClub] = useState<Match[]>([]);
+    const [displayResults, setDisplayResults] = useState<ResultRowData[]>([]);
 
     const [selectedClubId, setSelectedClubId] = useState<string>('');
     const [selectedSeriesId, setSelectedSeriesId] = useState<string>('all');
     const [selectedMatchId, setSelectedMatchId] = useState<string>('all');
     
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingClubs, setIsLoadingClubs] = useState(true);
+    const [isLoadingSeries, setIsLoadingSeries] = useState(false);
+    const [isLoadingMatches, setIsLoadingMatches] = useState(false);
+    const [isLoadingResults, setIsLoadingResults] = useState(false);
 
-    // Step 1: Determine the club to show (user's primary or admin's selection)
+    // Step 1: Fetch clubs for the dropdown (or user's primary club)
     useEffect(() => {
-        if (adminLoading || !user || !firestore) return;
+        if (adminLoading) return;
+        setIsLoadingClubs(true);
 
-        const determineClub = async () => {
-            setIsLoading(true);
-            try {
-                if (isSiteAdmin) {
-                    const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
-                    const clubsSnapshot = await getDocs(clubsQuery);
-                    const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
-                    setClubs(clubsData);
-                    if (clubsData.length > 0) {
-                        setSelectedClubId(clubsData[0].id);
-                    } else {
-                        setIsLoading(false);
-                    }
-                } else {
-                    const userDocRef = doc(firestore, 'users', user.uid);
-                    const userDoc = await getDoc(userDocRef);
-                    if (userDoc.exists()) {
-                        const userData = userDoc.data() as User;
-                        setSelectedClubId(userData.primaryClubId || '');
-                    } else {
-                        setIsLoading(false);
+        const fetchClubs = async () => {
+            if (!user || !firestore) {
+                setIsLoadingClubs(false);
+                return;
+            }
+
+            if (isSiteAdmin) {
+                const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
+                const clubsSnapshot = await getDocs(clubsQuery);
+                const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+                setAllClubs(clubsData);
+            } else {
+                const userDocRef = doc(firestore, 'users', user.uid);
+                const userDoc = await getDoc(userDocRef);
+                if (userDoc.exists()) {
+                    const userData = userDoc.data() as User;
+                    if (userData.primaryClubId) {
+                        const clubDocRef = doc(firestore, 'clubs', userData.primaryClubId);
+                        const clubDoc = await getDoc(clubDocRef);
+                        if (clubDoc.exists()) {
+                            setAllClubs([{ id: clubDoc.id, ...clubDoc.data() } as Club]);
+                        }
                     }
                 }
-            } catch (error) {
-                console.error("Error determining club:", error);
-                toast({ variant: 'destructive', title: 'Error', description: 'Could not determine the club to display.' });
-                setIsLoading(false);
             }
+            setIsLoadingClubs(false);
         };
+        
+        fetchClubs();
 
-        determineClub();
-    }, [user, isSiteAdmin, adminLoading, toast]);
+    }, [user, isSiteAdmin, adminLoading]);
 
-    // Step 2: Once a club is selected, fetch all necessary data for that club
+
+    // Step 2: When a club is selected, fetch its series and completed matches
     useEffect(() => {
         if (!selectedClubId || !firestore) {
-            setSeries([]);
-            setAllMatchesForClub([]);
-            setResults([]);
-            setIsLoading(false);
+            setSeriesForClub([]);
+            setCompletedMatchesForClub([]);
             return;
         }
 
-        setIsLoading(true);
-        
-        const fetchClubData = async () => {
+        const fetchClubDependentData = async () => {
+            setIsLoadingSeries(true);
+            setIsLoadingMatches(true);
+            
             try {
                 // Fetch series for the club
                 const seriesQuery = query(collection(firestore, 'series'), where('clubId', '==', selectedClubId), orderBy('name'));
                 const seriesSnapshot = await getDocs(seriesQuery);
                 const seriesData = seriesSnapshot.docs.map(s => ({ id: s.id, ...s.data() } as Series));
-                setSeries(seriesData);
+                setSeriesForClub(seriesData);
+                setIsLoadingSeries(false);
 
                 // Fetch all completed matches for the club
                 const matchesQuery = query(
@@ -125,25 +129,25 @@ export default function ResultsPage() {
                     ...doc.data(),
                     date: (doc.data().date as Timestamp).toDate(),
                 } as Match));
-                setAllMatchesForClub(matchesData);
-                
+                setCompletedMatchesForClub(matchesData);
+                setIsLoadingMatches(false);
+
             } catch (error) {
-                console.error("Error fetching club data:", error);
-                toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series and matches.' });
-            } finally {
-                setIsLoading(false);
+                console.error("Error fetching club dependent data:", error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series and matches for the selected club.' });
+                setIsLoadingSeries(false);
+                setIsLoadingMatches(false);
             }
         };
-        
-        fetchClubData();
 
+        fetchClubDependentData();
     }, [selectedClubId, firestore, toast]);
-
-    // Step 3: Filter the already-fetched matches to generate results for the table
-     useEffect(() => {
-        const generateResults = async () => {
-            setIsLoading(true);
-            let matchesToProcess = allMatchesForClub;
+    
+    // Step 3: When matches or filters change, calculate and set the results to be displayed
+    useEffect(() => {
+        const generateResultsForDisplay = async () => {
+            setIsLoadingResults(true);
+            let matchesToProcess = completedMatchesForClub;
 
             if (selectedSeriesId !== 'all') {
                 matchesToProcess = matchesToProcess.filter(m => m.seriesId === selectedSeriesId);
@@ -151,6 +155,12 @@ export default function ResultsPage() {
 
             if (selectedMatchId !== 'all') {
                 matchesToProcess = matchesToProcess.filter(m => m.id === selectedMatchId);
+            }
+
+            if (matchesToProcess.length === 0) {
+                setDisplayResults([]);
+                setIsLoadingResults(false);
+                return;
             }
 
             try {
@@ -167,33 +177,41 @@ export default function ResultsPage() {
                 });
                 
                 const resolvedResults = await Promise.all(resultsPromises);
-                setResults(resolvedResults);
+                setDisplayResults(resolvedResults);
 
             } catch (error) {
-                console.error("Error processing results: ", error);
-                toast({ variant: 'destructive', title: 'Error', description: 'Could not generate results list.' });
+                console.error("Error processing results for display: ", error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not generate the results list.' });
             } finally {
-                 setIsLoading(false);
+                 setIsLoadingResults(false);
             }
         };
 
-        if (allMatchesForClub.length > 0) {
-            generateResults();
-        } else {
-            setResults([]);
-        }
+        generateResultsForDisplay();
+    }, [completedMatchesForClub, selectedSeriesId, selectedMatchId, toast]);
 
-    }, [allMatchesForClub, selectedSeriesId, selectedMatchId, toast]);
-
-    const filteredMatchesForDropdown = useMemo(() => {
+    const matchesForDropdown = useMemo(() => {
         if (selectedSeriesId === 'all') {
-            return allMatchesForClub;
+            return completedMatchesForClub;
         }
-        return allMatchesForClub.filter(m => m.seriesId === selectedSeriesId);
-    }, [allMatchesForClub, selectedSeriesId]);
+        return completedMatchesForClub.filter(m => m.seriesId === selectedSeriesId);
+    }, [completedMatchesForClub, selectedSeriesId]);
+    
+    const handleClubChange = (clubId: string) => {
+        setSelectedClubId(clubId);
+        // Reset dependent filters
+        setSelectedSeriesId('all');
+        setSelectedMatchId('all');
+    };
+
+    const handleSeriesChange = (seriesId: string) => {
+        setSelectedSeriesId(seriesId);
+        // Reset match filter
+        setSelectedMatchId('all');
+    };
 
     const renderResultsList = () => {
-        if (isLoading) {
+        if (isLoadingResults) {
             return Array.from({ length: 4 }).map((_, i) => (
                 <TableRow key={i}>
                     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
@@ -205,17 +223,17 @@ export default function ResultsPage() {
             ));
         }
 
-        if (results.length === 0) {
+        if (displayResults.length === 0) {
             return (
                 <TableRow>
                     <TableCell colSpan={5} className="h-24 text-center">
-                        No completed matches found with the selected filters.
+                        {!selectedClubId ? "Please select a club to view results." : "No completed matches found with the selected filters."}
                     </TableCell>
                 </TableRow>
             );
         }
 
-        return results.map(result => (
+        return displayResults.map(result => (
             <TableRow key={result.id}>
                 <TableCell>{format(result.date, 'PPP')}</TableCell>
                 <TableCell className="font-medium">{result.seriesName}</TableCell>
@@ -240,47 +258,38 @@ export default function ResultsPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="flex items-end gap-4 mb-6">
-                        {isSiteAdmin && (
-                            <div className="flex flex-col gap-1.5">
-                                <Label htmlFor="club-filter">Club</Label>
-                                <Select 
-                                    value={selectedClubId} 
-                                    onValueChange={(value) => {
-                                        setSelectedClubId(value);
-                                        setSelectedSeriesId('all');
-                                        setSelectedMatchId('all');
-                                    }} 
-                                    disabled={clubs.length === 0}
-                                >
-                                    <SelectTrigger id="club-filter" className="w-64">
-                                        <SelectValue placeholder="Select a club..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {clubs.map((club) => (
-                                            <SelectItem key={club.id} value={club.id}>
-                                                {club.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        )}
+                        <div className="flex flex-col gap-1.5">
+                            <Label htmlFor="club-filter">Club</Label>
+                            <Select 
+                                value={selectedClubId} 
+                                onValueChange={handleClubChange}
+                                disabled={isLoadingClubs}
+                            >
+                                <SelectTrigger id="club-filter" className="w-64">
+                                    <SelectValue placeholder="Select a club..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {allClubs.map((club) => (
+                                        <SelectItem key={club.id} value={club.id}>
+                                            {club.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                          <div className="flex flex-col gap-1.5">
                             <Label htmlFor="series-filter">Series</Label>
                             <Select 
                                 value={selectedSeriesId} 
-                                onValueChange={(value) => {
-                                    setSelectedSeriesId(value);
-                                    setSelectedMatchId('all');
-                                }} 
-                                disabled={!selectedClubId || isLoading}
+                                onValueChange={handleSeriesChange} 
+                                disabled={!selectedClubId || isLoadingSeries}
                             >
                                 <SelectTrigger id="series-filter" className="w-64">
                                     <SelectValue placeholder="Select a series..." />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">All Series</SelectItem>
-                                    {series.map((s) => (
+                                    {seriesForClub.map((s) => (
                                         <SelectItem key={s.id} value={s.id}>
                                             {s.name}
                                         </SelectItem>
@@ -293,14 +302,14 @@ export default function ResultsPage() {
                             <Select 
                                 value={selectedMatchId} 
                                 onValueChange={setSelectedMatchId} 
-                                disabled={!selectedClubId || isLoading || filteredMatchesForDropdown.length === 0}
+                                disabled={!selectedClubId || isLoadingMatches || matchesForDropdown.length === 0}
                             >
                                 <SelectTrigger id="match-filter" className="w-64">
                                     <SelectValue placeholder="Select a match..." />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">All Matches</SelectItem>
-                                    {filteredMatchesForDropdown.map((m) => (
+                                    {matchesForDropdown.map((m) => (
                                         <SelectItem key={m.id} value={m.id}>
                                             {m.name} ({format(m.date, 'dd-MM-yy')})
                                         </SelectItem>
