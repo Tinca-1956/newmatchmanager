@@ -71,6 +71,7 @@ export default function ResultsPage() {
                     const clubsSnapshot = await getDocs(clubsQuery);
                     const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
                     setClubs(clubsData);
+                    // Set selected club to user's primary, or first in list if none.
                     setSelectedClubId(userData.primaryClubId || (clubsData.length > 0 ? clubsData[0].id : ''));
                 } else {
                     setSelectedClubId(userData.primaryClubId || '');
@@ -95,6 +96,9 @@ export default function ResultsPage() {
         const unsubscribeSeries = onSnapshot(seriesQuery, (snapshot) => {
             const seriesData = snapshot.docs.map(s => ({ id: s.id, ...s.data() } as Series));
             setSeries(seriesData);
+        }, err => {
+            console.error("Error fetching series:", err);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series.' });
         });
 
         // Also fetch all completed matches for the club to populate the match dropdown
@@ -111,13 +115,16 @@ export default function ResultsPage() {
                 date: (doc.data().date as Timestamp).toDate(),
             } as Match));
             setAllMatchesForClub(matchesData);
+        }, err => {
+             console.error("Error fetching matches for dropdown:", err);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches.' });
         });
 
         return () => {
             unsubscribeSeries();
             unsubscribeMatches();
         };
-    }, [selectedClubId, firestore]);
+    }, [selectedClubId, firestore, toast]);
     
      // Main data fetching effect for results table
     useEffect(() => {
@@ -140,7 +147,7 @@ export default function ResultsPage() {
                 );
             } else {
                  // Otherwise, build query based on club and series filters.
-                 let queryConstraints = [
+                 let queryConstraints: any[] = [
                     where('clubId', '==', selectedClubId),
                     where('status', '==', 'Completed'),
                 ];
