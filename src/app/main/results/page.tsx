@@ -59,50 +59,44 @@ export default function ResultsPage() {
 
     // Step 1: Fetch clubs for the dropdown (or user's primary club)
     useEffect(() => {
-        if (adminLoading || !firestore) return;
-        setIsLoadingClubs(true);
+        if (adminLoading || !firestore || !user) {
+            if(!adminLoading) setIsLoadingClubs(false);
+            return;
+        };
 
         const fetchClubs = async () => {
-            if (!user) {
-                setIsLoadingClubs(false);
-                return;
-            }
-
-            if (isSiteAdmin) {
-                const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
-                const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
-                    const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+            setIsLoadingClubs(true);
+            try {
+                if (isSiteAdmin) {
+                    const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
+                    const clubsSnapshot = await getDocs(clubsQuery);
+                    const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
                     setAllClubs(clubsData);
-                    setIsLoadingClubs(false);
-                }, (error) => {
-                    console.error("Error fetching clubs:", error);
-                    toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch clubs.' });
-                    setIsLoadingClubs(false);
-                });
-                return unsubscribe;
-            } else {
-                const userDocRef = doc(firestore, 'users', user.uid);
-                const userDoc = await getDoc(userDocRef);
-                if (userDoc.exists()) {
-                    const userData = userDoc.data() as User;
-                    if (userData.primaryClubId) {
-                        const clubDocRef = doc(firestore, 'clubs', userData.primaryClubId);
-                        const clubDoc = await getDoc(clubDocRef);
-                        if (clubDoc.exists()) {
-                            setAllClubs([{ id: clubDoc.id, ...clubDoc.data() } as Club]);
-                            setSelectedClubId(userData.primaryClubId); // Auto-select for non-admin
+                } else {
+                    const userDocRef = doc(firestore, 'users', user.uid);
+                    const userDoc = await getDoc(userDocRef);
+                    if (userDoc.exists()) {
+                        const userData = userDoc.data() as User;
+                        if (userData.primaryClubId) {
+                            const clubDocRef = doc(firestore, 'clubs', userData.primaryClubId);
+                            const clubDoc = await getDoc(clubDocRef);
+                            if (clubDoc.exists()) {
+                                const primaryClub = { id: clubDoc.id, ...clubDoc.data() } as Club;
+                                setAllClubs([primaryClub]);
+                                setSelectedClubId(primaryClub.id); // Auto-select for non-admin
+                            }
                         }
                     }
                 }
-                 setIsLoadingClubs(false);
+            } catch (error) {
+                 console.error("Error fetching clubs:", error);
+                 toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch clubs.' });
+            } finally {
+                setIsLoadingClubs(false);
             }
         };
         
-        const unsubscribePromise = fetchClubs();
-        
-        return () => {
-            unsubscribePromise.then(unsub => unsub && unsub());
-        }
+        fetchClubs();
 
     }, [user, isSiteAdmin, adminLoading, firestore, toast]);
 
@@ -117,7 +111,7 @@ export default function ResultsPage() {
         const fetchClubDependentData = async () => {
             setIsLoadingDependents(true);
             try {
-                // Fetch series for the club - REMOVED orderBy('name')
+                // Fetch series for the club
                 const seriesQuery = query(collection(firestore, 'series'), where('clubId', '==', selectedClubId));
                 const seriesSnapshot = await getDocs(seriesQuery);
                 const seriesData = seriesSnapshot.docs.map(s => ({ id: s.id, ...s.data() } as Series));
@@ -155,8 +149,7 @@ export default function ResultsPage() {
             if (!firestore) return;
             setIsDisplayLoading(true);
 
-            // First, filter matches by status on the client side
-            let matchesToProcess = allMatchesForClub.filter(m => m.status === 'Completed');
+            let matchesToProcess = [...allMatchesForClub];
 
             if (selectedSeriesId !== 'all') {
                 matchesToProcess = matchesToProcess.filter(m => m.seriesId === selectedSeriesId);
@@ -186,6 +179,8 @@ export default function ResultsPage() {
                 });
                 
                 const resolvedResults = await Promise.all(resultsPromises);
+                // Sort results by date descending
+                resolvedResults.sort((a, b) => (b.date as Date).getTime() - (a.date as Date).getTime());
                 setDisplayResults(resolvedResults);
 
             } catch (error) {
@@ -195,8 +190,14 @@ export default function ResultsPage() {
                  setIsDisplayLoading(false);
             }
         };
+        
+        if (allMatchesForClub.length > 0) {
+            generateResultsForDisplay();
+        } else {
+            setDisplayResults([]);
+            setIsDisplayLoading(false);
+        }
 
-        generateResultsForDisplay();
     }, [allMatchesForClub, selectedSeriesId, selectedMatchId, firestore, toast]);
     
     // Memoized list of completed matches for the dropdown
@@ -272,7 +273,7 @@ export default function ResultsPage() {
                             <Select 
                                 value={selectedClubId} 
                                 onValueChange={handleClubChange}
-                                disabled={isLoadingClubs || allClubs.length === 0}
+                                disabled={isLoadingClubs || !isSiteAdmin}
                             >
                                 <SelectTrigger id="club-filter" className="w-64">
                                     <SelectValue placeholder="Select a club..." />
@@ -347,5 +348,3 @@ export default function ResultsPage() {
         </div>
     );
 }
-
-    
