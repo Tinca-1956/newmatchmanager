@@ -73,7 +73,12 @@ export default function WeighInPage() {
       const matchDocRef = doc(firestore, 'matches', matchId);
       const matchDoc = await getDoc(matchDocRef);
       if (matchDoc.exists()) {
-        setMatch({ id: matchDoc.id, ...matchDoc.data() } as Match);
+        const matchData = matchDoc.data();
+        setMatch({ 
+            id: matchDoc.id,
+            ...matchData,
+            date: (matchData.date as Timestamp).toDate(),
+        } as Match);
       } else {
         toast({ variant: 'destructive', title: 'Error', description: 'Match not found.' });
         router.back();
