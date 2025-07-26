@@ -99,6 +99,10 @@ export default function WeighInPage() {
         // Ensure we have a result entry for every registered angler
         const matchDocRef = doc(firestore, 'matches', matchId);
         const matchDoc = await getDoc(matchDocRef);
+        if (!matchDoc.exists()) {
+             setIsLoading(false);
+             return;
+        }
         const currentMatch = matchDoc.data() as Match;
         
         if (!currentMatch?.registeredAnglers?.length) {
@@ -238,7 +242,7 @@ export default function WeighInPage() {
             </Button>
             <div className="text-center">
                 <h1 className="text-3xl font-bold tracking-tight">Weigh-in: {match.name}</h1>
-                <p className="text-muted-foreground">{match.seriesName} - {format(match.date as Date, 'PPP')}</p>
+                <p className="text-muted-foreground">{match.seriesName} - {format(match.date, 'PPP')}</p>
             </div>
              <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -276,7 +280,7 @@ export default function WeighInPage() {
             {results.map((angler) => (
                 <Card key={angler.userId}>
                     <CardHeader>
-                        <CardTitle>Weigh-in for {angler.userName}</CardTitle>
+                        <CardTitle>{angler.userName}</CardTitle>
                         {angler.position && <CardDescription>Overall Rank: {angler.position}</CardDescription>}
                     </CardHeader>
                     <CardContent className="space-y-4">
