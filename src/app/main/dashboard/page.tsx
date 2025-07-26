@@ -125,29 +125,38 @@ export default function DashboardPage() {
         setRecentSeriesName('');
         setDebugMatchName('');
 
-        const allCompletedMatchesQuery = query(
+        // Fetch ALL matches for the club, we will filter client-side
+        const allMatchesQuery = query(
             collection(firestore, 'matches'),
-            where('clubId', '==', userProfile.primaryClubId),
-            where('status', '==', 'Completed')
+            where('clubId', '==', userProfile.primaryClubId)
         );
 
         try {
-            const allCompletedSnapshot = await getDocs(allCompletedMatchesQuery);
-            if (allCompletedSnapshot.empty) {
+            const allMatchesSnapshot = await getDocs(allMatchesQuery);
+            if (allMatchesSnapshot.empty) {
+                setDebugMatchName('No matches found for this club at all.');
                 setRecentResults([]);
                 setIsLoadingResults(false);
                 return;
             }
             
-            const completedMatches = allCompletedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as Match, date: (doc.data().date as Timestamp).toDate() }));
-            completedMatches.sort((a, b) => b.date.getTime() - a.date.getTime());
-            
+            const allMatches = allMatchesSnapshot.docs.map(doc => ({ 
+                id: doc.id, 
+                ...doc.data() as Match, 
+                date: (doc.data().date as Timestamp).toDate() 
+            }));
+
+            const completedMatches = allMatches.filter(m => m.status === 'Completed');
+
             if (completedMatches.length === 0) {
+                 setDebugMatchName('Found matches, but none are marked as "Completed".');
                  setRecentResults([]);
                  setIsLoadingResults(false);
                  return;
             }
 
+            completedMatches.sort((a, b) => b.date.getTime() - a.date.getTime());
+            
             const recentMatch = completedMatches[0];
             const matchId = recentMatch.id;
             
@@ -166,6 +175,7 @@ export default function DashboardPage() {
             setRecentResults(resultsData);
         } catch (error) {
             console.error("Error fetching recent results:", error);
+            setDebugMatchName(`Error fetching results: ${(error as Error).message}`);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch recent results.'});
         } finally {
             setIsLoadingResults(false);
