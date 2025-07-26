@@ -103,6 +103,7 @@ export default function DashboardPage() {
         const allMatchesSnapshot = await getDocs(allMatchesQuery);
         const matchesData = allMatchesSnapshot.docs.map(doc => {
             const data = doc.data();
+            // Ensure date is a JS Date object for calculations
             let date = data.date;
             if (date instanceof Timestamp) {
                 date = date.toDate();
@@ -162,7 +163,31 @@ export default function DashboardPage() {
             const resultsSnapshot = await getDocs(resultsQuery);
             const resultsData = resultsSnapshot.docs.map(d => d.data() as Result);
             
-            const sortedResults = resultsData.sort((a, b) => (a.position || 999) - (b.position || 999));
+            // Calculate ranks correctly
+            const anglersWithWeight = resultsData
+                .filter(r => r.status === 'OK' && r.weight > 0)
+                .sort((a, b) => b.weight - a.weight);
+
+            const lastRankedPosition = anglersWithWeight.length;
+            const didNotWeighRank = lastRankedPosition + 1;
+
+            const finalResults = resultsData.map(result => {
+                if (['DNW', 'DNF', 'DSQ'].includes(result.status || '')) {
+                    return { ...result, position: didNotWeighRank };
+                }
+                const rankedIndex = anglersWithWeight.findIndex(r => r.userId === result.userId);
+                if (rankedIndex !== -1) {
+                    return { ...result, position: rankedIndex + 1 };
+                }
+                // If status is OK but weight is 0, or some other edge case
+                if(result.status === 'OK' && result.weight === 0) {
+                    return { ...result, position: didNotWeighRank };
+                }
+                // Fallback for any other case
+                return result;
+            });
+            
+            const sortedResults = finalResults.sort((a, b) => (a.position || 999) - (b.position || 999));
             setRecentResults(sortedResults);
 
         } else {
