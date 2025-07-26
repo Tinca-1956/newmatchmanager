@@ -202,11 +202,10 @@ export default function ResultsPage() {
     
     // Memoized list of completed matches for the dropdown
     const completedMatchesForDropdown = useMemo(() => {
-        let matches = allMatchesForClub.filter(m => m.status === 'Completed');
-        if (selectedSeriesId !== 'all') {
-            matches = matches.filter(m => m.seriesId === selectedSeriesId);
+        if (selectedSeriesId === 'all') {
+            return allMatchesForClub;
         }
-        return matches;
+        return allMatchesForClub.filter(m => m.seriesId === selectedSeriesId);
     }, [allMatchesForClub, selectedSeriesId]);
 
     const handleClubChange = (clubId: string) => {
