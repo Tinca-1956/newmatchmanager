@@ -35,6 +35,8 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
+type ResultWithSectionRank = ResultType & { sectionRank?: number };
+
 export default function ResultsPage() {
     const { user } = useAuth();
     const { toast } = useToast();
@@ -43,7 +45,7 @@ export default function ResultsPage() {
     const [allClubs, setAllClubs] = useState<Club[]>([]);
     const [seriesForClub, setSeriesForClub] = useState<Series[]>([]);
     const [matchesForSeries, setMatchesForSeries] = useState<Match[]>([]);
-    const [resultsForMatch, setResultsForMatch] = useState<ResultType[]>([]);
+    const [resultsForMatch, setResultsForMatch] = useState<ResultWithSectionRank[]>([]);
 
     const [selectedClubId, setSelectedClubId] = useState<string>('');
     const [selectedSeriesId, setSelectedSeriesId] = useState<string>('');
@@ -159,6 +161,36 @@ export default function ResultsPage() {
         }
     };
 
+    const calculateSectionRanks = (results: ResultType[]): ResultWithSectionRank[] => {
+        const resultsWithSectionRank: ResultWithSectionRank[] = results.map(r => ({ ...r }));
+        
+        const resultsBySection: { [key: string]: ResultWithSectionRank[] } = {};
+        resultsWithSectionRank.forEach(result => {
+            if (result.section) {
+                if (!resultsBySection[result.section]) {
+                    resultsBySection[result.section] = [];
+                }
+                resultsBySection[result.section].push(result);
+            }
+        });
+
+        for (const section in resultsBySection) {
+            const sectionResultsWithWeight = resultsBySection[section]
+                .filter(r => r.status === 'OK' && r.weight > 0)
+                .sort((a, b) => b.weight - a.weight);
+
+            sectionResultsWithWeight.forEach((result, index) => {
+                const originalIndex = resultsWithSectionRank.findIndex(r => r.userId === result.userId && r.matchId === result.matchId);
+                if (originalIndex !== -1) {
+                    resultsWithSectionRank[originalIndex].sectionRank = index + 1;
+                }
+            });
+        }
+    
+        return resultsWithSectionRank;
+    };
+
+
     // Step 4: Handle Match Selection -> Fetch Results
     const handleMatchChange = async (matchId: string) => {
         if (!matchId || !firestore) return;
@@ -171,7 +203,10 @@ export default function ResultsPage() {
             const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', matchId));
             const resultsSnapshot = await getDocs(resultsQuery);
             const resultsData = resultsSnapshot.docs.map(r => r.data() as ResultType);
-            setResultsForMatch(resultsData);
+
+            const resultsWithRanks = calculateSectionRanks(resultsData);
+            setResultsForMatch(resultsWithRanks);
+
         } catch (error) {
             console.error("Error fetching results:", error);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch results for the selected match.' });
@@ -191,7 +226,8 @@ export default function ResultsPage() {
                 const sectionB = b.section || '';
                 if (sectionA < sectionB) return -1;
                 if (sectionA > sectionB) return 1;
-                return (a.position || 999) - (b.position || 999);
+                // if sections are equal, sort by section rank
+                return (a.sectionRank || 999) - (b.sectionRank || 999);
             });
         }
         if (sortBy === 'Peg') {
@@ -213,6 +249,7 @@ export default function ResultsPage() {
                     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                 </TableRow>
@@ -222,7 +259,7 @@ export default function ResultsPage() {
         if (sortedResults.length === 0) {
             return (
                 <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
+                    <TableCell colSpan={7} className="h-24 text-center">
                        {selectedMatchId ? "No results found for this match." : "Select a match to view results."}
                     </TableCell>
                 </TableRow>
@@ -235,6 +272,7 @@ export default function ResultsPage() {
                 <TableCell className="font-medium">{result.userName}</TableCell>
                 <TableCell>{result.peg || '-'}</TableCell>
                 <TableCell>{result.section || '-'}</TableCell>
+                <TableCell>{result.sectionRank || '-'}</TableCell>
                 <TableCell>{result.weight.toFixed(3)}</TableCell>
                 <TableCell><Badge variant="outline">{result.status || 'OK'}</Badge></TableCell>
             </TableRow>
@@ -259,7 +297,7 @@ export default function ResultsPage() {
                             <Label htmlFor="club-filter">Club</Label>
                             <Select 
                                 value={selectedClubId} 
-                                onValueChange={handleClubChange}
+                                onValueChange={(value) => handleClubChange(value)}
                                 disabled={isLoadingClubs || allClubs.length === 0}
                             >
                                 <SelectTrigger id="club-filter" className="w-52">
@@ -346,6 +384,7 @@ export default function ResultsPage() {
                                 <TableHead>Angler</TableHead>
                                 <TableHead>Peg</TableHead>
                                 <TableHead>Section</TableHead>
+                                <TableHead>Section Rank</TableHead>
                                 <TableHead>Weight (Kg)</TableHead>
                                 <TableHead>Status</TableHead>
                             </TableRow>
@@ -359,3 +398,5 @@ export default function ResultsPage() {
         </div>
     );
 }
+
+    
