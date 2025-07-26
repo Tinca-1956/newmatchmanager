@@ -34,6 +34,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
+import { Button } from '@/components/ui/button';
+import { Download } from 'lucide-react';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 type ResultWithSectionRank = ResultType & { sectionRank?: number };
 
@@ -78,7 +82,6 @@ export default function ResultsPage() {
                     setAllClubs(clubsData);
                     if (userData?.primaryClubId) {
                       setSelectedClubId(userData.primaryClubId);
-                      handleClubChange(userData.primaryClubId, true);
                     }
                 } else if (userData?.primaryClubId) {
                     const clubDocRef = doc(firestore, 'clubs', userData.primaryClubId);
@@ -87,7 +90,6 @@ export default function ResultsPage() {
                         const primaryClub = { id: clubDoc.id, ...clubDoc.data() } as Club;
                         setAllClubs([primaryClub]);
                         setSelectedClubId(primaryClub.id);
-                        handleClubChange(primaryClub.id, true);
                     }
                 }
             } catch (error) {
@@ -103,75 +105,96 @@ export default function ResultsPage() {
     }, [user, isSiteAdmin, adminLoading, toast]);
 
     // Step 2: Handle Club Selection -> Fetch Series
-    const handleClubChange = (clubId: string, isInitialLoad = false) => {
-        if (!clubId || !firestore) return;
-        
-        if (!isInitialLoad) {
-            setSelectedClubId(clubId);
-            setSelectedSeriesId('');
-            setSelectedMatchId('');
+    useEffect(() => {
+        if (!selectedClubId || !firestore) {
+            setSeriesForClub([]);
             setMatchesForSeries([]);
             setResultsForMatch([]);
+            setSelectedSeriesId('');
+            setSelectedMatchId('');
+            return;
         }
 
         setIsLoadingSeries(true);
-        try {
-            const seriesQuery = query(collection(firestore, 'series'), where('clubId', '==', clubId));
-            const unsubscribe = onSnapshot(seriesQuery, (seriesSnapshot) => {
-                const seriesData = seriesSnapshot.docs.map(s => ({ id: s.id, ...s.data() } as Series));
-                setSeriesForClub(seriesData);
-                setIsLoadingSeries(false);
-            }, (error) => {
-                console.error("Error fetching series:", error);
-                toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series for the selected club.' });
-                setIsLoadingSeries(false);
-            });
-            // Note: This immediate unsubscribe might not be ideal in a fully reactive app, but fits the current direct-fetch model.
-            // For a real-time app, you'd return the unsubscribe function from useEffect.
-        } catch (error) {
-             console.error("Error setting up series fetch:", error);
-             toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series for the selected club.' });
-             setIsLoadingSeries(false);
-        }
-    };
+        const seriesQuery = query(collection(firestore, 'series'), where('clubId', '==', selectedClubId), orderBy('name'));
+        const unsubscribe = onSnapshot(seriesQuery, (seriesSnapshot) => {
+            const seriesData = seriesSnapshot.docs.map(s => ({ id: s.id, ...s.data() } as Series));
+            setSeriesForClub(seriesData);
+            setIsLoadingSeries(false);
+        }, (error) => {
+            console.error("Error fetching series:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch series for the selected club.' });
+            setIsLoadingSeries(false);
+        });
+
+        return () => unsubscribe();
+    }, [selectedClubId, toast]);
 
     // Step 3: Handle Series Selection -> Fetch Matches
-    const handleSeriesChange = async (seriesId: string) => {
-        if (!seriesId || !firestore) return;
-
-        setSelectedSeriesId(seriesId);
-        setSelectedMatchId('');
-        setResultsForMatch([]);
+    useEffect(() => {
+        if (!selectedSeriesId || !firestore) {
+            setMatchesForSeries([]);
+            setResultsForMatch([]);
+            setSelectedMatchId('');
+            return;
+        }
 
         setIsLoadingMatches(true);
-        try {
-            const matchesQuery = query(collection(firestore, 'matches'), where('seriesId', '==', seriesId));
-            const matchesSnapshot = await getDocs(matchesQuery);
+        const matchesQuery = query(
+            collection(firestore, 'matches'),
+            where('seriesId', '==', selectedSeriesId)
+        );
+        
+        const unsubscribe = onSnapshot(matchesQuery, (matchesSnapshot) => {
             const matchesData = matchesSnapshot.docs.map(m => ({
                 id: m.id,
                 ...m.data(),
                 date: (m.data().date as Timestamp).toDate(),
             } as Match));
             setMatchesForSeries(matchesData);
-        } catch (error) {
+            setIsLoadingMatches(false);
+        }, (error) => {
             console.error("Error fetching matches:", error);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches for the selected series.' });
-        } finally {
             setIsLoadingMatches(false);
-        }
-    };
+        });
+        
+        return () => unsubscribe();
+    }, [selectedSeriesId, toast]);
 
+    // Step 4: Handle Match Selection -> Fetch Results
+    useEffect(() => {
+        if (!selectedMatchId || !firestore) {
+            setResultsForMatch([]);
+            return;
+        }
+
+        setIsLoadingResults(true);
+        const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', selectedMatchId));
+        const unsubscribe = onSnapshot(resultsQuery, (resultsSnapshot) => {
+            const resultsData = resultsSnapshot.docs.map(r => r.data() as ResultType);
+            const resultsWithRanks = calculateSectionRanks(resultsData);
+            setResultsForMatch(resultsWithRanks);
+            setIsLoadingResults(false);
+        }, (error) => {
+            console.error("Error fetching results:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch results for the selected match.' });
+            setIsLoadingResults(false);
+        });
+        
+        return () => unsubscribe();
+    }, [selectedMatchId, toast]);
+    
     const calculateSectionRanks = (results: ResultType[]): ResultWithSectionRank[] => {
         const resultsWithSectionRank: ResultWithSectionRank[] = results.map(r => ({ ...r }));
         
         const resultsBySection: { [key: string]: ResultWithSectionRank[] } = {};
         resultsWithSectionRank.forEach(result => {
-            if (result.section) {
-                if (!resultsBySection[result.section]) {
-                    resultsBySection[result.section] = [];
-                }
-                resultsBySection[result.section].push(result);
+            const section = result.section || 'default';
+            if (!resultsBySection[section]) {
+                resultsBySection[section] = [];
             }
+            resultsBySection[section].push(result);
         });
 
         for (const section in resultsBySection) {
@@ -190,31 +213,6 @@ export default function ResultsPage() {
         return resultsWithSectionRank;
     };
 
-
-    // Step 4: Handle Match Selection -> Fetch Results
-    const handleMatchChange = async (matchId: string) => {
-        if (!matchId || !firestore) return;
-
-        setSelectedMatchId(matchId);
-        setResultsForMatch([]);
-
-        setIsLoadingResults(true);
-        try {
-            const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', matchId));
-            const resultsSnapshot = await getDocs(resultsQuery);
-            const resultsData = resultsSnapshot.docs.map(r => r.data() as ResultType);
-
-            const resultsWithRanks = calculateSectionRanks(resultsData);
-            setResultsForMatch(resultsWithRanks);
-
-        } catch (error) {
-            console.error("Error fetching results:", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch results for the selected match.' });
-        } finally {
-            setIsLoadingResults(false);
-        }
-    };
-
     const sortedResults = useMemo(() => {
         const resultsCopy = [...resultsForMatch];
         if (sortBy === 'Overall') {
@@ -226,7 +224,6 @@ export default function ResultsPage() {
                 const sectionB = b.section || '';
                 if (sectionA < sectionB) return -1;
                 if (sectionA > sectionB) return 1;
-                // if sections are equal, sort by section rank
                 return (a.sectionRank || 999) - (b.sectionRank || 999);
             });
         }
@@ -234,12 +231,50 @@ export default function ResultsPage() {
              return resultsCopy.sort((a, b) => {
                 const pegA = a.peg || '';
                 const pegB = b.peg || '';
-                // Basic alphanumeric sort for pegs like 'A1', 'A2', 'B1'
                 return pegA.localeCompare(pegB, undefined, { numeric: true, sensitivity: 'base' });
             });
         }
         return resultsCopy;
     }, [resultsForMatch, sortBy]);
+
+    const handleCreatePdf = () => {
+        if (sortedResults.length === 0) {
+            toast({
+                variant: 'destructive',
+                title: 'No Data',
+                description: 'There are no results to export.',
+            });
+            return;
+        }
+
+        const doc = new jsPDF();
+        const club = allClubs.find(c => c.id === selectedClubId);
+        const series = seriesForClub.find(s => s.id === selectedSeriesId);
+        const match = matchesForSeries.find(m => m.id === selectedMatchId);
+
+        doc.setFontSize(18);
+        doc.text(`Results for ${match?.name || 'Match'}`, 14, 22);
+        doc.setFontSize(12);
+        doc.text(`${series?.name || 'Series'} - ${club?.name || 'Club'}`, 14, 30);
+
+        (doc as any).autoTable({
+            startY: 40,
+            head: [['Pos', 'Angler', 'Peg', 'Section', 'Sec Rank', 'Weight (Kg)', 'Status']],
+            body: sortedResults.map(r => [
+                r.position || '-',
+                r.userName,
+                r.peg || '-',
+                r.section || '-',
+                r.sectionRank || '-',
+                r.weight.toFixed(3),
+                r.status || 'OK',
+            ]),
+            theme: 'striped',
+            headStyles: { fillColor: [34, 49, 63] },
+        });
+
+        doc.save(`results-${match?.name.replace(/\s+/g, '-') || 'export'}.pdf`);
+    };
 
     const renderResultsList = () => {
         if (isLoadingResults) {
@@ -292,15 +327,15 @@ export default function ResultsPage() {
                     <CardDescription>Filter and view results from completed matches.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="flex items-end gap-4 mb-6">
+                    <div className="flex flex-wrap items-end gap-4 mb-6">
                         <div className="flex flex-col gap-1.5">
                             <Label htmlFor="club-filter">Club</Label>
                             <Select 
                                 value={selectedClubId} 
-                                onValueChange={(value) => handleClubChange(value)}
+                                onValueChange={(value) => setSelectedClubId(value)}
                                 disabled={isLoadingClubs || allClubs.length === 0}
                             >
-                                <SelectTrigger id="club-filter" className="w-52">
+                                <SelectTrigger id="club-filter" className="w-[200px]">
                                     <SelectValue placeholder="Select a club..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -316,10 +351,10 @@ export default function ResultsPage() {
                             <Label htmlFor="series-filter">Series</Label>
                             <Select 
                                 value={selectedSeriesId} 
-                                onValueChange={handleSeriesChange} 
+                                onValueChange={(value) => setSelectedSeriesId(value)}
                                 disabled={!selectedClubId || isLoadingSeries}
                             >
-                                <SelectTrigger id="series-filter" className="w-52">
+                                <SelectTrigger id="series-filter" className="w-[200px]">
                                     <SelectValue placeholder="Select a series..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -339,10 +374,10 @@ export default function ResultsPage() {
                             <Label htmlFor="match-filter">Match</Label>
                             <Select 
                                 value={selectedMatchId} 
-                                onValueChange={handleMatchChange} 
+                                onValueChange={(value) => setSelectedMatchId(value)}
                                 disabled={!selectedSeriesId || isLoadingMatches}
                             >
-                                <SelectTrigger id="match-filter" className="w-52">
+                                <SelectTrigger id="match-filter" className="w-[200px]">
                                     <SelectValue placeholder="Select a match..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -365,7 +400,7 @@ export default function ResultsPage() {
                                 onValueChange={(value) => setSortBy(value as 'Overall' | 'Section' | 'Peg')}
                                 disabled={resultsForMatch.length === 0}
                             >
-                                <SelectTrigger id="sort-by" className="w-48">
+                                <SelectTrigger id="sort-by" className="w-[180px]">
                                     <SelectValue placeholder="Sort by..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -374,6 +409,13 @@ export default function ResultsPage() {
                                     <SelectItem value="Peg">Peg</SelectItem>
                                 </SelectContent>
                             </Select>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                             <Label>&nbsp;</Label> {/* Spacer for alignment */}
+                            <Button onClick={handleCreatePdf} disabled={sortedResults.length === 0}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Create PDF
+                            </Button>
                         </div>
                     </div>
 
@@ -398,5 +440,3 @@ export default function ResultsPage() {
         </div>
     );
 }
-
-    
