@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -278,7 +279,7 @@ export default function DashboardPage() {
             <CardHeader>
                 <CardTitle>Recent Results</CardTitle>
                  {isLoadingResults ? (
-                    <Skeleton className="h-5 w-32" />
+                    <Skeleton className="h-5 w-48" />
                 ) : (
                     <CardDescription>{recentResultsTitle}</CardDescription>
                 )}
