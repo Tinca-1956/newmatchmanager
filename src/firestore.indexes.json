@@ -10,20 +10,6 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "date",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "matches",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "clubId",
-          "order": "ASCENDING"
-        },
-        {
           "fieldPath": "status",
           "order": "ASCENDING"
         },
@@ -74,20 +60,6 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "clubId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "date",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "results",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
           "fieldPath": "matchId",
           "order": "ASCENDING"
         },
@@ -96,9 +68,35 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "matches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "clubId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "results",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "clubId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []
 }
-
-
