@@ -153,12 +153,24 @@ export default function WeighInPage() {
     sortedByWeight.forEach((result, index) => {
       positionMap.set(result.userId, index + 1);
     });
+    
+    const lastRank = sortedByWeight.length;
+    const didNotWeighRank = lastRank + 1;
 
-    return currentResults.map(r => ({
-      ...r,
-      position: positionMap.get(r.userId) || null,
-    }));
-  };
+    return currentResults.map(r => {
+        let position: number | null = null;
+        if (r.status === 'OK') {
+            position = positionMap.get(r.userId) || null;
+        } else if (['DNW', 'DNF', 'DSQ'].includes(r.status)) {
+            position = didNotWeighRank;
+        }
+
+        return {
+            ...r,
+            position,
+        };
+    });
+};
   
   const handleFieldChange = (userId: string, field: keyof AnglerResultData, value: string | number) => {
     setResults(prev => 
@@ -180,34 +192,65 @@ export default function WeighInPage() {
     try {
         const batch = writeBatch(firestore);
 
-        // First, save the specific angler's result
+        // Recalculate ranks for all anglers based on the latest change
+        const updatedResultsWithRanks = calculateRanks(results);
+
+        // Find the specific result to save from the newly ranked list
+        const resultToSaveFromRanked = updatedResultsWithRanks.find(r => r.userId === userId);
+        if (!resultToSaveFromRanked) {
+             throw new Error("Could not find result in ranked list.");
+        }
+
         const resultToSave = {
             matchId: match.id,
             seriesId: match.seriesId,
             clubId: match.clubId,
             date: match.date,
-            userId: anglerResult.userId,
-            userName: anglerResult.userName,
-            peg: anglerResult.peg,
-            section: anglerResult.section,
-            weight: Number(anglerResult.weight) || 0,
-            status: anglerResult.status,
-            position: anglerResult.position,
+            userId: resultToSaveFromRanked.userId,
+            userName: resultToSaveFromRanked.userName,
+            peg: resultToSaveFromRanked.peg,
+            section: resultToSaveFromRanked.section,
+            weight: Number(resultToSaveFromRanked.weight) || 0,
+            status: resultToSaveFromRanked.status,
+            position: resultToSaveFromRanked.position,
         };
-
-        const resultDocRef = anglerResult.resultDocId 
-            ? doc(firestore, 'results', anglerResult.resultDocId)
+        
+        const resultDocRef = resultToSaveFromRanked.resultDocId 
+            ? doc(firestore, 'results', resultToSaveFromRanked.resultDocId)
             : doc(collection(firestore, 'results'));
         
         batch.set(resultDocRef, resultToSave, { merge: true });
-
-        // Then, update all positions in a single batch write
-        const updatedResultsWithRanks = calculateRanks(results);
+        
+        // Then, update all other results with their new positions
         updatedResultsWithRanks.forEach(res => {
-            if (res.resultDocId) {
-                const docRef = doc(firestore, 'results', res.resultDocId);
-                batch.update(docRef, { position: res.position });
-            }
+            // No need to update the one we are already saving
+            if (res.userId === userId) return;
+
+            const docRefToUpdate = res.resultDocId 
+                ? doc(firestore, 'results', res.resultDocId)
+                : doc(collection(firestore, 'results')); // Should not happen for existing results, but safe
+            
+            // Create a temporary object to avoid saving the full result data again
+            const updatePayload = {
+                ...res, // start with all fields
+                position: res.position // ensure position is updated
+            };
+
+            // This ensures a result document is created if it doesn't exist,
+            // and updated with the new rank if it does.
+            batch.set(docRefToUpdate, { 
+                matchId: match.id,
+                seriesId: match.seriesId,
+                clubId: match.clubId,
+                date: match.date,
+                userId: res.userId,
+                userName: res.userName,
+                peg: res.peg,
+                section: res.section,
+                weight: Number(res.weight) || 0,
+                status: res.status,
+                position: res.position,
+             }, { merge: true });
         });
         
         await batch.commit();
