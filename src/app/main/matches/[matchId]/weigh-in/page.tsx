@@ -38,7 +38,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, List, LayoutGrid } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
-import { doc, getDoc, collection, query, where, onSnapshot, writeBatch, Timestamp, getDocs, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, onSnapshot, writeBatch, Timestamp, getDocs } from 'firebase/firestore';
 import type { Match, User, Result, WeighInStatus, UserRole } from '@/lib/types';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
@@ -211,7 +211,6 @@ export default function WeighInPage() {
 
     try {
         const batch = writeBatch(firestore);
-        const matchDocRef = doc(firestore, 'matches', match.id);
 
         // Recalculate ranks for all anglers based on the latest change
         const updatedResultsWithRanks = calculateRanks(results);
@@ -267,13 +266,10 @@ export default function WeighInPage() {
                 position: res.position,
              }, { merge: true });
         });
-
-        // Set the parent match status to 'Completed'
-        batch.update(matchDocRef, { status: 'Completed' });
         
         await batch.commit();
 
-        toast({ title: 'Success', description: `${anglerResult.userName}'s result has been saved and match marked as completed.` });
+        toast({ title: 'Success', description: `${anglerResult.userName}'s result has been saved.` });
     } catch (error) {
         console.error("Error saving result:", error);
         toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the result.' });

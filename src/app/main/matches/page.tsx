@@ -30,7 +30,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, onSnapshot, doc, query, where, getDocs, getDoc, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, onSnapshot, doc, query, where, getDocs, getDoc, orderBy, Timestamp, writeBatch } from 'firebase/firestore';
 import type { Match, User, Club, MatchStatus } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -83,7 +83,6 @@ export default function MatchesPage() {
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   
   const [isLoading, setIsLoading] = useState(true);
-  const [currentTime, setCurrentTime] = useState(new Date());
 
 
   const {
@@ -132,16 +131,7 @@ export default function MatchesPage() {
     fetchInitialData();
   }, [user, isSiteAdmin, adminLoading]);
   
-   // Effect to update current time every minute
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000); // 60 seconds
-
-    return () => clearInterval(timer);
-  }, []);
-
-  // Effect to fetch matches for the selected club
+  // Effect to fetch matches for the selected club and update statuses
   useEffect(() => {
     if (!selectedClubId || !firestore) {
         setIsLoading(false);
@@ -157,14 +147,37 @@ export default function MatchesPage() {
       orderBy('date', 'desc')
     );
 
-    const unsubscribeMatches = onSnapshot(matchesQuery, (snapshot) => {
+    const unsubscribeMatches = onSnapshot(matchesQuery, async (snapshot) => {
       const matchesData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         date: (doc.data().date as Timestamp).toDate(),
       } as Match));
+
       setMatches(matchesData);
       setIsLoading(false);
+      
+      // Update statuses in the background
+      const batch = writeBatch(firestore);
+      let updatesMade = 0;
+      matchesData.forEach(match => {
+        const calculatedStatus = getCalculatedStatus(match);
+        if(match.status !== calculatedStatus && match.status !== 'Cancelled') {
+            const matchRef = doc(firestore, 'matches', match.id);
+            batch.update(matchRef, { status: calculatedStatus });
+            updatesMade++;
+        }
+      });
+
+      if (updatesMade > 0) {
+        try {
+            await batch.commit();
+            console.log(`Updated status for ${updatesMade} matches.`);
+        } catch (error) {
+            console.error("Failed to batch update match statuses:", error);
+        }
+      }
+
     }, (error) => {
       console.error("Error fetching matches: ", error);
       toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches.' });
@@ -181,7 +194,7 @@ export default function MatchesPage() {
       ...match,
       calculatedStatus: getCalculatedStatus(match),
     }));
-  }, [matches, currentTime]);
+  }, [matches]);
 
   const renderMatchList = () => {
     if (isLoading) {
@@ -217,7 +230,7 @@ export default function MatchesPage() {
           <TableCell className="font-medium">{match.seriesName}</TableCell>
           <TableCell>{match.name}</TableCell>
           <TableCell>{match.location}</TableCell>
-          <TableCell>{format(match.date, 'E, dd MMM yyyy')}</TableCell>
+          <TableCell>{format(match.date, 'dd/MM/yyyy')}</TableCell>
           <TableCell>{match.capacity}</TableCell>
           <TableCell>{match.registeredCount}</TableCell>
           <TableCell><Badge variant="outline">{match.calculatedStatus}</Badge></TableCell>
@@ -375,5 +388,3 @@ export default function MatchesPage() {
     </>
   );
 }
-
-    

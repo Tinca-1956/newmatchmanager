@@ -59,7 +59,6 @@ export default function DashboardPage() {
   const [recentResults, setRecentResults] = useState<Result[]>([]);
   const [recentMatchName, setRecentMatchName] = useState<string>('');
   const [recentSeriesName, setRecentSeriesName] = useState<string>('');
-  const [debugMatchName, setDebugMatchName] = useState<string>('');
 
 
   const [isLoading, setIsLoading] = useState(true);
@@ -123,46 +122,28 @@ export default function DashboardPage() {
         setIsLoadingResults(true);
         setRecentMatchName('');
         setRecentSeriesName('');
-        setDebugMatchName('');
 
-        // Fetch ALL matches for the club, we will filter client-side
-        const allMatchesQuery = query(
+        const completedMatchesQuery = query(
             collection(firestore, 'matches'),
-            where('clubId', '==', userProfile.primaryClubId)
+            where('clubId', '==', userProfile.primaryClubId),
+            where('status', '==', 'Completed'),
+            orderBy('date', 'desc'),
+            limit(1)
         );
 
         try {
-            const allMatchesSnapshot = await getDocs(allMatchesQuery);
-            if (allMatchesSnapshot.empty) {
-                setDebugMatchName('No matches found for this club at all.');
+            const completedMatchesSnapshot = await getDocs(completedMatchesQuery);
+            if (completedMatchesSnapshot.empty) {
                 setRecentResults([]);
                 setIsLoadingResults(false);
                 return;
             }
             
-            const allMatches = allMatchesSnapshot.docs.map(doc => ({ 
-                id: doc.id, 
-                ...doc.data() as Match, 
-                date: (doc.data().date as Timestamp).toDate() 
-            }));
-
-            const completedMatches = allMatches.filter(m => m.status === 'Completed');
-
-            if (completedMatches.length === 0) {
-                 setDebugMatchName('Found matches, but none are marked as "Completed".');
-                 setRecentResults([]);
-                 setIsLoadingResults(false);
-                 return;
-            }
-
-            completedMatches.sort((a, b) => b.date.getTime() - a.date.getTime());
-            
-            const recentMatch = completedMatches[0];
-            const matchId = recentMatch.id;
+            const recentMatch = completedMatchesSnapshot.docs[0].data() as Match;
+            const matchId = completedMatchesSnapshot.docs[0].id;
             
             setRecentMatchName(recentMatch.name);
             setRecentSeriesName(recentMatch.seriesName);
-            setDebugMatchName(recentMatch.name); // Set debug match name
 
             const resultsQuery = query(
                 collection(firestore, 'results'),
@@ -175,7 +156,6 @@ export default function DashboardPage() {
             setRecentResults(resultsData);
         } catch (error) {
             console.error("Error fetching recent results:", error);
-            setDebugMatchName(`Error fetching results: ${(error as Error).message}`);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch recent results.'});
         } finally {
             setIsLoadingResults(false);
@@ -266,11 +246,6 @@ export default function DashboardPage() {
           Welcome back, {userProfile?.firstName || 'Angler'}. Here&apos;s what&apos;s happening in
           your club.
         </p>
-         {debugMatchName && (
-            <p className="mt-4 p-2 bg-yellow-100 border border-yellow-400 text-yellow-800 rounded-md">
-                DEBUG: Most recent match found: <strong>{debugMatchName}</strong>
-            </p>
-        )}
       </div>
 
       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
