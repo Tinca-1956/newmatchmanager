@@ -305,11 +305,11 @@ export default function WeighInPage() {
                                     <SelectValue placeholder="Select status" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="NYW">Not Yet Weighed (NYW)</SelectItem>
+                                    <SelectItem value="NYW">NYW</SelectItem>
                                     <SelectItem value="OK">OK</SelectItem>
-                                    <SelectItem value="DNW">Did Not Weigh (DNW)</SelectItem>
-                                    <SelectItem value="DNF">Did Not Finish (DNF)</SelectItem>
-                                    <SelectItem value="DSQ">Disqualified (DSQ)</SelectItem>
+                                    <SelectItem value="DNW">DNW</SelectItem>
+                                    <SelectItem value="DNF">DNF</SelectItem>
+                                    <SelectItem value="DSQ">DSQ</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
