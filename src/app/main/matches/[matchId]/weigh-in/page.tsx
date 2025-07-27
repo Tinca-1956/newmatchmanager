@@ -389,12 +389,12 @@ export default function WeighInPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Angler</TableHead>
-              <TableHead className="w-[120px]">Peg No.</TableHead>
-              <TableHead className="w-[120px]">Section</TableHead>
-              <TableHead className="w-[150px]">Weight (Kg)</TableHead>
-              <TableHead className="w-[180px]">Status</TableHead>
+              <TableHead>Peg No.</TableHead>
+              <TableHead>Section</TableHead>
+              <TableHead>Weight (Kg)</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Rank</TableHead>
-              <TableHead className="w-[100px]">Action</TableHead>
+              <TableHead>Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -419,12 +419,12 @@ export default function WeighInPage() {
             <TableHeader>
                 <TableRow>
                     <TableHead>Angler</TableHead>
-                    <TableHead className="w-[120px]">Peg No.</TableHead>
-                    <TableHead className="w-[120px]">Section</TableHead>
-                    <TableHead className="w-[150px]">Weight (Kg)</TableHead>
-                    <TableHead className="w-[180px]">Status</TableHead>
+                    <TableHead>Peg No.</TableHead>
+                    <TableHead>Section</TableHead>
+                    <TableHead>Weight (Kg)</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Rank</TableHead>
-                    <TableHead className="w-[100px]">Action</TableHead>
+                    <TableHead>Action</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
