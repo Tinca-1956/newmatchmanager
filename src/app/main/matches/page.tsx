@@ -42,6 +42,7 @@ import { DisplayAnglerListModal } from '@/components/display-angler-list-modal';
 import { EditMatchModal } from '@/components/edit-match-modal';
 import { useMatchActions } from '@/hooks/use-match-actions';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { RemoveAnglerModal } from '@/components/remove-angler-modal';
 
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
@@ -91,6 +92,7 @@ export default function MatchesPage() {
     isAnglerListModalOpen,
     isDisplayAnglerListModalOpen,
     isEditModalOpen,
+    isRemoveAnglerModalOpen,
     selectedMatchForModal,
     selectedMatchIdForModal,
     handleViewResults,
@@ -100,9 +102,11 @@ export default function MatchesPage() {
     closeAnglerListModal,
     closeDisplayAnglerListModal,
     closeEditModal,
+    closeRemoveAnglerModal,
     handleManagePegs,
     handleWeighIn,
     handleAddAnglers,
+    handleRemoveAnglers,
     handleViewAnglerList,
   } = useMatchActions();
 
@@ -227,7 +231,7 @@ export default function MatchesPage() {
                       </Tooltip>
                       <Tooltip>
                           <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon">
+                              <Button variant="ghost" size="icon" onClick={() => handleRemoveAnglers(match)}>
                                   <UserMinus className="h-4 w-4" />
                               </Button>
                           </TooltipTrigger>
@@ -361,6 +365,11 @@ export default function MatchesPage() {
           <EditMatchModal
             isOpen={isEditModalOpen}
             onClose={closeEditModal}
+            match={selectedMatchForModal}
+          />
+           <RemoveAnglerModal
+            isOpen={isRemoveAnglerModalOpen}
+            onClose={closeRemoveAnglerModal}
             match={selectedMatchForModal}
           />
         </>
