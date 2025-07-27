@@ -343,7 +343,7 @@ export default function WeighInPage() {
                     <CardContent className="space-y-4">
                         <div className="flex gap-4">
                             <div className="space-y-2 flex-1">
-                                <Label htmlFor={`peg-${angler.userId}`}>Peg</Label>
+                                <Label htmlFor={`peg-${angler.userId}`}>Peg No.</Label>
                                 <Input id={`peg-${angler.userId}`} value={angler.peg} onChange={e => handleFieldChange(angler.userId, 'peg', e.target.value)} disabled={!canEdit} />
                             </div>
                              <div className="space-y-2 flex-1">
@@ -389,7 +389,7 @@ export default function WeighInPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Angler</TableHead>
-              <TableHead className="w-[120px]">Peg</TableHead>
+              <TableHead className="w-[120px]">Peg No.</TableHead>
               <TableHead className="w-[120px]">Section</TableHead>
               <TableHead className="w-[150px]">Weight (Kg)</TableHead>
               <TableHead className="w-[180px]">Status</TableHead>
@@ -419,7 +419,7 @@ export default function WeighInPage() {
             <TableHeader>
                 <TableRow>
                     <TableHead>Angler</TableHead>
-                    <TableHead className="w-[120px]">Peg</TableHead>
+                    <TableHead className="w-[120px]">Peg No.</TableHead>
                     <TableHead className="w-[120px]">Section</TableHead>
                     <TableHead className="w-[150px]">Weight (Kg)</TableHead>
                     <TableHead className="w-[180px]">Status</TableHead>
