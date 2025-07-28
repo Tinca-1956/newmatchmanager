@@ -54,8 +54,10 @@ export default function AppHeader() {
       }
     }
 
-    fetchPrimaryClub();
-  }, [user]);
+    if (user?.uid) {
+        fetchPrimaryClub();
+    }
+  }, [user?.uid]);
 
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-sidebar text-sidebar-foreground px-4 lg:h-[60px] lg:px-6">
