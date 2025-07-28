@@ -18,7 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, UserPlus, FileText, Trophy, Scale, LogIn, Edit, UserMinus } from 'lucide-react';
+import { PlusCircle, UserPlus, FileText, Trophy, Scale, LogIn, Edit, UserMinus, MapPin } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -43,6 +43,7 @@ import { EditMatchModal } from '@/components/edit-match-modal';
 import { useMatchActions } from '@/hooks/use-match-actions';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { RemoveAnglerModal } from '@/components/remove-angler-modal';
+import { MapViewModal } from '@/components/map-view-modal';
 
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
@@ -86,6 +87,8 @@ export default function MatchesPage() {
   
   const [isLoading, setIsLoading] = useState(true);
 
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+  const [selectedMatchForMap, setSelectedMatchForMap] = useState<Match | null>(null);
 
   const {
     isResultsModalOpen,
@@ -178,6 +181,13 @@ export default function MatchesPage() {
       calculatedStatus: getCalculatedStatus(match),
     }));
   }, [matches]);
+  
+  const handleOpenMap = (match: Match) => {
+    if (match.locationCoords) {
+      setSelectedMatchForMap(match);
+      setIsMapModalOpen(true);
+    }
+  };
 
   const renderMatchList = () => {
     if (isLoading) {
@@ -213,7 +223,16 @@ export default function MatchesPage() {
         <TableRow key={match.id}>
           <TableCell className="font-medium">{match.seriesName}</TableCell>
           <TableCell>{match.name}</TableCell>
-          <TableCell>{match.location}</TableCell>
+          <TableCell>
+            <div className="flex items-center gap-2">
+                {match.location}
+                {match.locationCoords && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenMap(match)}>
+                        <MapPin className="h-4 w-4" />
+                    </Button>
+                )}
+            </div>
+          </TableCell>
           <TableCell>{format(match.date, 'dd/MM/yyyy')}</TableCell>
           <TableCell>{match.capacity}</TableCell>
           <TableCell>{match.registeredCount}</TableCell>
@@ -349,6 +368,12 @@ export default function MatchesPage() {
           </CardContent>
         </Card>
       </div>
+
+      <MapViewModal 
+        isOpen={isMapModalOpen}
+        onClose={() => setIsMapModalOpen(false)}
+        match={selectedMatchForMap}
+      />
 
       {selectedMatchForModal && (
         <>

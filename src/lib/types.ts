@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
 export type UserRole = 'Site Admin' | 'Club Admin' | 'Marshal' | 'Angler';
@@ -54,6 +55,7 @@ export interface Match {
   registeredCount: number;
   registeredAnglers: string[];
   paidPlaces: number;
+  locationCoords?: { lat: number; lng: number } | null;
 }
 
 export interface Result {

@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, MapPin } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import {
   Select,
@@ -30,6 +30,7 @@ import type { Match, Series, MatchStatus } from '@/lib/types';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Skeleton } from './ui/skeleton';
+import { MapPickerModal } from './map-picker-modal';
 
 interface EditMatchModalProps {
   isOpen: boolean;
@@ -43,6 +44,8 @@ export function EditMatchModal({ isOpen, onClose, match }: EditMatchModalProps) 
   const [editedMatch, setEditedMatch] = useState<Match | null>(null);
   const [seriesList, setSeriesList] = useState<Series[]>([]);
   const [isLoadingSeries, setIsLoadingSeries] = useState(false);
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+
 
   useEffect(() => {
     if (match) {
@@ -93,6 +96,11 @@ export function EditMatchModal({ isOpen, onClose, match }: EditMatchModalProps) 
     }
   };
 
+  const handleLocationSelect = (coords: { lat: number; lng: number }) => {
+    setEditedMatch(prev => prev ? { ...prev, locationCoords: coords } : null);
+    setIsMapModalOpen(false);
+  };
+
   const handleSaveChanges = async () => {
     if (!editedMatch || !firestore) return;
     
@@ -122,7 +130,8 @@ export function EditMatchModal({ isOpen, onClose, match }: EditMatchModalProps) 
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <>
+    <Dialog open={isOpen && !isMapModalOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Edit Match</DialogTitle>
@@ -151,7 +160,12 @@ export function EditMatchModal({ isOpen, onClose, match }: EditMatchModalProps) 
 
           <div className="space-y-2">
             <Label htmlFor="location">Location / Venue</Label>
-            <Input id="location" name="location" value={editedMatch.location} onChange={handleInputChange} />
+            <div className="flex items-center gap-2">
+                <Input id="location" name="location" value={editedMatch.location} onChange={handleInputChange} />
+                <Button type="button" variant="outline" size="icon" onClick={() => setIsMapModalOpen(true)}>
+                    <MapPin className="h-4 w-4" />
+                </Button>
+            </div>
           </div>
 
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -236,5 +250,14 @@ export function EditMatchModal({ isOpen, onClose, match }: EditMatchModalProps) 
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    {editedMatch && (
+        <MapPickerModal
+            isOpen={isMapModalOpen}
+            onClose={() => setIsMapModalOpen(false)}
+            currentCoords={editedMatch.locationCoords || null}
+            onLocationSelect={handleLocationSelect}
+        />
+    )}
+    </>
   );
 }

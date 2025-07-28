@@ -12,6 +12,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { MapViewModal } from '@/components/map-view-modal';
+import { Button } from '@/components/ui/button';
+import { MapPin } from 'lucide-react';
 
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
@@ -68,6 +71,9 @@ export default function DashboardPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingResults, setIsLoadingResults] = useState(true);
+
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+  const [selectedMatchForMap, setSelectedMatchForMap] = useState<Match | null>(null);
 
   useEffect(() => {
     if (!user || !firestore) {
@@ -202,6 +208,13 @@ export default function DashboardPage() {
 
   }, [userProfile, toast]);
 
+  const handleOpenMap = (match: Match) => {
+    if (match.locationCoords) {
+      setSelectedMatchForMap(match);
+      setIsMapModalOpen(true);
+    }
+  };
+
   const renderUpcomingMatches = () => {
     if (isLoading) {
       return Array.from({ length: 3 }).map((_, i) => (
@@ -233,9 +246,16 @@ export default function DashboardPage() {
         </TableCell>
         <TableCell className="font-medium">{match.name}</TableCell>
         <TableCell>
-             <div className="flex flex-col">
-                <span>{match.location}</span>
-                <span className="text-xs text-muted-foreground">{getCalculatedStatus(match)}</span>
+             <div className="flex items-center gap-2">
+                <div>
+                    <span>{match.location}</span>
+                    <span className="text-xs text-muted-foreground block">{getCalculatedStatus(match)}</span>
+                </div>
+                {match.locationCoords && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenMap(match)}>
+                        <MapPin className="h-4 w-4" />
+                    </Button>
+                )}
             </div>
         </TableCell>
       </TableRow>
@@ -277,6 +297,7 @@ export default function DashboardPage() {
   const recentResultsTitle = recentSeriesName && recentMatchName ? `${recentSeriesName} - ${recentMatchName}` : 'Last completed match'
 
   return (
+    <>
     <div className="flex flex-col gap-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
@@ -333,5 +354,12 @@ export default function DashboardPage() {
 
       </div>
     </div>
+    
+    <MapViewModal 
+        isOpen={isMapModalOpen}
+        onClose={() => setIsMapModalOpen(false)}
+        match={selectedMatchForMap}
+    />
+    </>
   );
 }
