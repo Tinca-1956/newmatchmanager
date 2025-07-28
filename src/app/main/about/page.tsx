@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -12,6 +13,27 @@ import { Fish } from 'lucide-react';
 
 
 export default function AboutPage() {
+
+  const subject = "MATCH MANAGER - ADD NEW CLUB ENQUIRY";
+  const body = `Dear Stuart,
+
+I am interested in learning more about MATCH MANAGER for my club.
+
+Here are my club details:
+
+Club/association name			:	FILL IN DETAILS HERE
+Number of members			:	FILL IN MEMBER NUMBER HERE
+Number of matches per year	:	FILL IN MATCH NUMBER HERE
+Country						:	FILL IN COUNTRY HERE
+State/County/Province			:	FILL IN COUNTY HERE
+
+Warmest regards
+
+YOUR FULL NAME HERE`;
+
+  const mailtoLink = `mailto:stuart@emancium.com.au?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+
   return (
     <div className="flex flex-col gap-8">
       <div>
@@ -31,7 +53,7 @@ export default function AboutPage() {
             <div className="text-center text-muted-foreground space-y-4">
                 <p>This application is designed to help fishing clubs manage their matches, members, and results with ease.</p>
                 <p>Built with modern technology to provide a seamless and responsive experience for club administrators, marshals, and anglers alike.</p>
-                <p>To start using the app, send your details to <a href="mailto:stuart@emancium.com.au?subject=MATCH%20MANAGER%20-%20ADD%20NEW%20CLUB%20ENQUIRY" className="text-blue-600 hover:underline">stuart@emancium.com.au</a>.</p>
+                <p>To start using the app, send your details to <a href={mailtoLink} className="text-blue-600 hover:underline">stuart@emancium.com.au</a>.</p>
             </div>
         </CardContent>
          <CardFooter className="flex-col items-center gap-4 text-center">
