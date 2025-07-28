@@ -415,7 +415,7 @@ export default function DashboardPage() {
                     <CardDescription>From the last match</CardDescription>
                 )}
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
                 {renderImageGallery()}
             </CardContent>
         </Card>
