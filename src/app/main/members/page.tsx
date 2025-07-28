@@ -307,9 +307,11 @@ export default function MembersPage() {
           )}
         </TableCell>
         <TableCell className="text-right">
-            <Button variant="ghost" size="icon" onClick={() => handleEditClick(member)}>
-                <Edit className="h-4 w-4" />
-            </Button>
+             {canEdit && (
+                <Button variant="ghost" size="icon" onClick={() => handleEditClick(member)}>
+                    <Edit className="h-4 w-4" />
+                </Button>
+            )}
         </TableCell>
       </TableRow>
     ));

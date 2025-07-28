@@ -34,7 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.setUserRole = void 0;
-const firestore_1 = require("firebase-functions/v2/firestore");
+const functions = __importStar(require("firebase-functions"));
 const logger = __importStar(require("firebase-functions/logger"));
 const app_1 = require("firebase-admin/app");
 const auth_1 = require("firebase-admin/auth");
@@ -45,10 +45,13 @@ if ((0, app_1.getApps)().length === 0) {
 /**
  * Cloud Function to set a custom user claim (`role`) whenever a user's
  * document in the `users` collection is created or updated.
+ * This is a 1st generation function to avoid potential Eventarc permission delays.
  */
-exports.setUserRole = (0, firestore_1.onDocumentWritten)("users/{userId}", (event) => {
-    const userId = event.params.userId;
-    const afterData = event.data?.after.data();
+exports.setUserRole = functions.firestore
+    .document("users/{userId}")
+    .onWrite((change, context) => {
+    const userId = context.params.userId;
+    const afterData = change.after.data();
     // If there's no data after the event (e.g., document deletion), do nothing.
     if (!afterData) {
         logger.log(`User document for ${userId} deleted. No action taken.`);
