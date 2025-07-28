@@ -55,7 +55,6 @@ export interface Match {
   registeredCount: number;
   registeredAnglers: string[];
   paidPlaces: number;
-  locationCoords?: { lat: number; lng: number } | null;
 }
 
 export interface Result {
