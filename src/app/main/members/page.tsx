@@ -271,28 +271,29 @@ export default function MembersPage() {
   });
 
   const canEdit = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
+  const canViewEmail = canEdit;
 
   const renderMemberList = () => {
     if (isLoading) {
       return Array.from({ length: 5 }).map((_, i) => (
         <TableRow key={i}>
           <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-          <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+          {canViewEmail && <TableCell><Skeleton className="h-4 w-48" /></TableCell>}
           <TableCell><Skeleton className="h-8 w-24" /></TableCell>
           <TableCell><Skeleton className="h-8 w-32" /></TableCell>
-          <TableCell><Skeleton className="h-8 w-20" /></TableCell>
+          {canEdit && <TableCell><Skeleton className="h-8 w-20" /></TableCell>}
         </TableRow>
       ));
     }
     
     if (filteredMembers.length === 0) {
-        return <TableRow><TableCell colSpan={5} className="h-24 text-center">No members found.</TableCell></TableRow>;
+        return <TableRow><TableCell colSpan={canEdit ? (canViewEmail ? 5 : 4) : (canViewEmail ? 3 : 2)} className="h-24 text-center">No members found.</TableCell></TableRow>;
     }
     
     return filteredMembers.map(member => (
       <TableRow key={member.id}>
         <TableCell className="font-medium">{`${member.firstName} ${member.lastName}`}</TableCell>
-        <TableCell>{member.email}</TableCell>
+        {canViewEmail && <TableCell>{member.email}</TableCell>}
         <TableCell>
           {canEdit ? (
             <Select
@@ -335,39 +336,37 @@ export default function MembersPage() {
             <span>{member.role}</span>
           )}
         </TableCell>
-        <TableCell className="text-right space-x-1">
-             {canEdit && (
-                <>
-                  <Button variant="ghost" size="icon" onClick={() => handleEditClick(member)}>
-                      <Edit className="h-4 w-4" />
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                        <UserX className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will mark {member.firstName} {member.lastName} as 'Deleted'. They will no longer appear in member lists and will lose access. This action can be reversed by a Site Admin.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          className="bg-destructive hover:bg-destructive/90"
-                          onClick={() => handleDeleteUser(member.id)}
-                        >
-                          Confirm Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </>
-            )}
-        </TableCell>
+        {canEdit && (
+            <TableCell className="text-right space-x-1">
+                <Button variant="ghost" size="icon" onClick={() => handleEditClick(member)}>
+                    <Edit className="h-4 w-4" />
+                </Button>
+                <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                    <UserX className="h-4 w-4" />
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will mark {member.firstName} {member.lastName} as 'Deleted'. They will no longer appear in member lists and will lose access. This action can be reversed by a Site Admin.
+                    </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                        className="bg-destructive hover:bg-destructive/90"
+                        onClick={() => handleDeleteUser(member.id)}
+                    >
+                        Confirm Delete
+                    </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+                </AlertDialog>
+            </TableCell>
+        )}
       </TableRow>
     ));
   };
@@ -480,10 +479,10 @@ export default function MembersPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
+                  {canViewEmail && <TableHead>Email</TableHead>}
                   <TableHead>Status</TableHead>
                   <TableHead>Role</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  {canEdit && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
