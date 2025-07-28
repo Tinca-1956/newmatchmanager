@@ -341,12 +341,12 @@ export default function WeighInPage() {
                         {angler.position && <CardDescription>Overall Rank: {angler.position}</CardDescription>}
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="flex gap-4">
-                            <div className="space-y-2 flex-1">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
                                 <Label htmlFor={`peg-${angler.userId}`}>Peg No.</Label>
                                 <Input id={`peg-${angler.userId}`} value={angler.peg} onChange={e => handleFieldChange(angler.userId, 'peg', e.target.value)} disabled={!canEdit} />
                             </div>
-                             <div className="space-y-2 flex-1">
+                             <div className="space-y-2">
                                 <Label htmlFor={`section-${angler.userId}`}>Section</Label>
                                 <Input id={`section-${angler.userId}`} value={angler.section} onChange={e => handleFieldChange(angler.userId, 'section', e.target.value)} disabled={!canEdit} />
                             </div>
@@ -388,13 +388,13 @@ export default function WeighInPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[120px]">Angler</TableHead>
-              <TableHead className="w-[80px]">Peg No.</TableHead>
-              <TableHead className="w-[80px]">Section</TableHead>
-              <TableHead className="w-[100px]">Weight (Kg)</TableHead>
-              <TableHead className="w-[120px]">Status</TableHead>
-              <TableHead className="w-[80px]">Rank</TableHead>
-              <TableHead className="w-[100px]">Action</TableHead>
+              <TableHead className="w-[25%]">Angler</TableHead>
+              <TableHead className="w-[15%]">Peg No.</TableHead>
+              <TableHead className="w-[15%]">Section</TableHead>
+              <TableHead className="w-[15%]">Weight (Kg)</TableHead>
+              <TableHead className="w-[15%]">Status</TableHead>
+              <TableHead className="w-[15%]">Rank</TableHead>
+              <TableHead>Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
