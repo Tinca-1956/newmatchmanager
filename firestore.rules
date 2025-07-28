@@ -1,13 +1,51 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Helper function to check if the requesting user is an admin.
+    // It checks the 'role' field in the user's own document.
+    function isRequestingUserAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Site Admin', 'Club Admin'];
+    }
     
-    // Default allow read for all collections for authenticated users.
-    // WARNING: This is for debugging only and is not secure for production.
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    // USERS
+    // Admins can list users. Individual users can read/write their own document.
+    match /users/{userId} {
+      allow read, write: if request.auth.uid == userId;
+      allow list: if isRequestingUserAdmin();
+    }
+    
+    // CLUBS
+    // Any authenticated user can read the list of clubs.
+    // Only admins can create or update clubs.
+    match /clubs/{clubId} {
+      allow read: if request.auth != null;
+      allow write: if isRequestingUserAdmin();
+    }
+    
+    // SERIES
+    // Any authenticated user can read the list of series.
+    // Only admins can create or update series.
+     match /series/{seriesId} {
+      allow read: if request.auth != null;
+      allow write: if isRequestingUserAdmin();
+    }
+
+    // MATCHES
+    // Any authenticated user can read matches.
+    // Only admins can write/update matches.
+    match /matches/{matchId} {
+      allow read: if request.auth != null;
+      allow write: if isRequestingUserAdmin();
+    }
+
+    // RESULTS
+    // Any authenticated user can read results.
+    // Only admins can write/update results.
+    match /results/{resultId} {
+      allow read: if request.auth != null;
+      allow write: if isRequestingUserAdmin();
     }
   }
 }
