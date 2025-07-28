@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -327,25 +328,25 @@ export default function DashboardPage() {
     return (
        <div className="flex flex-col h-full">
             <Carousel className="w-full flex-grow">
-                <CarouselContent className="h-full">
+                <CarouselContent>
                 {recentMatchImages.map((url, index) => (
-                    <CarouselItem key={index} className="h-full">
-                    <div className="relative w-full h-full">
-                        <NextImage 
-                            src={url} 
-                            alt={`Recent match image ${index + 1}`} 
-                            fill 
-                            sizes="(max-width: 1280px) 25vw, 33vw"
-                            style={{ objectFit: 'contain' }}
-                            className="rounded-md"
-                        />
-                    </div>
+                    <CarouselItem key={index} className="flex-grow">
+                        <div className="relative w-full h-full aspect-video">
+                            <NextImage 
+                                src={url} 
+                                alt={`Recent match image ${index + 1}`} 
+                                fill 
+                                sizes="(max-width: 1280px) 25vw, 33vw"
+                                style={{ objectFit: 'contain' }}
+                                className="rounded-md"
+                            />
+                        </div>
                     </CarouselItem>
                 ))}
                 </CarouselContent>
                  <div className="flex justify-center items-center gap-4 pt-2">
-                    <CarouselPrevious variant="outline" />
-                    <CarouselNext variant="outline" />
+                    <CarouselPrevious variant="outline" className="static translate-y-0" />
+                    <CarouselNext variant="outline" className="static translate-y-0"/>
                 </div>
             </Carousel>
        </div>
@@ -419,7 +420,7 @@ export default function DashboardPage() {
                     <CardDescription>From the last match</CardDescription>
                 )}
             </CardHeader>
-            <CardContent className="flex-grow p-4">
+            <CardContent className="flex-grow flex flex-col p-4">
                 {renderImageGallery()}
             </CardContent>
         </Card>
