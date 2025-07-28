@@ -194,9 +194,18 @@ export default function WeighInPage() {
   
   const handleFieldChange = (userId: string, field: keyof AnglerResultData, value: string | number) => {
     setResults(prev => 
-        prev.map(r => r.userId === userId ? {...r, [field]: value} : r)
+        prev.map(r => {
+            if (r.userId === userId) {
+                // For weight, parse it back to a number immediately
+                if (field === 'weight') {
+                    return {...r, [field]: parseFloat(value as string) || 0 };
+                }
+                return {...r, [field]: value };
+            }
+            return r;
+        })
     );
-  };
+};
   
   const handleSaveResult = async (userId: string) => {
     if (!firestore || !match) return;
@@ -294,12 +303,43 @@ export default function WeighInPage() {
     return (
         <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-8 gap-4">
             {/* Buttons Row (Top on mobile) */}
-            <div className="flex justify-between items-center w-full md:w-auto order-1">
+            <div className="flex justify-between items-center w-full md:w-auto order-1 md:order-none">
                 <Button variant="outline" onClick={() => router.back()} className="text-xs sm:text-sm">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back to Matches
                 </Button>
-                <DropdownMenu>
+                <div className="md:hidden">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="text-xs sm:text-sm">
+                                {viewMode === 'card' ? <LayoutGrid className="mr-2 h-4 w-4" /> : <List className="mr-2 h-4 w-4" />}
+                                Display
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => setViewMode('card')}>
+                                <LayoutGrid className="mr-2 h-4 w-4" />
+                                Card View
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setViewMode('list')}>
+                                <List className="mr-2 h-4 w-4" />
+                                List View
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            </div>
+            
+            {/* Text Content (Middle on mobile) */}
+            <div className="text-center order-2 md:order-none flex-grow">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">Weigh-in</h1>
+                <p className="text-lg sm:text-xl font-semibold">{match.name}</p>
+                <p className="text-sm text-muted-foreground">{match.seriesName} - {format(match.date, 'PPP')}</p>
+            </div>
+
+            {/* Desktop Display Toggle */}
+             <div className="hidden md:flex justify-end items-center order-3 md:w-48 gap-2">
+                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="outline" className="text-xs sm:text-sm">
                             {viewMode === 'card' ? <LayoutGrid className="mr-2 h-4 w-4" /> : <List className="mr-2 h-4 w-4" />}
@@ -317,17 +357,7 @@ export default function WeighInPage() {
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
-            </div>
-            
-            {/* Text Content (Middle on mobile) */}
-            <div className="text-center order-2 md:order-none flex-grow">
-                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">Weigh-in</h1>
-                <p className="text-lg sm:text-xl font-semibold">{match.name}</p>
-                <p className="text-sm text-muted-foreground">{match.seriesName} - {format(match.date, 'PPP')}</p>
-            </div>
-
-             {/* Spacer for desktop to balance center text */}
-             <div className="hidden md:block w-48 order-3"></div>
+             </div>
         </div>
     )
   }
@@ -362,7 +392,14 @@ export default function WeighInPage() {
                         </div>
                         <div className="space-y-2">
                              <Label htmlFor={`weight-${angler.userId}`}>Weight (Kg)</Label>
-                             <Input id={`weight-${angler.userId}`} type="number" step="0.001" value={angler.weight} onChange={e => handleFieldChange(angler.userId, 'weight', e.target.value)} disabled={!canEdit} />
+                             <Input 
+                                id={`weight-${angler.userId}`} 
+                                type="number" 
+                                step="0.001" 
+                                value={angler.weight.toFixed(3)} 
+                                onChange={e => handleFieldChange(angler.userId, 'weight', e.target.value)} 
+                                disabled={!canEdit} 
+                             />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor={`status-${angler.userId}`}>Status</Label>
@@ -402,8 +439,8 @@ export default function WeighInPage() {
               <TableHead className="w-[15%]">Section</TableHead>
               <TableHead className="w-[15%]">Weight (Kg)</TableHead>
               <TableHead className="w-[15%]">Status</TableHead>
-              <TableHead className="w-[15%]">Rank</TableHead>
-              <TableHead>Action</TableHead>
+              <TableHead className="w-[10%]">Rank</TableHead>
+              <TableHead className="w-[10%] text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -425,7 +462,7 @@ export default function WeighInPage() {
 
     return (
         <div className="overflow-x-auto">
-            <Table className="min-w-[700px] md:min-w-full">
+            <Table className="min-w-full">
                 <TableHeader>
                     <TableRow>
                         <TableHead className="w-[25%]">Angler</TableHead>
@@ -434,7 +471,7 @@ export default function WeighInPage() {
                         <TableHead className="w-[15%]">Weight (Kg)</TableHead>
                         <TableHead className="w-[15%]">Status</TableHead>
                         <TableHead className="w-[10%]">Rank</TableHead>
-                        <TableHead className="w-[10%]">Action</TableHead>
+                        <TableHead className="w-[10%] text-right">Action</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -448,7 +485,14 @@ export default function WeighInPage() {
                                 <Input value={angler.section} onChange={e => handleFieldChange(angler.userId, 'section', e.target.value)} disabled={!canEdit} className="h-9"/>
                             </TableCell>
                             <TableCell>
-                                <Input type="number" step="0.001" value={angler.weight} onChange={e => handleFieldChange(angler.userId, 'weight', e.target.value)} disabled={!canEdit} className="h-9"/>
+                                <Input 
+                                    type="number" 
+                                    step="0.001" 
+                                    value={angler.weight.toFixed(3)} 
+                                    onChange={e => handleFieldChange(angler.userId, 'weight', e.target.value)} 
+                                    disabled={!canEdit} 
+                                    className="h-9"
+                                />
                             </TableCell>
                             <TableCell>
                                  <Select value={angler.status} onValueChange={(value) => handleFieldChange(angler.userId, 'status', value)} disabled={!canEdit}>
@@ -465,7 +509,7 @@ export default function WeighInPage() {
                                 </Select>
                             </TableCell>
                             <TableCell>{angler.position || '-'}</TableCell>
-                            <TableCell>
+                            <TableCell className="text-right">
                                 <Button size="sm" onClick={() => handleSaveResult(angler.userId)} disabled={isSaving === angler.userId || !canEdit}>
                                    {isSaving === angler.userId ? 'Saving...' : 'Save'}
                                 </Button>
