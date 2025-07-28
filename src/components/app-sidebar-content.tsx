@@ -37,9 +37,9 @@ const navItems = [
   { href: '/main/series', icon: Trophy, label: 'Series' },
   { href: '/main/matches', icon: Swords, label: 'Matches' },
   { href: '/main/results', icon: Medal, label: 'Results' },
-  { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users', adminOnly: true },
-  { href: '/main/admin/seed', icon: Beaker, label: 'Seed Data', adminOnly: true },
-  { href: '/main/test-access', icon: TestTube, label: 'Test Access' },
+  { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users', adminOnly: true, siteAdminOnly: true },
+  { href: '/main/admin/seed', icon: Beaker, label: 'Seed Data', adminOnly: true, siteAdminOnly: true },
+  { href: '/main/test-access', icon: TestTube, label: 'Test Access', adminOnly: true, siteAdminOnly: true },
   { href: '/main/emulator', icon: FlaskConical, label: 'Emulator', adminOnly: true, emulatorOnly: true },
   { href: '/main/about', icon: Info, label: 'About' },
 ];
@@ -86,12 +86,21 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
   }
 
   const sortedNavItems = navItems.filter(item => {
-      if (item.adminOnly && currentUserProfile?.role !== 'Site Admin' && currentUserProfile?.role !== 'Club Admin') {
-          return false;
-      }
+      const isSiteAdmin = currentUserProfile?.role === 'Site Admin';
+      const isClubAdmin = currentUserProfile?.role === 'Club Admin';
+
       if (item.emulatorOnly && !isEmulatorMode) {
           return false;
       }
+      
+      if (item.siteAdminOnly && !isSiteAdmin) {
+          return false;
+      }
+
+      if (item.adminOnly && !isSiteAdmin && !isClubAdmin) {
+          return false;
+      }
+
       return true;
   }).sort((a, b) => {
       const adminOrder = ['/main/admin/edit-seed-users', '/main/users/deleted', '/main/admin/seed', '/main/emulator', '/main/test-access'];
