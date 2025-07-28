@@ -53,7 +53,7 @@ const formatAnglerName = (fullName: string) => {
     const parts = fullName.trim().split(' ');
     if (parts.length < 2) return fullName;
     const firstName = parts[0];
-    const lastName = parts.slice(1).join(' ');
+    const lastName = parts.slice(1).join(' ') || '';
     return `${firstName.charAt(0)}. ${lastName}`;
 }
 
@@ -256,7 +256,9 @@ export default function DashboardPage() {
       return Array.from({ length: 5 }).map((_, i) => (
         <TableRow key={i}>
           <TableCell><Skeleton className="h-4 w-8" /></TableCell>
-          <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-12" /></TableCell>
         </TableRow>
       ));
     }
@@ -264,7 +266,7 @@ export default function DashboardPage() {
     if (recentResults.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={2} className="text-center h-24">
+          <TableCell colSpan={4} className="text-center h-24">
             No recent results found.
           </TableCell>
         </TableRow>
@@ -279,6 +281,10 @@ export default function DashboardPage() {
             </div>
         </TableCell>
         <TableCell className="font-medium">{formatAnglerName(result.userName)}</TableCell>
+        <TableCell className="text-muted-foreground">{result.weight.toFixed(3)}kg</TableCell>
+        <TableCell>
+            <Badge variant={result.status === 'OK' ? 'outline' : 'secondary'}>{result.status}</Badge>
+        </TableCell>
       </TableRow>
     ));
   };
@@ -332,6 +338,8 @@ export default function DashboardPage() {
                         <TableRow>
                             <TableHead className="w-[50px]">Pos</TableHead>
                             <TableHead>Angler</TableHead>
+                            <TableHead>Weight</TableHead>
+                            <TableHead>Status</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -346,3 +354,4 @@ export default function DashboardPage() {
     </>
   );
 }
+
