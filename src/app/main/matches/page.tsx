@@ -357,7 +357,7 @@ function MatchesPageContent() {
                                     <LogIn className="h-4 w-4" />
                                 </Button>
                             </TooltipTrigger>
-                            <TooltipContent><p>{isUserRegistered ? "Use your user profile to un-register" : "Register for Match"}</p></TooltipContent>
+                            <TooltipContent><p>{isUserRegistered ? "Go to your profile page to un-register" : "Register for Match"}</p></TooltipContent>
                         </Tooltip>
                       )}
                   </div>
@@ -426,14 +426,21 @@ function MatchesPageContent() {
                 </CardContent>
                 <CardFooter className="flex justify-between items-center">
                     {status !== 'Completed' ? (
-                        <Button 
-                            onClick={() => handleRegister(match)}
-                            disabled={isUserRegistered}
-                            size="sm"
-                        >
-                            <LogIn className="mr-2 h-4 w-4" />
-                            {isUserRegistered ? 'Registered' : 'Register'}
-                        </Button>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                                onClick={() => handleRegister(match)}
+                                disabled={isUserRegistered}
+                                size="sm"
+                            >
+                                <LogIn className="mr-2 h-4 w-4" />
+                                {isUserRegistered ? 'Registered' : 'Register'}
+                            </Button>
+                          </TooltipTrigger>
+                           <TooltipContent><p>{isUserRegistered ? "Go to your profile page to un-register" : "Register for Match"}</p></TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     ) : (
                         <Button size="sm" disabled>Registration Closed</Button>
                     )}
@@ -604,3 +611,5 @@ export default function MatchesPage() {
         </Suspense>
     )
 }
+
+    

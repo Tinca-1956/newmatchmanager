@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState } from 'react';
@@ -76,11 +77,6 @@ export const useMatchActions = () => {
         return;
      }
 
-     if (match.registeredAnglers?.includes(user.uid)) {
-        toast({ title: 'Already Registered', description: 'You are already registered for this match.' });
-        return;
-     }
-
      try {
         const matchDocRef = doc(firestore, 'matches', match.id);
         await updateDoc(matchDocRef, {
@@ -143,3 +139,5 @@ export const useMatchActions = () => {
     closeRemoveAnglerModal,
   };
 };
+
+    
