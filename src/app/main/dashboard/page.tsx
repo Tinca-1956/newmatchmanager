@@ -12,7 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Image as ImageIcon, ArrowRight } from 'lucide-react';
+import { MapPin, Image as ImageIcon, ArrowRight, Trophy as TrophyIcon } from 'lucide-react';
 import Link from 'next/link';
 import NextImage from 'next/image';
 import {
@@ -230,8 +230,8 @@ export default function DashboardPage() {
     if (upcomingMatches.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={4} className="text-center h-24">
-            No upcoming matches
+          <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+            No upcoming matches scheduled.
           </TableCell>
         </TableRow>
       );
@@ -245,7 +245,7 @@ export default function DashboardPage() {
                 <span className="text-xs text-muted-foreground">{match.seriesName}</span>
             </div>
         </TableCell>
-        <TableCell className="font-medium">{match.name}</TableCell>
+        <TableCell className="font-medium">{match.name.includes("Round") ? `${match.name} at ${match.location}` : match.name}</TableCell>
         <TableCell>
              <div className="flex items-center gap-2">
                 <div>
@@ -278,9 +278,12 @@ export default function DashboardPage() {
     if (recentResults.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={4} className="text-center h-24">
-            No recent results found.
-          </TableCell>
+            <TableCell colSpan={4} className="h-24 text-center">
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <TrophyIcon className="h-8 w-8" />
+                    <p>No recent results found.</p>
+                </div>
+            </TableCell>
         </TableRow>
       );
     }
@@ -307,7 +310,7 @@ export default function DashboardPage() {
     });
   };
   
-  const recentResultsTitle = recentSeriesName && recentMatchName ? `${recentSeriesName} - ${recentMatchName} at ${recentMatchLocation}` : 'Last completed match'
+  const recentResultsTitle = recentSeriesName && recentMatchName ? `${recentSeriesName} - ${recentMatchName}` : 'Last completed match'
 
   const renderImageGallery = () => {
     if (isLoadingResults) {
@@ -317,7 +320,8 @@ export default function DashboardPage() {
         return (
             <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center p-4 border border-dashed rounded-lg bg-muted/50">
                 <ImageIcon className="h-12 w-12 text-muted-foreground" />
-                <p className="mt-4 text-sm text-muted-foreground">No images found for the most recent match.</p>
+                <p className="mt-4 text-sm text-muted-foreground">No photos from the last match.</p>
+                 <p className="text-xs text-muted-foreground">Upload photos from the matches page.</p>
             </div>
         )
     }
@@ -389,7 +393,7 @@ export default function DashboardPage() {
                  {isLoadingResults ? (
                     <Skeleton className="h-5 w-48" />
                 ) : (
-                    <CardDescription>{recentResultsTitle}</CardDescription>
+                    <CardDescription>{recentResults.length > 0 ? recentResultsTitle : "No completed matches"}</CardDescription>
                 )}
             </CardHeader>
             <CardContent className="flex-grow">
@@ -423,7 +427,7 @@ export default function DashboardPage() {
                 {isLoadingResults ? (
                     <Skeleton className="h-5 w-32" />
                 ) : (
-                    <CardDescription>From the last match</CardDescription>
+                    <CardDescription>{recentMatchImages.length > 0 ? "From the last match" : "No recent photos"}</CardDescription>
                 )}
             </CardHeader>
             <CardContent className="flex-grow flex items-center justify-center">
@@ -435,5 +439,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
-    
