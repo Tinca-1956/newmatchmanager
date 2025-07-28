@@ -12,7 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Image as ImageIcon } from 'lucide-react';
+import { MapPin, Image as ImageIcon, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import NextImage from 'next/image';
 import {
@@ -23,6 +23,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel"
 import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
 
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
@@ -70,6 +71,7 @@ const formatAnglerName = (fullName: string) => {
 export default function DashboardPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [upcomingMatches, setUpcomingMatches] = useState<Match[]>([]);
   const [recentResults, setRecentResults] = useState<Result[]>([]);
@@ -78,6 +80,7 @@ export default function DashboardPage() {
   const [recentMatchLocation, setRecentMatchLocation] = useState<string>('');
   const [recentMatchPaidPlaces, setRecentMatchPaidPlaces] = useState<number>(0);
   const [recentMatchImages, setRecentMatchImages] = useState<string[]>([]);
+  const [recentMatchId, setRecentMatchId] = useState<string | null>(null);
 
 
   const [isLoading, setIsLoading] = useState(true);
@@ -167,6 +170,7 @@ export default function DashboardPage() {
         
         if (completedMatches.length > 0) {
             const recentMatch = completedMatches[0];
+            setRecentMatchId(recentMatch.id);
             setRecentMatchName(recentMatch.name);
             setRecentSeriesName(recentMatch.seriesName);
             setRecentMatchLocation(recentMatch.location);
@@ -209,6 +213,7 @@ export default function DashboardPage() {
 
         } else {
             setRecentResults([]);
+            setRecentMatchId(null);
             setRecentMatchName('');
             setRecentSeriesName('');
             setRecentMatchLocation('');
@@ -220,6 +225,12 @@ export default function DashboardPage() {
     processMatches();
 
   }, [userProfile, toast]);
+
+  const handleGoToMatch = () => {
+    if (recentMatchId) {
+      router.push(`/main/matches?matchId=${recentMatchId}`);
+    }
+  };
 
   const renderUpcomingMatches = () => {
     if (isLoading) {
@@ -388,7 +399,7 @@ export default function DashboardPage() {
             </CardContent>
         </Card>
 
-         <Card>
+         <Card className="flex flex-col">
             <CardHeader>
                 <CardTitle>Recent Results</CardTitle>
                  {isLoadingResults ? (
@@ -397,7 +408,7 @@ export default function DashboardPage() {
                     <CardDescription>{recentResultsTitle}</CardDescription>
                 )}
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-grow">
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -412,9 +423,17 @@ export default function DashboardPage() {
                     </TableBody>
                 </Table>
             </CardContent>
+            {recentMatchId && (
+                <CardFooter>
+                    <Button onClick={handleGoToMatch} variant="outline" className="w-full">
+                        Go to Match
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                </CardFooter>
+            )}
         </Card>
 
-         <Card>
+         <Card className="flex flex-col">
             <CardHeader>
                 <CardTitle>Recent Photos</CardTitle>
                 {isLoadingResults ? (
@@ -423,7 +442,7 @@ export default function DashboardPage() {
                     <CardDescription>From the last match</CardDescription>
                 )}
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-grow flex items-center justify-center">
                 {renderImageGallery()}
             </CardContent>
         </Card>
@@ -432,4 +451,3 @@ export default function DashboardPage() {
     </>
   );
 }
-

@@ -68,6 +68,10 @@ const getCalculatedStatus = (match: Match): MatchStatus => {
 
   const matchDate = new Date(match.date);
 
+  if (!match.drawTime || !match.endTime || !match.drawTime.includes(':') || !match.endTime.includes(':')) {
+    return match.status;
+  }
+  
   const [drawHours, drawMinutes] = match.drawTime.split(':').map(Number);
   const drawDateTime = new Date(matchDate.getFullYear(), matchDate.getMonth(), matchDate.getDate(), drawHours, drawMinutes);
 
@@ -91,6 +95,7 @@ function MatchesPageContent() {
   const isMobile = useIsMobile();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const matchIdFilter = searchParams.get('matchId');
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
@@ -138,7 +143,18 @@ function MatchesPageContent() {
                 const clubsSnapshot = await getDocs(clubsQuery);
                 const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
                 setClubs(clubsData);
-                setSelectedClubId(userData.primaryClubId || (clubsData.length > 0 ? clubsData[0].id : ''));
+                // If there's a match filter, we need to find the match's club first
+                if (matchIdFilter) {
+                    const matchDocRef = doc(firestore, 'matches', matchIdFilter);
+                    const matchDoc = await getDoc(matchDocRef);
+                    if (matchDoc.exists()) {
+                        setSelectedClubId(matchDoc.data().clubId);
+                    } else {
+                        setSelectedClubId(userData.primaryClubId || (clubsData.length > 0 ? clubsData[0].id : ''));
+                    }
+                } else {
+                    setSelectedClubId(userData.primaryClubId || (clubsData.length > 0 ? clubsData[0].id : ''));
+                }
             } else {
                 setSelectedClubId(userData.primaryClubId || '');
             }
@@ -147,7 +163,7 @@ function MatchesPageContent() {
     };
 
     fetchInitialData();
-  }, [user, isSiteAdmin, adminLoading]);
+  }, [user, isSiteAdmin, adminLoading, matchIdFilter]);
   
   // Effect to fetch matches for the selected club
   useEffect(() => {
@@ -158,12 +174,24 @@ function MatchesPageContent() {
     }
 
     setIsLoading(true);
+    let matchesQuery;
 
-    const matchesQuery = query(
-      collection(firestore, 'matches'),
-      where('clubId', '==', selectedClubId),
-      orderBy('date', 'desc')
-    );
+    if (matchIdFilter) {
+      // If a specific match ID is provided, we fetch only that match.
+      // We still need the clubId to be correct as a sanity check.
+      matchesQuery = query(
+        collection(firestore, 'matches'),
+        where('clubId', '==', selectedClubId),
+        where('__name__', '==', matchIdFilter)
+      );
+    } else {
+      // Otherwise, fetch all matches for the selected club.
+      matchesQuery = query(
+        collection(firestore, 'matches'),
+        where('clubId', '==', selectedClubId),
+        orderBy('date', 'desc')
+      );
+    }
 
     const unsubscribeMatches = onSnapshot(matchesQuery, (snapshot) => {
       const matchesData = snapshot.docs.map(doc => ({
@@ -183,7 +211,7 @@ function MatchesPageContent() {
     return () => {
         unsubscribeMatches();
     };
-  }, [selectedClubId, toast]);
+  }, [selectedClubId, toast, matchIdFilter]);
 
   const displayedMatches = useMemo(() => {
     return matches.map(match => ({
@@ -193,6 +221,8 @@ function MatchesPageContent() {
   }, [matches]);
   
   const handleClubSelectionChange = (clubId: string) => {
+    // When club changes, clear the matchId filter from URL
+    router.push('/main/matches');
     setSelectedClubId(clubId);
   };
 
@@ -217,7 +247,7 @@ function MatchesPageContent() {
       return (
         <TableRow>
           <TableCell colSpan={8} className="h-24 text-center">
-            No matches found for this club.
+            {matchIdFilter ? "This match could not be found." : "No matches found for this club."}
           </TableCell>
         </TableRow>
       );
@@ -342,7 +372,7 @@ function MatchesPageContent() {
     if (displayedMatches.length === 0) {
       return (
         <div className="text-center text-muted-foreground py-12">
-          No matches found for this club.
+           {matchIdFilter ? "This match could not be found." : "No matches found for this club."}
         </div>
       );
     }
@@ -474,8 +504,10 @@ function MatchesPageContent() {
         ) : (
              <Card>
                 <CardHeader>
-                    <CardTitle>Upcoming & Recent Matches</CardTitle>
-                    <CardDescription>A list of all matches for your club.</CardDescription>
+                    <CardTitle>{matchIdFilter ? "Filtered Match" : "Upcoming & Recent Matches"}</CardTitle>
+                    <CardDescription>
+                        {matchIdFilter ? "Showing a specific match. Clear the filter by selecting a club." : "A list of all matches for your club."}
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Table>
@@ -543,5 +575,3 @@ export default function MatchesPage() {
         </Suspense>
     )
 }
-
-    
