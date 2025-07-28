@@ -37,9 +37,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(user);
       setAuthLoading(false);
       if (!user) {
-        // If user logs out, clear profile and stop profile loading
+        // If user logs out, clear profile and set profile loading to false.
         setUserProfile(null);
         setProfileLoading(false);
+      } else {
+        // If user logs in, set profile loading to true until we get a result.
+        setProfileLoading(true);
       }
     });
 
@@ -47,26 +50,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    if (user && firestore) {
-      setProfileLoading(true);
-      const userDocRef = doc(firestore, 'users', user.uid);
-      const unsubscribe = onSnapshot(userDocRef, (doc) => {
-        if (doc.exists()) {
-          setUserProfile({ id: doc.id, ...doc.data() } as User);
-        } else {
-          // User is authenticated but profile doesn't exist yet
-          // (e.g., first login before club selection)
-          setUserProfile(null);
-        }
-        setProfileLoading(false);
-      }, (error) => {
-        console.error("Error fetching user profile:", error);
-        setUserProfile(null);
-        setProfileLoading(false);
-      });
-      
-      return () => unsubscribe();
+    // Don't try to fetch profile if user is not logged in
+    if (!user || !firestore) {
+      return;
     }
+
+    const userDocRef = doc(firestore, 'users', user.uid);
+    const unsubscribe = onSnapshot(userDocRef, (doc) => {
+      if (doc.exists()) {
+        setUserProfile({ id: doc.id, ...doc.data() } as User);
+      } else {
+        // User is authenticated but profile doesn't exist yet
+        // (e.g., first login before club selection)
+        setUserProfile(null);
+      }
+      setProfileLoading(false);
+    }, (error) => {
+      console.error("Error fetching user profile:", error);
+      setUserProfile(null);
+      setProfileLoading(false);
+    });
+    
+    return () => unsubscribe();
   }, [user]);
 
   return (
@@ -93,5 +98,3 @@ export const useRequireAuth = (redirectUrl = '/login') => {
 
   return { user, loading };
 };
-
-    
