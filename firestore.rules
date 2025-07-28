@@ -3,82 +3,48 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions to check user's role based on their auth token claims
-    function isAuthOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
+  
+    function isUserAuthenticated() {
+      return request.auth != null;
     }
-
-    function getRole() {
-      return request.auth.token.role;
+    
+    function isUserAdmin() {
+      // Check for role in the user's custom claims
+      return request.auth.token.role in ['Site Admin', 'Club Admin'];
     }
-
+    
     function isSiteAdmin() {
-      return getRole() == 'Site Admin';
-    }
-
-    function isClubAdmin() {
-      return getRole() == 'Club Admin';
+        return request.auth.token.role == 'Site Admin';
     }
     
-    function isMarshal() {
-      return getRole() == 'Marshal';
+    function isUserStaff() {
+        return request.auth.token.role in ['Site Admin', 'Club Admin', 'Marshal'];
     }
-
-    // Site Admins can do anything
-    match /{document=**} {
-      allow read, write: if isSiteAdmin();
-    }
-
-    // Rules for the 'users' collection
+    
+    // Rule for a single user document
     match /users/{userId} {
-      // Any authenticated user can read their own profile.
-      // Admins and Marshals can read any profile in their club.
-      allow get: if request.auth != null && (isAuthOwner(userId) || isClubAdmin() || isMarshal());
+      // ANY authenticated user can read their OWN document
+      allow get: if isUserAuthenticated() && request.auth.uid == userId;
       
-      // Club Admins and Marshals can list all users in their club.
-      // This is the rule that fixes the test access page.
-      allow list: if request.auth != null && (isClubAdmin() || isMarshal());
+      // Admins can get ANY user document
+      allow get: if isUserAuthenticated() && isUserAdmin();
+
+      // ANY authenticated user can update their OWN document
+      allow update: if isUserAuthenticated() && request.auth.uid == userId;
+
+      // Admins can update ANY user document
+      allow update: if isUserAuthenticated() && isUserAdmin();
+
+      // ANY authenticated user can read the list of members in their club
+      allow list: if isUserAuthenticated();
       
-      // An authenticated user can update their own document.
-      // Club admins can update any user in their club.
-      allow update: if request.auth != null && (isAuthOwner(userId) || isClubAdmin());
-      
-      // Allow user document creation only for the authenticated user themselves.
-      allow create: if isAuthOwner(userId);
+      // Only Site Admins can create or delete user documents
+      allow create, delete: if isUserAuthenticated() && isSiteAdmin();
     }
     
-    // Rules for 'clubs' collection
-    match /clubs/{clubId} {
-      // Anyone can read club information
-      allow read: if true;
-      // Only Site Admins can create or delete clubs (covered by wildcard rule)
-      // Club Admins can update their own club
-      allow update: if isClubAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
-    }
-
-    // Rules for 'series' collection
-    match /series/{seriesId} {
-        // Anyone can read series information
-        allow read: if true;
-        // Club Admins can create/update series for their club
-        allow write: if isClubAdmin();
-    }
-
-    // Rules for 'matches' collection
-    match /matches/{matchId} {
-        // Anyone can read match information
-        allow read: if true;
-        // Club Admins can create/update matches for their club
-        allow write: if isClubAdmin();
-    }
-
-    // Rules for 'results' collection
-    match /results/{resultId} {
-        // Anyone can read results
-        allow read: if true;
-        // Marshals and Admins can write results
-        allow write: if isMarshal() || isClubAdmin();
+    match /{document=**} {
+      // Default deny all reads and writes
+      allow read, write: if false;
     }
   }
 }
