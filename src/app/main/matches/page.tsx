@@ -95,7 +95,6 @@ function MatchesPageContent() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
-  const [filterMatchId, setFilterMatchId] = useState<string | null>(null);
   
   const [isLoading, setIsLoading] = useState(true);
 
@@ -123,14 +122,6 @@ function MatchesPageContent() {
     handleManageImages,
   } = useMatchActions();
 
-  // Effect to handle incoming matchId filter from URL
-  useEffect(() => {
-    const matchIdFromUrl = searchParams.get('matchId');
-    if (matchIdFromUrl) {
-      setFilterMatchId(matchIdFromUrl);
-    }
-  }, [searchParams]);
-
   // Effect to get the user's primary club or all clubs for admin
   useEffect(() => {
     if (adminLoading || !user || !firestore) return;
@@ -147,28 +138,20 @@ function MatchesPageContent() {
                 const clubsSnapshot = await getDocs(clubsQuery);
                 const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
                 setClubs(clubsData);
-                // If a match filter is applied, we might need to find its club and select it
-                if (filterMatchId) {
-                  const matchDocRef = doc(firestore, 'matches', filterMatchId);
-                  const matchDoc = await getDoc(matchDocRef);
-                  if (matchDoc.exists()) {
-                    setSelectedClubId(matchDoc.data().clubId);
-                  }
-                } else {
-                   setSelectedClubId(userData.primaryClubId || (clubsData.length > 0 ? clubsData[0].id : ''));
-                }
+                setSelectedClubId(userData.primaryClubId || (clubsData.length > 0 ? clubsData[0].id : ''));
             } else {
                 setSelectedClubId(userData.primaryClubId || '');
             }
         }
+        // setIsLoading will be set to false in the matches effect
     };
 
     fetchInitialData();
-  }, [user, isSiteAdmin, adminLoading, filterMatchId]);
+  }, [user, isSiteAdmin, adminLoading]);
   
   // Effect to fetch matches for the selected club
   useEffect(() => {
-    if ((!selectedClubId && !filterMatchId) || !firestore) {
+    if (!selectedClubId || !firestore) {
         setIsLoading(false);
         setMatches([]);
         return;
@@ -176,20 +159,11 @@ function MatchesPageContent() {
 
     setIsLoading(true);
 
-    let matchesQuery;
-
-    if (filterMatchId) {
-        // If a specific match is requested, just fetch that one
-        matchesQuery = query(collection(firestore, 'matches'), where('__name__', '==', filterMatchId));
-    } else {
-        // Otherwise, fetch all matches for the selected club
-        matchesQuery = query(
-          collection(firestore, 'matches'),
-          where('clubId', '==', selectedClubId),
-          orderBy('date', 'desc')
-        );
-    }
-
+    const matchesQuery = query(
+      collection(firestore, 'matches'),
+      where('clubId', '==', selectedClubId),
+      orderBy('date', 'desc')
+    );
 
     const unsubscribeMatches = onSnapshot(matchesQuery, (snapshot) => {
       const matchesData = snapshot.docs.map(doc => ({
@@ -209,7 +183,7 @@ function MatchesPageContent() {
     return () => {
         unsubscribeMatches();
     };
-  }, [selectedClubId, filterMatchId, toast]);
+  }, [selectedClubId, toast]);
 
   const displayedMatches = useMemo(() => {
     return matches.map(match => ({
@@ -219,10 +193,6 @@ function MatchesPageContent() {
   }, [matches]);
   
   const handleClubSelectionChange = (clubId: string) => {
-    // When user manually changes club, remove the match filter
-    setFilterMatchId(null); 
-    // Clear matchId from URL
-    router.replace('/main/matches', { scroll: false }); 
     setSelectedClubId(clubId);
   };
 
@@ -573,3 +543,5 @@ export default function MatchesPage() {
         </Suspense>
     )
 }
+
+    

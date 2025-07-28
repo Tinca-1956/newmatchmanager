@@ -73,7 +73,6 @@ export default function DashboardPage() {
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [upcomingMatches, setUpcomingMatches] = useState<Match[]>([]);
   const [recentResults, setRecentResults] = useState<Result[]>([]);
-  const [recentMatchId, setRecentMatchId] = useState<string>('');
   const [recentMatchName, setRecentMatchName] = useState<string>('');
   const [recentSeriesName, setRecentSeriesName] = useState<string>('');
   const [recentMatchLocation, setRecentMatchLocation] = useState<string>('');
@@ -168,7 +167,6 @@ export default function DashboardPage() {
         
         if (completedMatches.length > 0) {
             const recentMatch = completedMatches[0];
-            setRecentMatchId(recentMatch.id);
             setRecentMatchName(recentMatch.name);
             setRecentSeriesName(recentMatch.seriesName);
             setRecentMatchLocation(recentMatch.location);
@@ -211,7 +209,6 @@ export default function DashboardPage() {
 
         } else {
             setRecentResults([]);
-            setRecentMatchId('');
             setRecentMatchName('');
             setRecentSeriesName('');
             setRecentMatchLocation('');
@@ -419,7 +416,7 @@ export default function DashboardPage() {
             </CardContent>
         </Card>
 
-         <Card className="flex flex-col">
+         <Card>
             <CardHeader>
                 <CardTitle>Recent Photos</CardTitle>
                 {isLoadingResults ? (
@@ -428,19 +425,14 @@ export default function DashboardPage() {
                     <CardDescription>From the last match</CardDescription>
                 )}
             </CardHeader>
-            <CardContent className="flex-grow flex items-center justify-center">
+            <CardContent>
                 {renderImageGallery()}
             </CardContent>
-             {recentMatchId && (
-                <CardFooter className="pt-6 justify-center">
-                    <Button asChild>
-                        <Link href={`/main/matches?matchId=${recentMatchId}`}>Go to Match</Link>
-                    </Button>
-                </CardFooter>
-            )}
         </Card>
       </div>
     </div>
     </>
   );
 }
+
+    
