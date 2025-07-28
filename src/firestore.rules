@@ -1,10 +1,57 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // WARNING: INSECURE - This is a temporary rule for debugging.
-    // It allows any authenticated user to read/write all data.
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+
+    // --- Helper Functions ---
+    function isUserAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Checks if the requesting user is a Site or Club Admin by reading THEIR OWN user document.
+    function isRequestingUserAdmin() {
+      let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return userRole in ['Site Admin', 'Club Admin'];
+    }
+
+    // --- Collections ---
+    match /users/{userId} {
+      // Any authenticated user can read their own profile.
+      allow get: if isUserAuthenticated() && request.auth.uid == userId;
+      // Admins can read any user profile.
+      allow list: if isUserAuthenticated() && isRequestingUserAdmin();
+      // A user can update their own profile. Admins can update any profile.
+      allow update: if isUserAuthenticated() && (request.auth.uid == userId || isRequestingUserAdmin());
+      // Only Site Admins can create or delete users.
+      allow create, delete: if isUserAuthenticated() && isRequestingUserAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
+    }
+
+    match /clubs/{clubId} {
+      // Any authenticated user can view the list of clubs.
+      allow read: if isUserAuthenticated();
+      // Only Site Admins can create/edit clubs.
+      allow write: if isUserAuthenticated() && isRequestingUserAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
+    }
+
+    match /series/{seriesId} {
+       // Any authenticated user can view series information.
+      allow read: if isUserAuthenticated();
+      // Only Admins can create/edit series.
+      allow write: if isUserAuthenticated() && isRequestingUserAdmin();
+    }
+
+    match /matches/{matchId} {
+       // Any authenticated user can view match information.
+      allow read: if isUserAuthenticated();
+      // Only Admins can create/edit matches.
+      allow write: if isUserAuthenticated() && isRequestingUserAdmin();
+    }
+
+    match /results/{resultId} {
+      // Any authenticated user can view results.
+      allow read: if isUserAuthenticated();
+       // Only Admins can write results.
+      allow write: if isUserAuthenticated() && isRequestingUserAdmin();
     }
   }
 }
