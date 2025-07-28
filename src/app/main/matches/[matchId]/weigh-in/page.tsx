@@ -151,7 +151,15 @@ export default function WeighInPage() {
         
         // Recalculate ranks and update state
         const rankedResults = calculateRanks(combinedResults);
-        setResults(rankedResults);
+
+        // Sort by peg number by default
+        const sortedByPeg = rankedResults.sort((a, b) => {
+            const pegA = a.peg || '';
+            const pegB = b.peg || '';
+            return pegA.localeCompare(pegB, undefined, { numeric: true, sensitivity: 'base' });
+        });
+
+        setResults(sortedByPeg);
 
       } catch (error) {
         console.error("Error processing results:", error);
