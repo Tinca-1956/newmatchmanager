@@ -341,7 +341,7 @@ export default function WeighInPage() {
             {/* Text Content (Middle on mobile) */}
             <div className="text-center order-2 md:order-none flex-grow">
                 <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">Weigh-in</h1>
-                <p className="text-lg sm:text-xl font-semibold">{match.name}</p>
+                <p className="text-lg sm:text-xl font-semibold">{match.name} at {match.location}</p>
                 <p className="text-sm text-muted-foreground">{match.seriesName} - {format(match.date, 'PPP')}</p>
             </div>
 
