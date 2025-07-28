@@ -42,7 +42,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useAdminAuth } from '@/hooks/use-admin-auth';
 import {
   Dialog,
   DialogContent,
@@ -56,8 +55,8 @@ import { Label } from '@/components/ui/label';
 export default function MembersPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
-
+  
+  const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
   
@@ -68,7 +67,6 @@ export default function MembersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<MembershipStatus[]>([]);
   const [roleFilter, setRoleFilter] = useState<UserRole[]>([]);
-  const [userPrimaryClubId, setUserPrimaryClubId] = useState<string>('');
   
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -77,7 +75,7 @@ export default function MembersPage() {
 
   // Fetch initial data based on user role
   useEffect(() => {
-    if (adminLoading || !user) return;
+    if (!user) return;
 
     const fetchInitialData = async () => {
         setIsLoading(true);
@@ -94,9 +92,10 @@ export default function MembersPage() {
                 setIsLoading(false);
                 return;
             }
-            const userData = userDoc.data() as User;
-            setUserPrimaryClubId(userData.primaryClubId || '');
-
+            const userData = {id: userDoc.id, ...userDoc.data()} as User;
+            setCurrentUserProfile(userData);
+            
+            const isSiteAdmin = userData.role === 'Site Admin';
 
             if (isSiteAdmin) {
                 // Fetch all clubs for Site Admin
@@ -156,7 +155,7 @@ export default function MembersPage() {
         });
     };
 
-  }, [user, adminLoading, isSiteAdmin, toast]);
+  }, [user, toast]);
   
   const handleEditClick = (userToEdit: User) => {
     setSelectedUser({ ...userToEdit }); // Create a copy to edit
@@ -233,6 +232,7 @@ export default function MembersPage() {
   };
 
   const filteredMembers = allUsers.filter(member => {
+    const isSiteAdmin = currentUserProfile?.role === 'Site Admin';
     const clubMatch = isSiteAdmin ? !selectedClubId || member.primaryClubId === selectedClubId : true;
     const fullName = `${member.firstName} ${member.lastName}`.toLowerCase();
     const matchesSearch = fullName.includes(searchTerm.toLowerCase());
@@ -241,7 +241,7 @@ export default function MembersPage() {
     return clubMatch && matchesSearch && matchesStatus && matchesRole;
   });
 
-  const canEdit = isSiteAdmin || isClubAdmin;
+  const canEdit = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
 
   const renderMemberList = () => {
     if (isLoading) {
@@ -299,7 +299,7 @@ export default function MembersPage() {
                 <SelectItem value="Angler">Angler</SelectItem>
                 <SelectItem value="Marshal">Marshal</SelectItem>
                 <SelectItem value="Club Admin">Club Admin</SelectItem>
-                {isSiteAdmin && <SelectItem value="Site Admin">Site Admin</SelectItem>}
+                {currentUserProfile?.role === 'Site Admin' && <SelectItem value="Site Admin">Site Admin</SelectItem>}
               </SelectContent>
             </Select>
           ) : (
@@ -333,7 +333,7 @@ export default function MembersPage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-4 mb-4">
-               {isSiteAdmin && (
+               {currentUserProfile?.role === 'Site Admin' && (
                 <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={clubs.length === 0}>
                     <SelectTrigger className="w-48">
                         <SelectValue placeholder="Select a club..." />
