@@ -3,8 +3,6 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from './use-auth';
-import { firestore } from '@/lib/firebase-client';
-import { doc, onSnapshot } from 'firebase/firestore';
 import type { UserRole } from '@/lib/types';
 
 interface AdminAuth {
@@ -29,29 +27,20 @@ export const useAdminAuth = (): AdminAuth => {
       setUserRole(null);
       return;
     }
-
-    if (!firestore) {
-      setLoading(false);
-      setUserRole(null);
-      console.error("Firestore not initialized for admin check");
-      return;
-    }
-
-    const userDocRef = doc(firestore, 'users', user.uid);
-    const unsubscribe = onSnapshot(userDocRef, (doc) => {
-      if (doc.exists()) {
-        setUserRole(doc.data().role as UserRole);
-      } else {
+    
+    setLoading(true);
+    // Force a refresh of the user's ID token to get the latest custom claims.
+    user.getIdTokenResult(true).then((idTokenResult) => {
+        const claims = idTokenResult.claims;
+        const roleFromClaims = claims.role as UserRole | undefined;
+        setUserRole(roleFromClaims || null);
+        setLoading(false);
+    }).catch(error => {
+        console.error("Error fetching user token with claims:", error);
         setUserRole(null);
-      }
-      setLoading(false);
-    }, (error) => {
-      console.error("Error checking admin status:", error);
-      setUserRole(null);
-      setLoading(false);
+        setLoading(false);
     });
 
-    return () => unsubscribe();
   }, [user, authLoading]);
   
   const isSiteAdmin = userRole === 'Site Admin';
