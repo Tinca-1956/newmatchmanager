@@ -69,10 +69,9 @@ const formatAnglerName = (fullName: string) => {
 
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
-  const [userProfile, setUserProfile] = useState<User | null>(null);
   const [upcomingMatches, setUpcomingMatches] = useState<Match[]>([]);
   const [recentResults, setRecentResults] = useState<Result[]>([]);
   const [recentMatchName, setRecentMatchName] = useState<string>('');
@@ -85,21 +84,6 @@ export default function DashboardPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingResults, setIsLoadingResults] = useState(true);
-
-  useEffect(() => {
-    if (!user || !firestore) {
-      return;
-    }
-
-    const userDocRef = doc(firestore, 'users', user.uid);
-    const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
-      if (doc.exists()) {
-        setUserProfile(doc.data() as User);
-      }
-    });
-
-    return () => unsubscribeUser();
-  }, [user]);
 
   useEffect(() => {
     if (!userProfile?.primaryClubId || !firestore) {
@@ -451,3 +435,5 @@ export default function DashboardPage() {
     </>
   );
 }
+
+    

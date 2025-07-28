@@ -14,50 +14,33 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function AppHeader() {
-  const { user } = useAuth();
+  const { user, userProfile, loading } = useAuth();
   const [primaryClubName, setPrimaryClubName] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchPrimaryClub() {
-      if (user && firestore) {
-        setIsLoading(true);
-        try {
-          const userDocRef = doc(firestore, 'users', user.uid);
-          const userDoc = await getDoc(userDocRef);
-
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            const primaryClubId = userData.primaryClubId;
-
-            if (primaryClubId) {
-              const clubDocRef = doc(firestore, 'clubs', primaryClubId);
-              const clubDoc = await getDoc(clubDocRef);
-
-              if (clubDoc.exists()) {
-                setPrimaryClubName(clubDoc.data().name);
-              } else {
-                setPrimaryClubName('No primary club selected');
-              }
-            } else {
-              setPrimaryClubName('No primary club selected');
+    const fetchClubName = async () => {
+        if (userProfile?.primaryClubId && firestore) {
+            try {
+                const clubDocRef = doc(firestore, 'clubs', userProfile.primaryClubId);
+                const clubDoc = await getDoc(clubDocRef);
+                if (clubDoc.exists()) {
+                    setPrimaryClubName(clubDoc.data().name);
+                } else {
+                    setPrimaryClubName('Club not found');
+                }
+            } catch (error) {
+                console.error('Error fetching primary club name:', error);
+                setPrimaryClubName('Error loading club');
             }
-          }
-        } catch (error) {
-          console.error('Error fetching primary club:', error);
-          setPrimaryClubName('Error loading club');
-        } finally {
-          setIsLoading(false);
+        } else if (userProfile) {
+            setPrimaryClubName('No primary club selected');
         }
-      } else {
-        setIsLoading(false);
-      }
+    };
+    
+    if (!loading) {
+        fetchClubName();
     }
-
-    if (user?.uid) {
-        fetchPrimaryClub();
-    }
-  }, [user?.uid]);
+  }, [userProfile, loading]);
 
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-sidebar text-sidebar-foreground px-4 lg:h-[60px] lg:px-6">
@@ -84,7 +67,7 @@ export default function AppHeader() {
                 <TooltipTrigger asChild>
                     <div className="flex items-center gap-2 cursor-default">
                         <Shield className="h-5 w-5 text-sidebar-foreground/70" />
-                        {isLoading ? (
+                        {loading ? (
                             <Skeleton className="h-6 w-48 bg-sidebar-accent" />
                         ) : (
                             <span className="font-bold text-lg">{primaryClubName}</span>
@@ -102,3 +85,5 @@ export default function AppHeader() {
     </header>
   );
 }
+
+    
