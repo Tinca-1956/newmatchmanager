@@ -51,23 +51,21 @@ const LocationMarker = ({ position, setPosition }: { position: LatLngExpression,
 
 export function MapPickerModal({ isOpen, onClose, currentCoords, onLocationSelect }: MapPickerModalProps) {
   const [position, setPosition] = useState<LatLngExpression | null>(currentCoords);
-  const mapRef = useRef<LeafletMap>(null);
-   const [isClient, setIsClient] = useState(false);
+  const mapRef = useRef<LeafletMap | null>(null);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
-    setPosition(currentCoords || [51.505, -0.09]); // Default to London if no coords
-  }, [currentCoords]);
-  
-  // This is a hack to resize the map when the modal opens
-  useEffect(() => {
     if (isOpen) {
-      setTimeout(() => {
-        window.dispatchEvent(new Event('resize'));
-      }, 100);
+        setPosition(currentCoords || [51.505, -0.09]); // Default to London if no coords
+        // Invalidate map size on open to fix rendering issues
+        setTimeout(() => {
+            if (mapRef.current) {
+                mapRef.current.invalidateSize();
+            }
+        }, 100);
     }
-  }, [isOpen]);
-
+  }, [isOpen, currentCoords]);
 
   const handleConfirm = () => {
     if (position) {
@@ -88,15 +86,14 @@ export function MapPickerModal({ isOpen, onClose, currentCoords, onLocationSelec
           </DialogDescription>
         </DialogHeader>
         
-        <div className="flex-grow rounded-md overflow-hidden">
+        <div className="flex-grow rounded-md overflow-hidden" id="map-container-parent">
             {isClient && position && (
                 <MapContainer
-                    key={isOpen ? 'map-open' : 'map-closed'}
                     center={position}
                     zoom={13}
                     scrollWheelZoom={false}
                     className="h-full w-full"
-                    whenCreated={mapInstance => { mapRef.current = mapInstance }}
+                    whenCreated={map => { mapRef.current = map; }}
                 >
                     <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
