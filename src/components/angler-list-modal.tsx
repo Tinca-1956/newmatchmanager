@@ -141,7 +141,7 @@ export function AnglerListModal({ isOpen, onClose, matchId }: AnglerListModalPro
                 <ScrollArea className="h-72">
                   {isLoading ? (
                     <div className="p-2 space-y-2">
-                        {Array.from({length: 5}).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
+                        {Array.from({length: 5}).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
                     </div>
                   ) : availableAnglers.length === 0 ? (
                     <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
@@ -153,9 +153,12 @@ export function AnglerListModal({ isOpen, onClose, matchId }: AnglerListModalPro
                         <button
                             key={angler.id}
                             onClick={() => handleAddAngler(angler)}
-                            className="w-full flex items-center justify-between text-sm p-2 rounded-md hover:bg-accent"
+                            className="w-full flex items-center justify-between text-sm p-2 rounded-md hover:bg-accent text-left"
                         >
-                            <span>{`${angler.firstName} ${angler.lastName}`}</span>
+                            <div>
+                                <p className="font-medium">{`${angler.firstName} ${angler.lastName}`}</p>
+                                <p className="text-xs text-muted-foreground">{angler.email}</p>
+                            </div>
                             <ChevronRight className="h-4 w-4" />
                         </button>
                         ))}
@@ -180,7 +183,10 @@ export function AnglerListModal({ isOpen, onClose, matchId }: AnglerListModalPro
                      <div className="space-y-1 p-2">
                         {anglersToAssign.map(angler => (
                            <div key={angler.id} className="w-full flex items-center justify-between text-sm p-2 rounded-md bg-muted/50">
-                                <span>{`${angler.firstName} ${angler.lastName}`}</span>
+                                <div>
+                                    <p className="font-medium">{`${angler.firstName} ${angler.lastName}`}</p>
+                                    <p className="text-xs text-muted-foreground">{angler.email}</p>
+                                </div>
                                 <button onClick={() => handleRemoveAngler(angler)} className="p-1 rounded-full hover:bg-destructive/20 text-destructive">
                                     <XIcon className="h-4 w-4"/>
                                 </button>

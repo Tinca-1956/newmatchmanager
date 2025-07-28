@@ -37,6 +37,7 @@ interface AnglerDetails {
     id: string;
     firstName: string;
     lastName: string;
+    email: string;
 }
 
 // Helper function to fetch documents in chunks
@@ -124,7 +125,7 @@ export function RemoveAnglerModal({ isOpen, onClose, match }: RemoveAnglerModalP
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Angler Name</TableHead>
+                            <TableHead>Angler</TableHead>
                             <TableHead className="text-right">Action</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -132,7 +133,7 @@ export function RemoveAnglerModal({ isOpen, onClose, match }: RemoveAnglerModalP
                         {isLoading ? (
                             Array.from({length: 4}).map((_, i) => (
                                 <TableRow key={i}>
-                                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                                    <TableCell><Skeleton className="h-10 w-40" /></TableCell>
                                     <TableCell className="text-right"><Skeleton className="h-9 w-24" /></TableCell>
                                 </TableRow>
                             ))
@@ -145,7 +146,12 @@ export function RemoveAnglerModal({ isOpen, onClose, match }: RemoveAnglerModalP
                         ) : (
                             registeredAnglers.map(angler => (
                                 <TableRow key={angler.id}>
-                                    <TableCell className="font-medium">{`${angler.firstName} ${angler.lastName}`}</TableCell>
+                                    <TableCell className="font-medium">
+                                        <div>
+                                            <p>{`${angler.firstName} ${angler.lastName}`}</p>
+                                            <p className="text-xs text-muted-foreground">{angler.email}</p>
+                                        </div>
+                                    </TableCell>
                                     <TableCell className="text-right">
                                         <Button 
                                             variant="destructive" 
