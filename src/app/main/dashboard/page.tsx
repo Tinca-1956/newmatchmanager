@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
 import { doc, onSnapshot, collection, query, where, Timestamp, orderBy, limit, getDocs, writeBatch } from 'firebase/firestore';
 import type { User, Match, MatchStatus, Result } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
@@ -314,7 +314,7 @@ export default function DashboardPage() {
 
   const renderImageGallery = () => {
     if (isLoadingResults) {
-        return <Skeleton className="aspect-video w-full" />
+        return <Skeleton className="w-full h-64" />
     }
     if (recentMatchImages.length === 0) {
         return (
@@ -325,26 +325,30 @@ export default function DashboardPage() {
         )
     }
     return (
-      <Carousel className="w-full h-full">
-        <CarouselContent>
-          {recentMatchImages.map((url, index) => (
-            <CarouselItem key={index}>
-              <div className="relative aspect-video w-full h-full">
-                <NextImage 
-                    src={url} 
-                    alt={`Recent match image ${index + 1}`} 
-                    fill 
-                    sizes="(max-width: 1280px) 25vw, 33vw"
-                    style={{ objectFit: 'contain' }}
-                    className="rounded-md"
-                />
-              </div>
-            </CarouselItem>
-          ))}
-        </CarouselContent>
-        <CarouselPrevious className="left-2" />
-        <CarouselNext className="right-2" />
-      </Carousel>
+       <div className="flex flex-col h-full">
+            <Carousel className="w-full flex-grow">
+                <CarouselContent className="h-full">
+                {recentMatchImages.map((url, index) => (
+                    <CarouselItem key={index} className="h-full">
+                    <div className="relative w-full h-full">
+                        <NextImage 
+                            src={url} 
+                            alt={`Recent match image ${index + 1}`} 
+                            fill 
+                            sizes="(max-width: 1280px) 25vw, 33vw"
+                            style={{ objectFit: 'contain' }}
+                            className="rounded-md"
+                        />
+                    </div>
+                    </CarouselItem>
+                ))}
+                </CarouselContent>
+                 <div className="flex justify-center items-center gap-4 pt-2">
+                    <CarouselPrevious variant="outline" />
+                    <CarouselNext variant="outline" />
+                </div>
+            </Carousel>
+       </div>
     );
   }
 
@@ -415,11 +419,10 @@ export default function DashboardPage() {
                     <CardDescription>From the last match</CardDescription>
                 )}
             </CardHeader>
-            <CardContent className="p-2 flex-grow">
+            <CardContent className="flex-grow p-4">
                 {renderImageGallery()}
             </CardContent>
         </Card>
-
       </div>
     </div>
     </>
