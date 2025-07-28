@@ -18,7 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trophy } from 'lucide-react';
+import { PlusCircle, Edit, Trophy, HelpCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -44,6 +44,7 @@ import type { Series, User, Club, Match, Result } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { CheckAnglersModal } from '@/components/check-anglers-modal';
 
 interface SeriesWithMatchCount extends Series {
     matchCount: number;
@@ -73,6 +74,7 @@ export default function SeriesPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isStandingsModalOpen, setIsStandingsModalOpen] = useState(false);
+  const [isCheckAnglersModalOpen, setIsCheckAnglersModalOpen] = useState(false);
   const [isStandingsLoading, setIsStandingsLoading] = useState(false);
 
   const [selectedSeries, setSelectedSeries] = useState<Series | null>(null);
@@ -280,6 +282,11 @@ export default function SeriesPage() {
     }
   }
 
+  const handleOpenCheckAnglersModal = (series: SeriesWithMatchCount) => {
+    setSelectedSeriesForAction(series);
+    setIsCheckAnglersModalOpen(true);
+  };
+
   const calculateSectionRanks = (results: Result[]): ResultWithSectionRank[] => {
     const resultsCopy: ResultWithSectionRank[] = results.map(r => ({ ...r }));
     
@@ -372,6 +379,16 @@ export default function SeriesPage() {
           {canEdit && (
             <TableCell className="text-right space-x-2">
               <TooltipProvider>
+                 <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="outline" size="icon" onClick={() => handleOpenCheckAnglersModal(series)} disabled={series.matchCount === 0}>
+                            <HelpCircle className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">
+                        <p>Check anglers</p>
+                    </TooltipContent>
+                </Tooltip>
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <Button variant="outline" size="icon" onClick={() => handleOpenStandingsModal(series)} disabled={series.matchCount === 0}>
@@ -522,57 +539,64 @@ export default function SeriesPage() {
       )}
 
       {selectedSeriesForAction && (
-        <Dialog open={isStandingsModalOpen} onOpenChange={setIsStandingsModalOpen}>
-            <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                    <DialogTitle>League Standings: {selectedSeriesForAction.name}</DialogTitle>
-                    <DialogDescription>
-                        Overall standings based on the sum of section positions from all completed matches in this series.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="max-h-[60vh] overflow-y-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Rank</TableHead>
-                                <TableHead>Angler Name</TableHead>
-                                <TableHead>Total Section Rank</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isStandingsLoading ? (
-                                Array.from({ length: 3 }).map((_, i) => (
-                                    <TableRow key={i}>
-                                        <TableCell><Skeleton className="h-4 w-10" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                                    </TableRow>
-                                ))
-                            ) : leagueStandings.length === 0 ? (
+        <>
+            <Dialog open={isStandingsModalOpen} onOpenChange={setIsStandingsModalOpen}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>League Standings: {selectedSeriesForAction.name}</DialogTitle>
+                        <DialogDescription>
+                            Overall standings based on the sum of section positions from all completed matches in this series.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="max-h-[60vh] overflow-y-auto">
+                        <Table>
+                            <TableHeader>
                                 <TableRow>
-                                    <TableCell colSpan={3} className="h-24 text-center">
-                                        No results with rankings recorded for this series yet.
-                                    </TableCell>
+                                    <TableHead>Rank</TableHead>
+                                    <TableHead>Angler Name</TableHead>
+                                    <TableHead>Total Section Rank</TableHead>
                                 </TableRow>
-                            ) : (
-                                leagueStandings.map((angler) => (
-                                    <TableRow key={angler.userName}>
-                                        <TableCell>
-                                            <Badge variant="outline">{angler.rank}</Badge>
+                            </TableHeader>
+                            <TableBody>
+                                {isStandingsLoading ? (
+                                    Array.from({ length: 3 }).map((_, i) => (
+                                        <TableRow key={i}>
+                                            <TableCell><Skeleton className="h-4 w-10" /></TableCell>
+                                            <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                                            <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : leagueStandings.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="h-24 text-center">
+                                            No results with rankings recorded for this series yet.
                                         </TableCell>
-                                        <TableCell className="font-medium">{angler.userName}</TableCell>
-                                        <TableCell>{angler.totalRank}</TableCell>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
-                 <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setIsStandingsModalOpen(false)}>Close</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                                ) : (
+                                    leagueStandings.map((angler) => (
+                                        <TableRow key={angler.userName}>
+                                            <TableCell>
+                                                <Badge variant="outline">{angler.rank}</Badge>
+                                            </TableCell>
+                                            <TableCell className="font-medium">{angler.userName}</TableCell>
+                                            <TableCell>{angler.totalRank}</TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsStandingsModalOpen(false)}>Close</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            <CheckAnglersModal
+                isOpen={isCheckAnglersModalOpen}
+                onClose={() => setIsCheckAnglersModalOpen(false)}
+                series={selectedSeriesForAction}
+            />
+        </>
       )}
 
     </div>
