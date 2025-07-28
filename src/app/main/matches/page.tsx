@@ -53,6 +53,7 @@ import { RemoveAnglerModal } from '@/components/remove-angler-modal';
 import Link from 'next/link';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { CreateMatchModal } from '@/components/create-match-modal';
 
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
@@ -102,6 +103,7 @@ function MatchesPageContent() {
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   
   const [isLoading, setIsLoading] = useState(true);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const {
     isResultsModalOpen,
@@ -490,7 +492,7 @@ function MatchesPageContent() {
                       </Select>
                   </div>
               )}
-              <Button disabled={!selectedClubId}>
+              <Button onClick={() => setIsCreateModalOpen(true)} disabled={!selectedClubId}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Create Match
               </Button>
@@ -531,6 +533,12 @@ function MatchesPageContent() {
             </Card>
         )}
       </div>
+
+      <CreateMatchModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        clubId={selectedClubId}
+      />
 
       {selectedMatchForModal && (
         <>
