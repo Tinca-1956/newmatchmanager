@@ -2,61 +2,46 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to check for admin roles.
-    function isClubAdminOrSiteAdmin(userId) {
-      // Ensure the user document exists and has a role before checking.
-      return exists(/databases/$(database)/documents/users/$(userId)) &&
-             get(/databases/$(database)/documents/users/$(userId)).data.role in ['Club Admin', 'Site Admin'];
+  
+    // Allow admins to read/write all data for management purposes.
+    // Allow any authenticated user to read from clubs, series, matches, and results.
+    match /{path=**} {
+       allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Site Admin', 'Club Admin'];
     }
 
-    // --- Users Collection ---
-    // Any authenticated user can read their own document.
-    // An admin can update any user document (e.g., change roles).
+    // USERS
+    // Allow users to view their own profile data.
+    // Allow users to update their own profile data.
     match /users/{userId} {
-      allow read: if request.auth.uid == userId || isClubAdminOrSiteAdmin(request.auth.uid);
-      allow write: if request.auth.uid == userId || isClubAdminOrSiteAdmin(request.auth.uid);
+      allow read, update: if request.auth.uid == userId;
     }
 
-    // --- Collection Group Queries ---
-    // This rule allows an admin to perform queries across the 'users' collection,
-    // which is required for modals like "Add Angler", "Remove Angler", etc.
-    // THIS IS THE KEY FIX.
-    match /users/{document=**} {
-       allow list: if isClubAdminOrSiteAdmin(request.auth.uid);
-    }
-
-    // --- Other Collections ---
-    // Rules for other collections need to be defined here.
-    // These are examples based on likely app functionality.
-
-    // Anyone can read club information. Only admins can create/update clubs.
+    // CLUBS
+    // Allow any authenticated user to read club information.
     match /clubs/{clubId} {
-      allow read: if true;
-      allow write: if isClubAdminOrSiteAdmin(request.auth.uid);
+      allow read: if request.auth != null;
     }
 
-    // Admins can manage series. Anyone can read them.
+    // SERIES
+    // Allow any authenticated user to read series information.
     match /series/{seriesId} {
-      allow read: if true;
-      allow write: if isClubAdminOrSiteAdmin(request.auth.uid);
+      allow read: if request.auth != null;
     }
-
-    // Admins can manage matches. Anyone can read them.
+    
+    // MATCHES
+    // Allow any authenticated user to read match info.
+    // Allow authenticated users to register/unregister by updating the registeredAnglers array.
     match /matches/{matchId} {
-      allow read: if true;
-      allow write: if isClubAdminOrSiteAdmin(request.auth.uid);
-      // Allow any authenticated user to register/unregister by updating the registeredAnglers array.
-      // This is a more specific rule that still allows admins to write all fields.
-      allow update: if request.auth != null && 
-                       (request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['registeredAnglers', 'registeredCount']));
+      allow read: if request.auth != null;
+      allow update: if request.auth != null
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['registeredAnglers', 'registeredCount']);
     }
 
-    // Admins can manage results. Anyone can read them.
+    // RESULTS
+    // Allow any authenticated user to read results.
     match /results/{resultId} {
-      allow read: if true;
-      allow write: if isClubAdminOrSiteAdmin(request.auth.uid);
+        allow read: if request.auth != null;
     }
   }
 }
