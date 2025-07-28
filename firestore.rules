@@ -4,7 +4,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
     function isSiteAdmin() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
     }
@@ -15,36 +14,29 @@ service cloud.firestore {
       return (userRole == 'Club Admin' && userPrimaryClubId == clubId) || isSiteAdmin();
     }
     
-    function isMarshal(clubId) {
-      let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-       let userPrimaryClubId = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId;
-      return (userRole == 'Marshal' && userPrimaryClubId == clubId) || isClubAdmin(clubId) || isSiteAdmin();
-    }
-
-    // Collection Rules
     match /users/{userId} {
       allow read, write: if request.auth.uid == userId || isSiteAdmin();
-      allow list: if isSiteAdmin();
-    }
-
-    match /clubs/{clubId} {
-      allow read: if request.auth != null;
-      allow write: if isSiteAdmin();
-    }
-
-    match /series/{seriesId} {
-      allow read: if request.auth != null;
-      allow create, update: if isClubAdmin(request.resource.data.clubId) || isSiteAdmin();
-    }
-
-    match /matches/{matchId} {
-      allow read: if request.auth != null;
-      allow create, update: if isClubAdmin(request.resource.data.clubId) || isSiteAdmin();
+      allow read: if isClubAdmin(resource.data.primaryClubId);
     }
     
+    match /clubs/{clubId} {
+      allow read: if request.auth.token != null;
+      allow write: if isSiteAdmin();
+    }
+    
+    match /series/{seriesId} {
+       allow read: if request.auth.token != null;
+       allow write: if isClubAdmin(get(/databases/$(database)/documents/series/$(seriesId)).data.clubId);
+    }
+    
+    match /matches/{matchId} {
+        allow read: if request.auth.token != null;
+        allow write: if isClubAdmin(get(/databases/$(database)/documents/matches/$(matchId)).data.clubId);
+    }
+
     match /results/{resultId} {
-        allow read: if request.auth != null;
-        allow create, update: if isMarshal(request.resource.data.clubId);
+       allow read: if request.auth.token != null;
+       allow write: if isClubAdmin(get(/databases/$(database)/documents/results/$(resultId)).data.clubId);
     }
   }
 }
