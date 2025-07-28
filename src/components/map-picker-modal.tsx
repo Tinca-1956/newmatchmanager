@@ -91,6 +91,7 @@ export function MapPickerModal({ isOpen, onClose, currentCoords, onLocationSelec
         <div className="flex-grow rounded-md overflow-hidden">
             {isClient && position && (
                 <MapContainer
+                    key={isOpen ? 'map-open' : 'map-closed'}
                     center={position}
                     zoom={13}
                     scrollWheelZoom={false}
