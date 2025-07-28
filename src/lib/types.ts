@@ -56,6 +56,7 @@ export interface Match {
   registeredCount: number;
   registeredAnglers: string[];
   paidPlaces: number;
+  mediaUrls?: string[];
 }
 
 export interface Result {
