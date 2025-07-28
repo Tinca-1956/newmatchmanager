@@ -3,42 +3,63 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isClubAdmin(userId, clubId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role == 'Club Admin' &&
+             get(/databases/$(database)/documents/users/$(userId)).data.primaryClubId == clubId;
+    }
+
+    function isSiteAdmin(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role == 'Site Admin';
+    }
     
-    // Function to check if the requesting user's role is one of the allowed roles.
-    // It reads the user's own profile document.
-    function isUserRole(allowedRoles) {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in allowedRoles;
+    function isRequestingUserClubAdminForResource(resource) {
+      return isClubAdmin(request.auth.uid, resource.data.clubId);
+    }
+    
+    function isRequestingUserSiteAdmin() {
+      return isSiteAdmin(request.auth.uid);
     }
 
-    // Admins can read the entire users collection to manage members.
-    // Anglers can only read their own profile.
+    // Rules for 'users' collection
     match /users/{userId} {
-      allow read: if isUserRole(['Site Admin', 'Club Admin']) || request.auth.uid == userId;
-      allow write: if isUserRole(['Site Admin', 'Club Admin']) || request.auth.uid == userId;
+      allow read: if isSignedIn();
+      allow write: if isRequestingUserSiteAdmin() || 
+                      (isClubAdmin(request.auth.uid, resource.data.primaryClubId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstName', 'lastName', 'role', 'memberStatus'])) ||
+                      request.auth.uid == userId;
     }
 
+    // Rules for 'clubs' collection
     match /clubs/{clubId} {
-      allow read: if request.auth != null;
-      // Only Site Admins can create or edit clubs.
-      allow write: if isUserRole(['Site Admin']);
+      allow read: if isSignedIn();
+      allow create, update: if isRequestingUserSiteAdmin();
+      allow delete: if false; 
     }
 
+    // Rules for 'series' collection
     match /series/{seriesId} {
-      allow read: if request.auth != null;
-      // Site Admins and Club Admins can write to series.
-      allow write: if isUserRole(['Site Admin', 'Club Admin']);
+      allow read: if isSignedIn();
+      allow create, update: if isRequestingUserSiteAdmin() || isRequestingUserClubAdminForResource(resource);
+      allow delete: if false;
     }
 
+    // Rules for 'matches' collection
     match /matches/{matchId} {
-      allow read: if request.auth != null;
-      // Site Admins and Club Admins can write to matches.
-      allow write: if isUserRole(['Site Admin', 'Club Admin']);
+      allow read: if isSignedIn();
+      allow create, update: if isRequestingUserSiteAdmin() || isRequestingUserClubAdminForResource(resource);
+      allow delete: if false;
     }
-
+    
+    // Rules for 'results' collection
     match /results/{resultId} {
-      allow read: if request.auth != null;
-      // Site Admins and Club Admins can write to results.
-      allow write: if isUserRole(['Site Admin', 'Club Admin']);
+      allow read: if isSignedIn();
+      allow create, update: if isRequestingUserSiteAdmin() || isRequestingUserClubAdminForResource(resource);
+      allow delete: if false;
     }
   }
 }
