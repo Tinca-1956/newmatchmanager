@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Upload, Image as ImageIcon, X, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Upload, Image as ImageIcon, X, AlertCircle, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -24,6 +24,8 @@ import { firestore, storage } from '@/lib/firebase-client';
 import { doc, getDoc, updateDoc, arrayUnion, DocumentSnapshot } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import type { Match, Club, User } from '@/lib/types';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 
 interface MatchDetails {
   clubName: string;
@@ -49,6 +51,8 @@ export default function ManageImagesPage() {
   
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
 
   useEffect(() => {
     if (!matchId || !firestore) {
@@ -206,12 +210,22 @@ export default function ManageImagesPage() {
     }
     if (!matchDetails) return <p>Match details not found.</p>;
     return (
-      <div className="space-y-2 text-sm text-muted-foreground">
-        <p><strong className="text-foreground">Club:</strong> {matchDetails.clubName}</p>
-        <p><strong className="text-foreground">Series:</strong> {matchDetails.seriesName}</p>
-        <p><strong className="text-foreground">Match:</strong> {matchDetails.matchName}</p>
-        <p><strong className="text-foreground">Location:</strong> {matchDetails.location}</p>
-        <p><strong className="text-foreground">Angler:</strong> {anglerName}</p>
+      <div className="space-y-4 text-sm text-muted-foreground">
+        <div className="space-y-2">
+            <p><strong className="text-foreground">Club:</strong> {matchDetails.clubName}</p>
+            <p><strong className="text-foreground">Series:</strong> {matchDetails.seriesName}</p>
+            <p><strong className="text-foreground">Match:</strong> {matchDetails.matchName}</p>
+            <p><strong className="text-foreground">Location:</strong> {matchDetails.location}</p>
+            <p><strong className="text-foreground">Angler:</strong> {anglerName}</p>
+        </div>
+        <Button
+            onClick={() => setIsGalleryOpen(true)}
+            disabled={!matchData?.mediaUrls || matchData.mediaUrls.length === 0}
+            variant="outline"
+        >
+            <Eye className="mr-2 h-4 w-4" />
+            View Gallery ({matchData?.mediaUrls?.length || 0})
+        </Button>
       </div>
     );
   };
@@ -248,57 +262,86 @@ export default function ManageImagesPage() {
   };
 
   return (
-    <div className="flex flex-col gap-8">
-       <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => router.back()}><ArrowLeft className="h-4 w-4" /></Button>
-        <div><h1 className="text-3xl font-bold tracking-tight">Manage Images</h1><p className="text-muted-foreground">Upload and view photos for this match.</p></div>
+    <>
+      <div className="flex flex-col gap-8">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="icon" onClick={() => router.back()}><ArrowLeft className="h-4 w-4" /></Button>
+          <div><h1 className="text-3xl font-bold tracking-tight">Manage Images</h1><p className="text-muted-foreground">Upload and view photos for this match.</p></div>
+        </div>
+        
+        <Card>
+          <CardHeader><CardTitle>Match Details</CardTitle><CardDescription>You are managing images for the following match.</CardDescription></CardHeader>
+          <CardContent>{renderDetails()}</CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+              <CardTitle>Image Gallery</CardTitle>
+              <CardDescription>Upload and view images for this match.</CardDescription>
+          </CardHeader>
+          <CardContent>
+              {renderImageGrid()}
+          </CardContent>
+          <CardFooter className="flex-col items-start gap-4 border-t pt-6">
+              <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  disabled={isUploading}
+              />
+              <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                  <Upload className="mr-2 h-4 w-4" />
+                  {isUploading ? `Uploading...` : 'Upload Images'}
+              </Button>
+              {isUploading && (
+                  <div className="w-full">
+                      <Progress value={uploadProgress} className="w-full" />
+                      <p className="text-sm text-muted-foreground mt-2">{Math.round(uploadProgress)}% complete</p>
+                  </div>
+              )}
+              <Alert variant="default" className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700">
+                  <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <AlertTitle className="text-blue-800 dark:text-blue-300">Tip</AlertTitle>
+                  <AlertDescription className="text-blue-700 dark:text-blue-400">
+                      You can select multiple images to upload at once. Images are automatically resized for faster uploads.
+                  </AlertDescription>
+              </Alert>
+          </CardFooter>
+        </Card>
       </div>
-      
-      <Card>
-        <CardHeader><CardTitle>Match Details</CardTitle><CardDescription>You are managing images for the following match.</CardDescription></CardHeader>
-        <CardContent>{renderDetails()}</CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader>
-            <CardTitle>Image Gallery</CardTitle>
-            <CardDescription>Upload and view images for this match.</CardDescription>
-        </CardHeader>
-        <CardContent>
-            {renderImageGrid()}
-        </CardContent>
-        <CardFooter className="flex-col items-start gap-4 border-t pt-6">
-            <input
-                type="file"
-                multiple
-                accept="image/*"
-                ref={fileInputRef}
-                onChange={handleFileSelect}
-                className="hidden"
-                disabled={isUploading}
-            />
-            <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-                <Upload className="mr-2 h-4 w-4" />
-                {isUploading ? `Uploading...` : 'Upload Images'}
-            </Button>
-            {isUploading && (
-                <div className="w-full">
-                    <Progress value={uploadProgress} className="w-full" />
-                    <p className="text-sm text-muted-foreground mt-2">{Math.round(uploadProgress)}% complete</p>
-                </div>
+
+       <Dialog open={isGalleryOpen} onOpenChange={setIsGalleryOpen}>
+        <DialogContent className="max-w-4xl w-full h-auto max-h-[90vh] flex flex-col p-4">
+          <DialogHeader>
+            <DialogTitle>Image Gallery: {matchDetails?.matchName}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-grow flex items-center justify-center overflow-hidden">
+            {matchData?.mediaUrls && matchData.mediaUrls.length > 0 && (
+                <Carousel className="w-full max-w-2xl">
+                    <CarouselContent>
+                        {matchData.mediaUrls.map((url, index) => (
+                            <CarouselItem key={index}>
+                                <div className="relative aspect-video w-full">
+                                    <NextImage 
+                                        src={url} 
+                                        alt={`Match gallery image ${index + 1}`} 
+                                        fill 
+                                        style={{ objectFit: 'contain' }}
+                                    />
+                                </div>
+                            </CarouselItem>
+                        ))}
+                    </CarouselContent>
+                    <CarouselPrevious />
+                    <CarouselNext />
+                </Carousel>
             )}
-            <Alert variant="default" className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700">
-                <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <AlertTitle className="text-blue-800 dark:text-blue-300">Tip</AlertTitle>
-                <AlertDescription className="text-blue-700 dark:text-blue-400">
-                    You can select multiple images to upload at once. Images are automatically resized for faster uploads.
-                </AlertDescription>
-            </Alert>
-        </CardFooter>
-      </Card>
-    </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
-
-
-    
