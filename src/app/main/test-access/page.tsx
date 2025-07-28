@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
@@ -14,11 +14,40 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 
 export default function TestAccessPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  
+  const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+
   const [anglers, setAnglers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user || !firestore) {
+      setProfileLoading(false);
+      return;
+    }
+
+    setProfileLoading(true);
+    const userDocRef = doc(firestore, 'users', user.uid);
+    getDoc(userDocRef).then(docSnap => {
+      if (docSnap.exists()) {
+        setCurrentUserProfile({ id: docSnap.id, ...docSnap.data() } as User);
+      } else {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not find your user profile.' });
+      }
+    }).catch(e => {
+       console.error("Error fetching user profile:", e);
+       setError("Failed to fetch your user profile. Check console for details.");
+    }).finally(() => {
+       setProfileLoading(false);
+    });
+
+  }, [user, authLoading, toast]);
+
 
   const handleGetAnglers = async () => {
     if (!user || !firestore) {
@@ -26,21 +55,17 @@ export default function TestAccessPage() {
       return;
     }
 
+    if (!currentUserProfile?.primaryClubId) {
+       toast({ variant: 'destructive', title: 'Error', description: "Could not find your primary club. Please set it in your profile." });
+       return;
+    }
+
     setIsLoading(true);
     setAnglers([]);
     setError(null);
 
     try {
-      // 1. Get the current user's document to find their primary club
-      const userDocRef = doc(firestore, 'users', user.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (!userDoc.exists() || !userDoc.data().primaryClubId) {
-        throw new Error("Could not find your primary club. Please set it in your profile.");
-      }
-      const primaryClubId = userDoc.data().primaryClubId;
-
-      // 2. Query for all users in that club
+      const primaryClubId = currentUserProfile.primaryClubId;
       const usersQuery = query(collection(firestore, 'users'), where('primaryClubId', '==', primaryClubId));
       const querySnapshot = await getDocs(usersQuery);
 
@@ -65,6 +90,26 @@ export default function TestAccessPage() {
     }
   };
 
+  const renderCurrentUserInfo = () => {
+      if (profileLoading) {
+          return (
+              <div className="space-y-2">
+                  <Skeleton className="h-5 w-48" />
+                  <Skeleton className="h-5 w-32" />
+              </div>
+          )
+      }
+      if (currentUserProfile) {
+          return (
+              <div>
+                  <p><span className="font-semibold">Current User:</span> {currentUserProfile.firstName} {currentUserProfile.lastName}</p>
+                  <p><span className="font-semibold">Detected Role:</span> {currentUserProfile.role}</p>
+              </div>
+          )
+      }
+      return <p className="text-muted-foreground">Could not load current user information.</p>
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <div>
@@ -75,12 +120,17 @@ export default function TestAccessPage() {
         <CardHeader>
           <CardTitle>Club Angler Query</CardTitle>
           <CardDescription>
-            Click the button to attempt to fetch all users who are members of your primary club.
-            This uses the query: `query(collection('users'), where('primaryClubId', '==', YOUR_CLUB_ID))`
+            This page first displays your detected user role, then attempts to fetch all users who are members of your primary club.
+            The query used is: `query(collection('users'), where('primaryClubId', '==', YOUR_CLUB_ID))`
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <Button onClick={handleGetAnglers} disabled={isLoading}>
+        <CardContent className="space-y-6">
+          <div className="space-y-2 rounded-md border p-4">
+             <h3 className="font-semibold mb-2">User Role Check</h3>
+             {renderCurrentUserInfo()}
+          </div>
+
+          <Button onClick={handleGetAnglers} disabled={isLoading || profileLoading || !currentUserProfile}>
             {isLoading ? 'Fetching...' : 'Get Club Anglers'}
           </Button>
 
