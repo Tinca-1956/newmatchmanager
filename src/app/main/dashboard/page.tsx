@@ -428,7 +428,7 @@ export default function DashboardPage() {
                     <CardDescription>From the last match</CardDescription>
                 )}
             </CardHeader>
-            <CardContent className="flex-grow p-0">
+            <CardContent className="flex-grow flex items-center justify-center">
                 {renderImageGallery()}
             </CardContent>
              {recentMatchId && (
