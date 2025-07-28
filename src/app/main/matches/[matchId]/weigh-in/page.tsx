@@ -292,33 +292,42 @@ export default function WeighInPage() {
         )
     }
     return (
-        <div className="flex justify-between items-center mb-8">
-            <Button variant="outline" onClick={() => router.back()}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Matches
-            </Button>
-            <div className="text-center">
-                <h1 className="text-3xl font-bold tracking-tight">Weigh-in: {match.name}</h1>
-                <p className="text-muted-foreground">{match.seriesName} - {format(match.date, 'PPP')}</p>
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-8 gap-4">
+            {/* Buttons Row (Top on mobile) */}
+            <div className="flex justify-between items-center w-full md:w-auto order-1">
+                <Button variant="outline" onClick={() => router.back()} className="text-xs sm:text-sm">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back to Matches
+                </Button>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="text-xs sm:text-sm">
+                            {viewMode === 'card' ? <LayoutGrid className="mr-2 h-4 w-4" /> : <List className="mr-2 h-4 w-4" />}
+                            Display: {viewMode === 'card' ? 'Cards' : 'List'}
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => setViewMode('card')}>
+                             <LayoutGrid className="mr-2 h-4 w-4" />
+                            Card View
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setViewMode('list')}>
+                             <List className="mr-2 h-4 w-4" />
+                            List View
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
-             <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="outline">
-                        {viewMode === 'card' ? <LayoutGrid className="mr-2 h-4 w-4" /> : <List className="mr-2 h-4 w-4" />}
-                        Display: {viewMode === 'card' ? 'Cards' : 'List'}
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                    <DropdownMenuItem onClick={() => setViewMode('card')}>
-                         <LayoutGrid className="mr-2 h-4 w-4" />
-                        Card View
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setViewMode('list')}>
-                         <List className="mr-2 h-4 w-4" />
-                        List View
-                    </DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
+            
+            {/* Text Content (Middle on mobile) */}
+            <div className="text-center order-2 md:order-none flex-grow">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">Weigh-in</h1>
+                <p className="text-lg sm:text-xl font-semibold">{match.name}</p>
+                <p className="text-sm text-muted-foreground">{match.seriesName} - {format(match.date, 'PPP')}</p>
+            </div>
+
+             {/* Spacer for desktop to balance center text */}
+             <div className="hidden md:block w-48 order-3"></div>
         </div>
     )
   }
@@ -415,55 +424,57 @@ export default function WeighInPage() {
     }
 
     return (
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHead className="w-[25%]">Angler</TableHead>
-                    <TableHead className="w-[15%]">Peg No.</TableHead>
-                    <TableHead className="w-[15%]">Section</TableHead>
-                    <TableHead className="w-[15%]">Weight (Kg)</TableHead>
-                    <TableHead className="w-[15%]">Status</TableHead>
-                    <TableHead className="w-[15%]">Rank</TableHead>
-                    <TableHead>Action</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {results.map(angler => (
-                    <TableRow key={angler.userId}>
-                        <TableCell className="font-medium">{angler.userName}</TableCell>
-                        <TableCell>
-                            <Input value={angler.peg} onChange={e => handleFieldChange(angler.userId, 'peg', e.target.value)} disabled={!canEdit} className="h-9"/>
-                        </TableCell>
-                         <TableCell>
-                            <Input value={angler.section} onChange={e => handleFieldChange(angler.userId, 'section', e.target.value)} disabled={!canEdit} className="h-9"/>
-                        </TableCell>
-                        <TableCell>
-                            <Input type="number" step="0.001" value={angler.weight} onChange={e => handleFieldChange(angler.userId, 'weight', e.target.value)} disabled={!canEdit} className="h-9"/>
-                        </TableCell>
-                        <TableCell>
-                             <Select value={angler.status} onValueChange={(value) => handleFieldChange(angler.userId, 'status', value)} disabled={!canEdit}>
-                                <SelectTrigger className="h-9">
-                                    <SelectValue placeholder="Select status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="NYW">NYW</SelectItem>
-                                    <SelectItem value="OK">OK</SelectItem>
-                                    <SelectItem value="DNW">DNW</SelectItem>
-                                    <SelectItem value="DNF">DNF</SelectItem>
-                                    <SelectItem value="DSQ">DSQ</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </TableCell>
-                        <TableCell>{angler.position || '-'}</TableCell>
-                        <TableCell>
-                            <Button size="sm" onClick={() => handleSaveResult(angler.userId)} disabled={isSaving === angler.userId || !canEdit}>
-                               {isSaving === angler.userId ? 'Saving...' : 'Save'}
-                            </Button>
-                        </TableCell>
+        <div className="overflow-x-auto">
+            <Table className="min-w-[700px] md:min-w-full">
+                <TableHeader>
+                    <TableRow>
+                        <TableHead className="w-[25%]">Angler</TableHead>
+                        <TableHead className="w-[15%]">Peg No.</TableHead>
+                        <TableHead className="w-[15%]">Section</TableHead>
+                        <TableHead className="w-[15%]">Weight (Kg)</TableHead>
+                        <TableHead className="w-[15%]">Status</TableHead>
+                        <TableHead className="w-[10%]">Rank</TableHead>
+                        <TableHead className="w-[10%]">Action</TableHead>
                     </TableRow>
-                ))}
-            </TableBody>
-        </Table>
+                </TableHeader>
+                <TableBody>
+                    {results.map(angler => (
+                        <TableRow key={angler.userId}>
+                            <TableCell className="font-medium">{angler.userName}</TableCell>
+                            <TableCell>
+                                <Input value={angler.peg} onChange={e => handleFieldChange(angler.userId, 'peg', e.target.value)} disabled={!canEdit} className="h-9"/>
+                            </TableCell>
+                             <TableCell>
+                                <Input value={angler.section} onChange={e => handleFieldChange(angler.userId, 'section', e.target.value)} disabled={!canEdit} className="h-9"/>
+                            </TableCell>
+                            <TableCell>
+                                <Input type="number" step="0.001" value={angler.weight} onChange={e => handleFieldChange(angler.userId, 'weight', e.target.value)} disabled={!canEdit} className="h-9"/>
+                            </TableCell>
+                            <TableCell>
+                                 <Select value={angler.status} onValueChange={(value) => handleFieldChange(angler.userId, 'status', value)} disabled={!canEdit}>
+                                    <SelectTrigger className="h-9">
+                                        <SelectValue placeholder="Select status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="NYW">NYW</SelectItem>
+                                        <SelectItem value="OK">OK</SelectItem>
+                                        <SelectItem value="DNW">DNW</SelectItem>
+                                        <SelectItem value="DNF">DNF</SelectItem>
+                                        <SelectItem value="DSQ">DSQ</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </TableCell>
+                            <TableCell>{angler.position || '-'}</TableCell>
+                            <TableCell>
+                                <Button size="sm" onClick={() => handleSaveResult(angler.userId)} disabled={isSaving === angler.userId || !canEdit}>
+                                   {isSaving === angler.userId ? 'Saving...' : 'Save'}
+                                </Button>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </div>
     )
   }
 
