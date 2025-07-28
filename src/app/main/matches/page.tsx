@@ -104,6 +104,8 @@ function MatchesPageContent() {
   
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [canCreate, setCanCreate] = useState(false);
+  const [userProfile, setUserProfile] = useState<User | null>(null);
 
   const {
     isResultsModalOpen,
@@ -140,6 +142,9 @@ function MatchesPageContent() {
 
         if (userDoc.exists()) {
             const userData = userDoc.data() as User;
+            setUserProfile(userData);
+            setCanCreate(userData.role === 'Site Admin' || userData.role === 'Club Admin');
+
             if (isSiteAdmin) {
                 const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
                 const clubsSnapshot = await getDocs(clubsQuery);
@@ -492,10 +497,12 @@ function MatchesPageContent() {
                       </Select>
                   </div>
               )}
-              <Button onClick={() => setIsCreateModalOpen(true)} disabled={!selectedClubId}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Create Match
-              </Button>
+              {canCreate && (
+                <Button onClick={() => setIsCreateModalOpen(true)} disabled={!selectedClubId}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Create Match
+                </Button>
+              )}
           </div>
         </div>
         
