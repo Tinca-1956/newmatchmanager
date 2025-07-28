@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
+  CardFooter,
 } from '@/components/ui/card';
 import {
     Table,
@@ -18,7 +19,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, UserPlus, FileText, Trophy, Scale, LogIn, Edit, UserMinus, MapPin } from 'lucide-react';
+import { PlusCircle, UserPlus, FileText, Trophy, Scale, LogIn, Edit, UserMinus, MapPin, MoreVertical } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -26,6 +27,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
@@ -44,6 +51,7 @@ import { useMatchActions } from '@/hooks/use-match-actions';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { RemoveAnglerModal } from '@/components/remove-angler-modal';
 import Link from 'next/link';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
@@ -80,6 +88,7 @@ export default function MatchesPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { isSiteAdmin, loading: adminLoading } = useAdminAuth();
+  const isMobile = useIsMobile();
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
@@ -298,21 +307,126 @@ export default function MatchesPage() {
       );
     });
   };
+
+  const renderMatchCards = () => {
+    if (isLoading) {
+      return Array.from({ length: 3 }).map((_, i) => (
+        <Card key={i}>
+          <CardHeader><Skeleton className="h-6 w-3/4" /></CardHeader>
+          <CardContent className="space-y-4">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-2/3" />
+            <Skeleton className="h-4 w-1/2" />
+          </CardContent>
+          <CardFooter><Skeleton className="h-10 w-full" /></CardFooter>
+        </Card>
+      ));
+    }
+    if (displayedMatches.length === 0) {
+      return (
+        <div className="text-center text-muted-foreground py-12">
+          No matches found for this club.
+        </div>
+      );
+    }
+    return displayedMatches.map((match) => {
+        const isUserRegistered = user ? match.registeredAnglers?.includes(user.uid) : false;
+        const status = getCalculatedStatus(match);
+        return (
+            <Card key={match.id}>
+                <CardHeader>
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <CardTitle>{match.name}</CardTitle>
+                            <CardDescription>{match.seriesName}</CardDescription>
+                        </div>
+                        <Badge variant="outline">{status}</Badge>
+                    </div>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                    <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Date:</span>
+                        <span className="font-medium">{format(match.date, 'eee, dd MMM yyyy')}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Location:</span>
+                         <div className="flex items-center gap-2">
+                            <span className="font-medium">{match.location}</span>
+                            {match.googleMapsLink && (
+                                <Link href={match.googleMapsLink} target="_blank" rel="noopener noreferrer">
+                                    <MapPin className="h-4 w-4 text-primary" />
+                                </Link>
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Registration:</span>
+                        <span className="font-medium">{match.registeredCount} / {match.capacity}</span>
+                    </div>
+                </CardContent>
+                <CardFooter className="flex justify-between items-center">
+                    <Button 
+                        onClick={() => handleRegister(match)}
+                        disabled={isUserRegistered}
+                        size="sm"
+                    >
+                        <LogIn className="mr-2 h-4 w-4" />
+                        {isUserRegistered ? 'Registered' : 'Register'}
+                    </Button>
+
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                                <MoreVertical className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleAddAnglers(match.id)}>
+                                <UserPlus className="mr-2 h-4 w-4" />
+                                <span>Add Anglers</span>
+                            </DropdownMenuItem>
+                             <DropdownMenuItem onClick={() => handleRemoveAnglers(match)}>
+                                <UserMinus className="mr-2 h-4 w-4" />
+                                <span>Remove Anglers</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleViewAnglerList(match)}>
+                                <FileText className="mr-2 h-4 w-4" />
+                                <span>View Angler List</span>
+                            </DropdownMenuItem>
+                             <DropdownMenuItem onClick={() => handleViewResults(match)}>
+                                <Trophy className="mr-2 h-4 w-4" />
+                                <span>View Results</span>
+                            </DropdownMenuItem>
+                             <DropdownMenuItem onClick={() => handleWeighIn(match.id)}>
+                                <Scale className="mr-2 h-4 w-4" />
+                                <span>Manage Weigh-in</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditMatch(match)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                <span>Edit Match</span>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </CardFooter>
+            </Card>
+        )
+    });
+  }
   
   return (
     <>
       <div className="flex flex-col gap-8">
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Matches</h1>
             <p className="text-muted-foreground">Manage your club's matches here.</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 flex-wrap">
               {isSiteAdmin && (
                   <div className="flex items-center gap-2">
-                      <Label htmlFor="club-filter" className="text-nowrap">Clubs</Label>
+                      <Label htmlFor="club-filter" className="text-nowrap">Club</Label>
                       <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={clubs.length === 0}>
-                          <SelectTrigger id="club-filter" className="w-52">
+                          <SelectTrigger id="club-filter" className="w-[180px]">
                               <SelectValue placeholder="Select a club..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -332,31 +446,37 @@ export default function MatchesPage() {
           </div>
         </div>
         
-        <Card>
-          <CardHeader>
-            <CardTitle>Upcoming & Recent Matches</CardTitle>
-            <CardDescription>A list of all matches for your club. Click a row to see registered anglers.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Series</TableHead>
-                  <TableHead>Match</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Capacity</TableHead>
-                  <TableHead>Registered</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {renderMatchList()}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        {isMobile ? (
+             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                 {renderMatchCards()}
+            </div>
+        ) : (
+             <Card>
+                <CardHeader>
+                    <CardTitle>Upcoming & Recent Matches</CardTitle>
+                    <CardDescription>A list of all matches for your club.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                    <TableHeader>
+                        <TableRow>
+                        <TableHead>Series</TableHead>
+                        <TableHead>Match</TableHead>
+                        <TableHead>Location</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Capacity</TableHead>
+                        <TableHead>Registered</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {renderMatchList()}
+                    </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        )}
       </div>
 
       {selectedMatchForModal && (
@@ -394,3 +514,4 @@ export default function MatchesPage() {
     </>
   );
 }
+
