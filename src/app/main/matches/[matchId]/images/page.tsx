@@ -221,7 +221,6 @@ export default function ManageImagesPage() {
         <Button
             onClick={() => setIsGalleryOpen(true)}
             disabled={!matchData?.mediaUrls || matchData.mediaUrls.length === 0}
-            variant="outline"
         >
             <Eye className="mr-2 h-4 w-4" />
             View Gallery ({matchData?.mediaUrls?.length || 0})
