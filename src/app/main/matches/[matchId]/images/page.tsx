@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Upload, Image as ImageIcon, X, AlertCircle, Eye } from 'lucide-react';
+import { ArrowLeft, Upload, Image as ImageIcon, X, AlertCircle, Eye, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -21,11 +21,22 @@ import NextImage from 'next/image';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { firestore, storage } from '@/lib/firebase-client';
-import { doc, getDoc, updateDoc, arrayUnion, DocumentSnapshot } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, DocumentSnapshot } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { Match, Club, User } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 interface MatchDetails {
   clubName: string;
@@ -53,6 +64,7 @@ export default function ManageImagesPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null); // Store URL of image being deleted
 
   useEffect(() => {
     if (!matchId || !firestore) {
@@ -202,6 +214,33 @@ export default function ManageImagesPage() {
         fileInputRef.current.value = "";
     }
   };
+  
+  const handleDeleteImage = async (imageUrl: string) => {
+    if (!storage || !firestore || !matchId) return;
+
+    setIsDeleting(imageUrl);
+    try {
+        // Delete from Storage
+        const imageRef = ref(storage, imageUrl);
+        await deleteObject(imageRef);
+
+        // Delete from Firestore
+        const matchDocRef = doc(firestore, 'matches', matchId);
+        await updateDoc(matchDocRef, {
+            mediaUrls: arrayRemove(imageUrl)
+        });
+
+        // Update local state
+        setMatchData(prev => prev ? { ...prev, mediaUrls: prev.mediaUrls?.filter(url => url !== imageUrl) } : null);
+
+        toast({ title: 'Success', description: 'Image deleted successfully.' });
+    } catch (error) {
+        console.error("Error deleting image:", error);
+        toast({ variant: 'destructive', title: 'Delete Failed', description: 'Could not delete the image.' });
+    } finally {
+        setIsDeleting(null);
+    }
+  };
 
 
   const renderDetails = () => {
@@ -219,6 +258,7 @@ export default function ManageImagesPage() {
             <p><strong className="text-foreground">Angler:</strong> {anglerName}</p>
         </div>
         <Button
+            variant="default"
             onClick={() => setIsGalleryOpen(true)}
             disabled={!matchData?.mediaUrls || matchData.mediaUrls.length === 0}
         >
@@ -250,10 +290,37 @@ export default function ManageImagesPage() {
     }
 
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {matchData.mediaUrls.map((url, index) => (
-          <div key={index} className="relative aspect-square w-full overflow-hidden rounded-md">
+          <div key={index} className="relative group aspect-square w-full overflow-hidden rounded-md">
             <NextImage src={url} alt={`Match image ${index + 1}`} fill style={{ objectFit: 'cover' }} />
+             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                         <Button
+                            variant="destructive"
+                            size="icon"
+                            disabled={isDeleting === url}
+                        >
+                            {isDeleting === url ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> : <Trash2 className="h-4 w-4" />}
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the image.
+                        </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleDeleteImage(url)}>
+                            Delete
+                        </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </div>
           </div>
         ))}
       </div>
@@ -276,7 +343,7 @@ export default function ManageImagesPage() {
         <Card>
           <CardHeader>
               <CardTitle>Image Gallery</CardTitle>
-              <CardDescription>Upload and view images for this match.</CardDescription>
+              <CardDescription>Upload images or hover over an image to delete it.</CardDescription>
           </CardHeader>
           <CardContent>
               {renderImageGrid()}
