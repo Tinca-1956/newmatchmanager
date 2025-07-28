@@ -128,7 +128,7 @@ export function EditMatchModal({ isOpen, onClose, match }: EditMatchModalProps) 
           <DialogTitle>Edit Match</DialogTitle>
           <DialogDescription>Update the details for "{match?.name}".</DialogDescription>
         </DialogHeader>
-        <div className="grid gap-6 py-4 max-h-[70vh] overflow-y-auto pr-4">
+        <div className="grid gap-6 py-4 max-h-[70vh] overflow-y-auto px-1 pr-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
              <div className="space-y-2">
                 <Label htmlFor="name">Match Name</Label>
