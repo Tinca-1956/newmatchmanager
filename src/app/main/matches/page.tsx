@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import {
   Card,
   CardContent,
@@ -52,7 +52,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { RemoveAnglerModal } from '@/components/remove-angler-modal';
 import Link from 'next/link';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
@@ -84,17 +84,18 @@ const getCalculatedStatus = (match: Match): MatchStatus => {
   return 'Upcoming';
 };
 
-
-export default function MatchesPage() {
+function MatchesPageContent() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { isSiteAdmin, loading: adminLoading } = useAdminAuth();
   const isMobile = useIsMobile();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
+  const [filterMatchId, setFilterMatchId] = useState<string | null>(null);
   
   const [isLoading, setIsLoading] = useState(true);
 
@@ -122,6 +123,14 @@ export default function MatchesPage() {
     handleManageImages,
   } = useMatchActions();
 
+  // Effect to handle incoming matchId filter from URL
+  useEffect(() => {
+    const matchIdFromUrl = searchParams.get('matchId');
+    if (matchIdFromUrl) {
+      setFilterMatchId(matchIdFromUrl);
+    }
+  }, [searchParams]);
+
   // Effect to get the user's primary club or all clubs for admin
   useEffect(() => {
     if (adminLoading || !user || !firestore) return;
@@ -138,7 +147,16 @@ export default function MatchesPage() {
                 const clubsSnapshot = await getDocs(clubsQuery);
                 const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
                 setClubs(clubsData);
-                setSelectedClubId(userData.primaryClubId || (clubsData.length > 0 ? clubsData[0].id : ''));
+                // If a match filter is applied, we might need to find its club and select it
+                if (filterMatchId) {
+                  const matchDocRef = doc(firestore, 'matches', filterMatchId);
+                  const matchDoc = await getDoc(matchDocRef);
+                  if (matchDoc.exists()) {
+                    setSelectedClubId(matchDoc.data().clubId);
+                  }
+                } else {
+                   setSelectedClubId(userData.primaryClubId || (clubsData.length > 0 ? clubsData[0].id : ''));
+                }
             } else {
                 setSelectedClubId(userData.primaryClubId || '');
             }
@@ -146,11 +164,11 @@ export default function MatchesPage() {
     };
 
     fetchInitialData();
-  }, [user, isSiteAdmin, adminLoading]);
+  }, [user, isSiteAdmin, adminLoading, filterMatchId]);
   
   // Effect to fetch matches for the selected club
   useEffect(() => {
-    if (!selectedClubId || !firestore) {
+    if ((!selectedClubId && !filterMatchId) || !firestore) {
         setIsLoading(false);
         setMatches([]);
         return;
@@ -158,11 +176,20 @@ export default function MatchesPage() {
 
     setIsLoading(true);
 
-    const matchesQuery = query(
-      collection(firestore, 'matches'),
-      where('clubId', '==', selectedClubId),
-      orderBy('date', 'desc')
-    );
+    let matchesQuery;
+
+    if (filterMatchId) {
+        // If a specific match is requested, just fetch that one
+        matchesQuery = query(collection(firestore, 'matches'), where('__name__', '==', filterMatchId));
+    } else {
+        // Otherwise, fetch all matches for the selected club
+        matchesQuery = query(
+          collection(firestore, 'matches'),
+          where('clubId', '==', selectedClubId),
+          orderBy('date', 'desc')
+        );
+    }
+
 
     const unsubscribeMatches = onSnapshot(matchesQuery, (snapshot) => {
       const matchesData = snapshot.docs.map(doc => ({
@@ -182,7 +209,7 @@ export default function MatchesPage() {
     return () => {
         unsubscribeMatches();
     };
-  }, [selectedClubId, toast]);
+  }, [selectedClubId, filterMatchId, toast]);
 
   const displayedMatches = useMemo(() => {
     return matches.map(match => ({
@@ -190,6 +217,15 @@ export default function MatchesPage() {
       calculatedStatus: getCalculatedStatus(match),
     }));
   }, [matches]);
+  
+  const handleClubSelectionChange = (clubId: string) => {
+    // When user manually changes club, remove the match filter
+    setFilterMatchId(null); 
+    // Clear matchId from URL
+    router.replace('/main/matches', { scroll: false }); 
+    setSelectedClubId(clubId);
+  };
+
 
   const renderMatchList = () => {
     if (isLoading) {
@@ -440,7 +476,7 @@ export default function MatchesPage() {
               {isSiteAdmin && (
                   <div className="flex items-center gap-2">
                       <Label htmlFor="club-filter" className="text-nowrap">Club</Label>
-                      <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={clubs.length === 0}>
+                      <Select value={selectedClubId} onValueChange={handleClubSelectionChange} disabled={clubs.length === 0}>
                           <SelectTrigger id="club-filter" className="w-[180px]">
                               <SelectValue placeholder="Select a club..." />
                           </SelectTrigger>
@@ -528,4 +564,12 @@ export default function MatchesPage() {
       )}
     </>
   );
+}
+
+export default function MatchesPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <MatchesPageContent />
+        </Suspense>
+    )
 }

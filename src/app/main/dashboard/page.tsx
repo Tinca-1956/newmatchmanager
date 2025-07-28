@@ -22,6 +22,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel"
+import { Button } from '@/components/ui/button';
 
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
@@ -72,6 +73,7 @@ export default function DashboardPage() {
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [upcomingMatches, setUpcomingMatches] = useState<Match[]>([]);
   const [recentResults, setRecentResults] = useState<Result[]>([]);
+  const [recentMatchId, setRecentMatchId] = useState<string>('');
   const [recentMatchName, setRecentMatchName] = useState<string>('');
   const [recentSeriesName, setRecentSeriesName] = useState<string>('');
   const [recentMatchLocation, setRecentMatchLocation] = useState<string>('');
@@ -166,6 +168,7 @@ export default function DashboardPage() {
         
         if (completedMatches.length > 0) {
             const recentMatch = completedMatches[0];
+            setRecentMatchId(recentMatch.id);
             setRecentMatchName(recentMatch.name);
             setRecentSeriesName(recentMatch.seriesName);
             setRecentMatchLocation(recentMatch.location);
@@ -208,6 +211,7 @@ export default function DashboardPage() {
 
         } else {
             setRecentResults([]);
+            setRecentMatchId('');
             setRecentMatchName('');
             setRecentSeriesName('');
             setRecentMatchLocation('');
@@ -326,11 +330,17 @@ export default function DashboardPage() {
         )
     }
     return (
-      <Carousel>
-        <CarouselContent>
+      <Carousel
+        opts={{
+            align: "start",
+            loop: true,
+        }}
+         className="w-full h-full"
+      >
+        <CarouselContent className="-ml-1 h-full">
           {recentMatchImages.map((url, index) => (
-            <CarouselItem key={index}>
-              <div className="relative w-full aspect-video">
+            <CarouselItem key={index} className="pl-1 h-full">
+              <div className="relative w-full h-full">
                 <NextImage
                   src={url}
                   alt={`Recent match image ${index + 1}`}
@@ -343,8 +353,10 @@ export default function DashboardPage() {
             </CarouselItem>
           ))}
         </CarouselContent>
-        <CarouselPrevious />
-        <CarouselNext />
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-4">
+             <CarouselPrevious />
+             <CarouselNext />
+        </div>
       </Carousel>
     );
   }
@@ -407,7 +419,7 @@ export default function DashboardPage() {
             </CardContent>
         </Card>
 
-         <Card>
+         <Card className="flex flex-col">
             <CardHeader>
                 <CardTitle>Recent Photos</CardTitle>
                 {isLoadingResults ? (
@@ -416,13 +428,19 @@ export default function DashboardPage() {
                     <CardDescription>From the last match</CardDescription>
                 )}
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-grow p-0">
                 {renderImageGallery()}
             </CardContent>
+             {recentMatchId && (
+                <CardFooter className="pt-6 justify-center">
+                    <Button asChild>
+                        <Link href={`/main/matches?matchId=${recentMatchId}`}>Go to Match</Link>
+                    </Button>
+                </CardFooter>
+            )}
         </Card>
       </div>
     </div>
     </>
   );
 }
-
