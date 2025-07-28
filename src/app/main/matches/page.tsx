@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -261,7 +262,7 @@ function MatchesPageContent() {
 
     return displayedMatches.map((match) => {
       const isUserRegistered = user ? match.registeredAnglers?.includes(user.uid) : false;
-      const status = getCalculatedStatus(match);
+      const status = match.calculatedStatus;
 
       return (
         <TableRow key={match.id}>
@@ -344,19 +345,21 @@ function MatchesPageContent() {
                           </TooltipTrigger>
                           <TooltipContent><p>View Results</p></TooltipContent>
                       </Tooltip>
-                       <Tooltip>
-                          <TooltipTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                onClick={() => handleRegister(match)}
-                                disabled={isUserRegistered}
-                              >
-                                  <LogIn className="h-4 w-4" />
-                              </Button>
-                          </TooltipTrigger>
-                          <TooltipContent><p>{isUserRegistered ? "Use your user profile to un-register" : "Register for Match"}</p></TooltipContent>
-                      </Tooltip>
+                      {status !== 'Completed' && (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  onClick={() => handleRegister(match)}
+                                  disabled={isUserRegistered}
+                                >
+                                    <LogIn className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>{isUserRegistered ? "Use your user profile to un-register" : "Register for Match"}</p></TooltipContent>
+                        </Tooltip>
+                      )}
                   </div>
               </TooltipProvider>
           </TableCell>
@@ -388,7 +391,7 @@ function MatchesPageContent() {
     }
     return displayedMatches.map((match) => {
         const isUserRegistered = user ? match.registeredAnglers?.includes(user.uid) : false;
-        const status = getCalculatedStatus(match);
+        const status = match.calculatedStatus;
         return (
             <Card key={match.id}>
                 <CardHeader>
@@ -422,14 +425,18 @@ function MatchesPageContent() {
                     </div>
                 </CardContent>
                 <CardFooter className="flex justify-between items-center">
-                    <Button 
-                        onClick={() => handleRegister(match)}
-                        disabled={isUserRegistered}
-                        size="sm"
-                    >
-                        <LogIn className="mr-2 h-4 w-4" />
-                        {isUserRegistered ? 'Registered' : 'Register'}
-                    </Button>
+                    {status !== 'Completed' ? (
+                        <Button 
+                            onClick={() => handleRegister(match)}
+                            disabled={isUserRegistered}
+                            size="sm"
+                        >
+                            <LogIn className="mr-2 h-4 w-4" />
+                            {isUserRegistered ? 'Registered' : 'Register'}
+                        </Button>
+                    ) : (
+                        <Button size="sm" disabled>Registration Closed</Button>
+                    )}
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
