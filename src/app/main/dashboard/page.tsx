@@ -66,6 +66,7 @@ export default function DashboardPage() {
   const [recentResults, setRecentResults] = useState<Result[]>([]);
   const [recentMatchName, setRecentMatchName] = useState<string>('');
   const [recentSeriesName, setRecentSeriesName] = useState<string>('');
+  const [recentMatchPaidPlaces, setRecentMatchPaidPlaces] = useState<number>(0);
 
 
   const [isLoading, setIsLoading] = useState(true);
@@ -157,6 +158,7 @@ export default function DashboardPage() {
             const recentMatch = completedMatches[0];
             setRecentMatchName(recentMatch.name);
             setRecentSeriesName(recentMatch.seriesName);
+            setRecentMatchPaidPlaces(recentMatch.paidPlaces || 0);
             
             const resultsQuery = query(
                 collection(firestore, 'results'),
@@ -273,20 +275,26 @@ export default function DashboardPage() {
       );
     }
 
-    return recentResults.map(result => (
-      <TableRow key={result.userId}>
-        <TableCell>
-            <div className="w-6 h-6 flex items-center justify-center rounded-full bg-muted text-muted-foreground text-xs">
-              {result.position || '-'}
-            </div>
-        </TableCell>
-        <TableCell className="font-medium">{formatAnglerName(result.userName)}</TableCell>
-        <TableCell className="text-muted-foreground">{result.weight.toFixed(3)}kg</TableCell>
-        <TableCell>
-            <Badge variant={result.status === 'OK' ? 'outline' : 'secondary'}>{result.status}</Badge>
-        </TableCell>
-      </TableRow>
-    ));
+    return recentResults.map(result => {
+        const isPaidPlace = result.position !== null && recentMatchPaidPlaces > 0 && result.position <= recentMatchPaidPlaces;
+        return (
+            <TableRow 
+                key={result.userId}
+                className={isPaidPlace ? 'bg-green-100 dark:bg-green-900/30' : ''}
+            >
+                <TableCell>
+                    <div className="w-6 h-6 flex items-center justify-center rounded-full bg-muted text-muted-foreground text-xs">
+                    {result.position || '-'}
+                    </div>
+                </TableCell>
+                <TableCell className="font-medium">{formatAnglerName(result.userName)}</TableCell>
+                <TableCell className="text-muted-foreground">{result.weight.toFixed(3)}kg</TableCell>
+                <TableCell>
+                    <Badge variant={result.status === 'OK' ? 'outline' : 'secondary'}>{result.status}</Badge>
+                </TableCell>
+            </TableRow>
+        );
+    });
   };
   
   const recentResultsTitle = recentSeriesName && recentMatchName ? `${recentSeriesName} - ${recentMatchName}` : 'Last completed match'
@@ -354,4 +362,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
