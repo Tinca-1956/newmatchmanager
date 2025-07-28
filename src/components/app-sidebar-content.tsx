@@ -19,6 +19,7 @@ import {
   FlaskConical,
   Trash2,
   Beaker,
+  TestTube,
 } from 'lucide-react';
 import { SheetClose } from './ui/sheet';
 import { useAuth } from '@/hooks/use-auth';
@@ -38,6 +39,7 @@ const navItems = [
   { href: '/main/results', icon: Medal, label: 'Results' },
   { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users', adminOnly: true },
   { href: '/main/admin/seed', icon: Beaker, label: 'Seed Data', adminOnly: true },
+  { href: '/main/test-access', icon: TestTube, label: 'Test Access', adminOnly: true },
   { href: '/main/emulator', icon: FlaskConical, label: 'Emulator', adminOnly: true, emulatorOnly: true },
   { href: '/main/about', icon: Info, label: 'About' },
 ];
@@ -84,7 +86,7 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
   }
 
   const sortedNavItems = navItems.filter(item => {
-      if (item.adminOnly && currentUserProfile?.role !== 'Site Admin') {
+      if (item.adminOnly && currentUserProfile?.role !== 'Site Admin' && currentUserProfile?.role !== 'Club Admin') {
           return false;
       }
       if (item.emulatorOnly && !isEmulatorMode) {
@@ -92,15 +94,15 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
       }
       return true;
   }).sort((a, b) => {
-      const adminOrder = ['/main/admin/edit-seed-users', '/main/users/deleted', '/main/admin/seed', '/main/emulator'];
+      const adminOrder = ['/main/admin/edit-seed-users', '/main/users/deleted', '/main/admin/seed', '/main/emulator', '/main/test-access'];
       const aIndex = adminOrder.indexOf(a.href);
       const bIndex = adminOrder.indexOf(b.href);
       
       if (aIndex !== -1 && bIndex !== -1) {
           return aIndex - bIndex;
       }
-      if (aIndex !== -1) return -1;
-      if (bIndex !== -1) return 1;
+      if (aIndex !== -1) return 1; // Put admin items at the bottom
+      if (bIndex !== -1) return -1;
       return 0;
   });
 
