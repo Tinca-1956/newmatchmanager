@@ -326,30 +326,30 @@ export default function DashboardPage() {
         )
     }
     return (
-       <div className="flex flex-col h-full">
-            <Carousel className="w-full flex-grow">
-                <CarouselContent>
-                {recentMatchImages.map((url, index) => (
-                    <CarouselItem key={index} className="flex-grow">
-                        <div className="relative w-full h-full aspect-video">
-                            <NextImage 
-                                src={url} 
-                                alt={`Recent match image ${index + 1}`} 
-                                fill 
-                                sizes="(max-width: 1280px) 25vw, 33vw"
-                                style={{ objectFit: 'contain' }}
-                                className="rounded-md"
-                            />
-                        </div>
-                    </CarouselItem>
-                ))}
+        <div className="flex flex-col h-full w-full">
+            <Carousel className="w-full h-64">
+                <CarouselContent className="h-full">
+                    {recentMatchImages.map((url, index) => (
+                        <CarouselItem key={index} className="h-full">
+                            <div className="relative w-full h-full">
+                                <NextImage
+                                    src={url}
+                                    alt={`Recent match image ${index + 1}`}
+                                    fill
+                                    sizes="(max-width: 1280px) 25vw, 33vw"
+                                    style={{ objectFit: 'contain' }}
+                                    className="rounded-md"
+                                />
+                            </div>
+                        </CarouselItem>
+                    ))}
                 </CarouselContent>
-                 <div className="flex justify-center items-center gap-4 pt-2">
+                <div className="flex justify-center items-center gap-4 pt-2">
                     <CarouselPrevious variant="outline" className="static translate-y-0" />
-                    <CarouselNext variant="outline" className="static translate-y-0"/>
+                    <CarouselNext variant="outline" className="static translate-y-0" />
                 </div>
             </Carousel>
-       </div>
+        </div>
     );
   }
 
@@ -420,7 +420,7 @@ export default function DashboardPage() {
                     <CardDescription>From the last match</CardDescription>
                 )}
             </CardHeader>
-            <CardContent className="flex-grow flex flex-col p-4">
+            <CardContent className="flex-grow flex items-center justify-center p-2">
                 {renderImageGallery()}
             </CardContent>
         </Card>
