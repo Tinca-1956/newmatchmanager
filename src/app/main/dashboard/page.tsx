@@ -328,9 +328,9 @@ export default function DashboardPage() {
     return (
         <div className="flex flex-col h-full w-full">
             <Carousel className="w-full h-64">
-                <CarouselContent className="h-full">
+                <CarouselContent>
                     {recentMatchImages.map((url, index) => (
-                        <CarouselItem key={index} className="h-full">
+                        <CarouselItem key={index}>
                             <div className="relative w-full h-full">
                                 <NextImage
                                     src={url}
@@ -344,7 +344,7 @@ export default function DashboardPage() {
                         </CarouselItem>
                     ))}
                 </CarouselContent>
-                <div className="flex justify-center items-center gap-4 pt-2">
+                 <div className="flex justify-center items-center gap-4 pt-2">
                     <CarouselPrevious variant="outline" className="static translate-y-0" />
                     <CarouselNext variant="outline" className="static translate-y-0" />
                 </div>
