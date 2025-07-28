@@ -15,36 +15,41 @@ interface AdminAuth {
 export const useAdminAuth = (): AdminAuth => {
   const { user, loading: authLoading } = useAuth();
   const [userRole, setUserRole] = useState<UserRole | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [claimsLoading, setClaimsLoading] = useState(true);
 
   useEffect(() => {
-    if (authLoading) {
-      return;
-    }
+    const fetchClaims = async () => {
+      if (authLoading) {
+        return;
+      }
 
-    if (!user) {
-      setLoading(false);
-      setUserRole(null);
-      return;
-    }
-    
-    setLoading(true);
-    // Force a refresh of the user's ID token to get the latest custom claims.
-    user.getIdTokenResult(true).then((idTokenResult) => {
+      if (!user) {
+        setUserRole(null);
+        setClaimsLoading(false);
+        return;
+      }
+      
+      setClaimsLoading(true);
+      try {
+        // Force a refresh of the user's ID token to get the latest custom claims.
+        const idTokenResult = await user.getIdTokenResult(true);
         const claims = idTokenResult.claims;
         const roleFromClaims = claims.role as UserRole | undefined;
         setUserRole(roleFromClaims || null);
-        setLoading(false);
-    }).catch(error => {
+      } catch (error) {
         console.error("Error fetching user token with claims:", error);
         setUserRole(null);
-        setLoading(false);
-    });
+      } finally {
+        setClaimsLoading(false);
+      }
+    };
+    
+    fetchClaims();
 
   }, [user, authLoading]);
   
   const isSiteAdmin = userRole === 'Site Admin';
   const isClubAdmin = userRole === 'Club Admin';
 
-  return { isSiteAdmin, isClubAdmin, userRole, loading: authLoading || loading };
+  return { isSiteAdmin, isClubAdmin, userRole, loading: authLoading || claimsLoading };
 };
