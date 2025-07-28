@@ -215,13 +215,26 @@ export default function SeriesPage() {
     setIsStandingsLoading(true);
 
     try {
+        // Step 1: Fetch all matches for the series to get the "source of truth" for registered anglers
+        const matchesQuery = query(collection(firestore, 'matches'), where('seriesId', '==', series.id));
+        const matchesSnapshot = await getDocs(matchesQuery);
+        const matchesData = matchesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Match));
+        const registeredAnglersByMatch = new Map(matchesData.map(match => [match.id, new Set(match.registeredAnglers)]));
+
+        // Step 2: Fetch all results for the series
         const resultsQuery = query(collection(firestore, 'results'), where('seriesId', '==', series.id));
         const resultsSnapshot = await getDocs(resultsQuery);
-        const resultsData = resultsSnapshot.docs.map(doc => doc.data() as Result);
+        const allResultsData = resultsSnapshot.docs.map(doc => doc.data() as Result);
         
-        // Group results by matchId to calculate section ranks for each match
+        // Step 3: Filter out results from anglers who are no longer registered for that specific match
+        const validResultsData = allResultsData.filter(result => {
+            const registeredAnglers = registeredAnglersByMatch.get(result.matchId);
+            return registeredAnglers ? registeredAnglers.has(result.userId) : false;
+        });
+
+        // Step 4: Proceed with calculation using only valid results
         const resultsByMatch: { [matchId: string]: Result[] } = {};
-        resultsData.forEach(result => {
+        validResultsData.forEach(result => {
             if (!resultsByMatch[result.matchId]) {
                 resultsByMatch[result.matchId] = [];
             }
@@ -229,8 +242,6 @@ export default function SeriesPage() {
         });
         
         const resultsWithSectionRank: ResultWithSectionRank[] = [];
-
-        // Calculate section ranks for each match
         for (const matchId in resultsByMatch) {
             const matchResults = resultsByMatch[matchId];
             const processedResults = calculateSectionRanks(matchResults);
