@@ -11,8 +11,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { MapPin } from 'lucide-react';
+import { MapPin, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
+import NextImage from 'next/image';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel"
 
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
@@ -67,6 +75,7 @@ export default function DashboardPage() {
   const [recentSeriesName, setRecentSeriesName] = useState<string>('');
   const [recentMatchLocation, setRecentMatchLocation] = useState<string>('');
   const [recentMatchPaidPlaces, setRecentMatchPaidPlaces] = useState<number>(0);
+  const [recentMatchImages, setRecentMatchImages] = useState<string[]>([]);
 
 
   const [isLoading, setIsLoading] = useState(true);
@@ -160,6 +169,7 @@ export default function DashboardPage() {
             setRecentSeriesName(recentMatch.seriesName);
             setRecentMatchLocation(recentMatch.location);
             setRecentMatchPaidPlaces(recentMatch.paidPlaces || 0);
+            setRecentMatchImages(recentMatch.mediaUrls || []);
             
             const resultsQuery = query(
                 collection(firestore, 'results'),
@@ -200,6 +210,7 @@ export default function DashboardPage() {
             setRecentMatchName('');
             setRecentSeriesName('');
             setRecentMatchLocation('');
+            setRecentMatchImages([]);
         }
         setIsLoadingResults(false);
     };
@@ -301,6 +312,42 @@ export default function DashboardPage() {
   
   const recentResultsTitle = recentSeriesName && recentMatchName ? `${recentSeriesName} - ${recentMatchName} at ${recentMatchLocation}` : 'Last completed match'
 
+  const renderImageGallery = () => {
+    if (isLoadingResults) {
+        return <Skeleton className="aspect-video w-full" />
+    }
+    if (recentMatchImages.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full text-center p-4 border border-dashed rounded-lg bg-muted/50">
+                <ImageIcon className="h-12 w-12 text-muted-foreground" />
+                <p className="mt-4 text-sm text-muted-foreground">No images found for the most recent match.</p>
+            </div>
+        )
+    }
+    return (
+      <Carousel className="w-full">
+        <CarouselContent>
+          {recentMatchImages.map((url, index) => (
+            <CarouselItem key={index}>
+              <div className="relative aspect-video w-full">
+                <NextImage 
+                    src={url} 
+                    alt={`Recent match image ${index + 1}`} 
+                    fill 
+                    sizes="(max-width: 1280px) 25vw, 33vw"
+                    style={{ objectFit: 'cover' }}
+                    className="rounded-md"
+                />
+              </div>
+            </CarouselItem>
+          ))}
+        </CarouselContent>
+        <CarouselPrevious className="left-2" />
+        <CarouselNext className="right-2" />
+      </Carousel>
+    );
+  }
+
   return (
     <>
     <div className="flex flex-col gap-8">
@@ -312,7 +359,7 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-4">
         <Card className="lg:col-span-2">
             <CardHeader>
                 <CardTitle>Upcoming Matches</CardTitle>
@@ -356,6 +403,20 @@ export default function DashboardPage() {
                         {renderRecentResults()}
                     </TableBody>
                 </Table>
+            </CardContent>
+        </Card>
+
+         <Card>
+            <CardHeader>
+                <CardTitle>Recent Photos</CardTitle>
+                {isLoadingResults ? (
+                    <Skeleton className="h-5 w-32" />
+                ) : (
+                    <CardDescription>From the last match</CardDescription>
+                )}
+            </CardHeader>
+            <CardContent>
+                {renderImageGallery()}
             </CardContent>
         </Card>
 
