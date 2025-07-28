@@ -44,9 +44,9 @@ const initialMatchState: Omit<Match, 'id' | 'clubId' | 'seriesName' | 'registere
   googleMapsLink: '',
   date: new Date(),
   status: 'Upcoming',
-  drawTime: '09:00',
-  startTime: '11:00',
-  endTime: '16:00',
+  drawTime: '08:00',
+  startTime: '09:30',
+  endTime: '14:30',
   capacity: 20,
   paidPlaces: 3,
 };
