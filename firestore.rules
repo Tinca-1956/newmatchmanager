@@ -3,76 +3,82 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper functions
+
     function isAuth() {
       return request.auth != null;
     }
 
-    function isUser(uid) {
-      return isAuth() && request.auth.uid == uid;
-    }
-    
-    function isAdmin() {
-      return request.auth.token.role == 'Site Admin' || request.auth.token.role == 'Club Admin';
-    }
-
+    // Site Admin: Has the 'Site Admin' role in their custom claims
     function isSiteAdmin() {
-      return request.auth.token.role == 'Site Admin';
+      return isAuth() && request.auth.token.role == 'Site Admin';
+    }
+
+    // Club Admin: Has the 'Club Admin' role in their custom claims
+    function isClubAdmin() {
+      return isAuth() && request.auth.token.role == 'Club Admin';
+    }
+
+    // Marshal: Has the 'Marshal' role
+    function isMarshal() {
+      return isAuth() && request.auth.token.role == 'Marshal';
     }
     
-    // Matches Collection
-    match /matches/{matchId} {
-      // Anyone can view a match
+    // isAdmin: Is either a Site Admin or a Club Admin
+    function isAdmin() {
+      return isSiteAdmin() || isClubAdmin();
+    }
+
+    // Club Rules:
+    // - Any authenticated user can read clubs
+    // - Only Site Admins can create, update, or delete clubs
+    match /clubs/{clubId} {
       allow read: if isAuth();
-      
-      // Only admins can create or update matches
-      allow create, update: if isAdmin();
+      allow write: if isSiteAdmin();
     }
-    
-    // Results Collection
-    match /results/{resultId} {
-        // Anyone can view results
-        allow read: if isAuth();
-        
-        // Admins and marshals can create/update results
-        allow write: if isAdmin() || request.auth.token.role == 'Marshal';
-    }
-    
-    // Series Collection
-    match /series/{seriesId} {
-      // Anyone can view series
-      allow read: if isAuth();
-      
-      // Only admins can create or update series
-      allow create, update, delete: if isAdmin();
-    }
-    
-    // Users Collection
+
+    // User Rules:
     match /users/{userId} {
-      // Allow a user to read their own document.
-      allow get: if isUser(userId);
+      // Any authenticated user can read their own user document
+      allow get: if isAuth() && request.auth.uid == userId;
       
-      // Allow any authenticated user to list users (for members pages)
-      allow list: if isAuth();
+      // Admins can list all users. (This rule might be too broad and needs review based on app functionality)
+      // For now, let's assume admins need this for the members page.
+      allow list: if isAdmin();
 
-      // New users can create their own document
-      allow create: if isUser(userId);
+      // A user can create their own document
+      allow create: if request.auth.uid == userId;
 
-      // Users can update their own document, or an admin can update any document
-      allow update: if isUser(userId) || isAdmin();
-      
+      // An admin can update any user, or a user can update their own document
+      allow update: if isAdmin() || request.auth.uid == userId;
+
       // Only Site Admins can delete user documents
       allow delete: if isSiteAdmin();
     }
-    
-    // Clubs Collection
-    match /clubs/{clubId} {
-      // Allow any authenticated user to read club information
-      allow read: if isAuth();
 
-      // Only Site Admins can create or edit clubs
-      allow write: if isSiteAdmin();
+    // Series Rules:
+    // - Authenticated users can read series data (needed for various pages)
+    // - Admins can write (create, update, delete) series data
+    match /series/{seriesId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // Match Rules
+    match /matches/{matchId} {
+        // Any authenticated user can read match details
+        allow read: if isAuth();
+        // Admins can create and delete matches
+        allow create, delete: if isAdmin();
+        // An admin can update any match, or a user can update if they are registering/unregistering
+        allow update: if isAdmin() || (isAuth() && "registeredAnglers" in request.resource.data);
+    }
+    
+    // Results Rules
+    match /results/{resultId} {
+      // Any authenticated user can read results
+      allow read: if isAuth();
+      // Only Marshals and Admins can write results
+      allow write: if isMarshal() || isAdmin();
     }
   }
 }
