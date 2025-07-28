@@ -153,6 +153,11 @@ export function EditMatchModal({ isOpen, onClose, match }: EditMatchModalProps) 
             <Label htmlFor="location">Location / Venue</Label>
             <Input id="location" name="location" value={editedMatch.location} onChange={handleInputChange} />
           </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="googleMapsLink">Google Maps Link</Label>
+            <Input id="googleMapsLink" name="googleMapsLink" value={editedMatch.googleMapsLink || ''} onChange={handleInputChange} placeholder="https://maps.app.goo.gl/..." />
+          </div>
 
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">

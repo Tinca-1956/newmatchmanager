@@ -46,6 +46,7 @@ export interface Match {
   seriesName: string;
   name: string;
   location: string;
+  googleMapsLink?: string;
   date: Date | Timestamp;
   status: MatchStatus;
   drawTime: string;

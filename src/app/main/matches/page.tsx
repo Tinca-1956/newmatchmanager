@@ -18,7 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, UserPlus, FileText, Trophy, Scale, LogIn, Edit, UserMinus } from 'lucide-react';
+import { PlusCircle, UserPlus, FileText, Trophy, Scale, LogIn, Edit, UserMinus, MapPin } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -43,6 +43,7 @@ import { EditMatchModal } from '@/components/edit-match-modal';
 import { useMatchActions } from '@/hooks/use-match-actions';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { RemoveAnglerModal } from '@/components/remove-angler-modal';
+import Link from 'next/link';
 
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
@@ -213,7 +214,14 @@ export default function MatchesPage() {
           <TableCell className="font-medium">{match.seriesName}</TableCell>
           <TableCell>{match.name}</TableCell>
           <TableCell>
-            {match.location}
+            <div className="flex items-center gap-2">
+              <span>{match.location}</span>
+              {match.googleMapsLink && (
+                  <Link href={match.googleMapsLink} target="_blank" rel="noopener noreferrer">
+                    <MapPin className="h-4 w-4 text-primary hover:text-primary/80" />
+                  </Link>
+              )}
+            </div>
           </TableCell>
           <TableCell>{format(match.date, 'dd/MM/yyyy')}</TableCell>
           <TableCell>{match.capacity}</TableCell>
