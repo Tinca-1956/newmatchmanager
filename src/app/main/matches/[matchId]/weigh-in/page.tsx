@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -48,7 +49,7 @@ interface AnglerResultData {
   userName: string;
   peg: string;
   section: string;
-  weight: number;
+  weight: number | string; // Allow string for input editing
   status: WeighInStatus;
   position: number | null;
   resultDocId?: string; // Firestore document ID of the result
@@ -194,8 +195,8 @@ export default function WeighInPage() {
   
   const calculateRanks = (currentResults: AnglerResultData[]): AnglerResultData[] => {
     const sortedByWeight = [...currentResults]
-      .filter(r => r.status === 'OK' && r.weight > 0)
-      .sort((a, b) => b.weight - a.weight);
+      .filter(r => r.status === 'OK' && (typeof r.weight === 'number' && r.weight > 0))
+      .sort((a, b) => (b.weight as number) - (a.weight as number));
 
     const positionMap = new Map<string, number>();
     sortedByWeight.forEach((result, index) => {
@@ -207,7 +208,7 @@ export default function WeighInPage() {
 
     return currentResults.map(r => {
         let position: number | null = null;
-        if (r.status === 'OK' && r.weight > 0) {
+        if (r.status === 'OK' && (typeof r.weight === 'number' && r.weight > 0)) {
             position = positionMap.get(r.userId) || null;
         } else if (['DNW', 'DNF', 'DSQ'].includes(r.status)) {
             position = didNotWeighRank;
@@ -224,10 +225,6 @@ export default function WeighInPage() {
     setResults(prev => 
         prev.map(r => {
             if (r.userId === userId) {
-                // For weight, parse it back to a number immediately
-                if (field === 'weight') {
-                    return {...r, [field]: parseFloat(value as string) || 0 };
-                }
                 return {...r, [field]: value };
             }
             return r;
@@ -250,7 +247,8 @@ export default function WeighInPage() {
         const batch = writeBatch(firestore);
 
         // Recalculate ranks for all anglers based on the latest change
-        const updatedResultsWithRanks = calculateRanks(results);
+        const resultsWithParsedWeights = results.map(r => ({...r, weight: parseFloat(r.weight as string) || 0}));
+        const updatedResultsWithRanks = calculateRanks(resultsWithParsedWeights);
 
         // Find the specific result to save from the newly ranked list
         const resultToSaveFromRanked = updatedResultsWithRanks.find(r => r.userId === userId);
@@ -424,7 +422,7 @@ export default function WeighInPage() {
                                 id={`weight-${angler.userId}`} 
                                 type="number" 
                                 step="0.001" 
-                                value={angler.weight.toFixed(3)} 
+                                value={angler.weight}
                                 onChange={e => handleFieldChange(angler.userId, 'weight', e.target.value)} 
                                 disabled={!canEdit} 
                              />
@@ -516,7 +514,7 @@ export default function WeighInPage() {
                                 <Input 
                                     type="number" 
                                     step="0.001" 
-                                    value={angler.weight.toFixed(3)} 
+                                    value={angler.weight} 
                                     onChange={e => handleFieldChange(angler.userId, 'weight', e.target.value)} 
                                     disabled={!canEdit} 
                                     className="h-9"
