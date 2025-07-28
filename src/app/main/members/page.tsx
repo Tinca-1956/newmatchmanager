@@ -34,7 +34,7 @@ import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, getDocs }
 import type { User, Club, MembershipStatus, UserRole } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { ListFilter, Search, Edit } from 'lucide-react';
+import { ListFilter, Search, Edit, UserX } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -50,6 +50,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Label } from '@/components/ui/label';
 
 export default function MembersPage() {
@@ -214,6 +225,22 @@ export default function MembersPage() {
       setIsUpdating(false);
     }
   };
+  
+  const handleDeleteUser = async (memberId: string) => {
+    setIsUpdating(true);
+    if (!firestore) return;
+    try {
+      const memberDocRef = doc(firestore, 'users', memberId);
+      // Soft delete by changing status
+      await updateDoc(memberDocRef, { memberStatus: 'Deleted' });
+      toast({ title: "User Deleted", description: "The user's status has been set to 'Deleted'. They can be managed from the 'Deleted Users' page." });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      toast({ variant: 'destructive', title: 'Delete Failed', description: 'Could not delete the user.' });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const toggleFilter = (filter: 'status' | 'role', value: MembershipStatus | UserRole) => {
     if (filter === 'status') {
@@ -238,7 +265,9 @@ export default function MembersPage() {
     const matchesSearch = fullName.includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter.length === 0 || statusFilter.includes(member.memberStatus);
     const matchesRole = roleFilter.length === 0 || roleFilter.includes(member.role);
-    return clubMatch && matchesSearch && matchesStatus && matchesRole;
+    // Exclude users already marked as 'Deleted'
+    const notDeleted = member.memberStatus !== 'Deleted';
+    return clubMatch && matchesSearch && matchesStatus && matchesRole && notDeleted;
   });
 
   const canEdit = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
@@ -306,11 +335,37 @@ export default function MembersPage() {
             <span>{member.role}</span>
           )}
         </TableCell>
-        <TableCell className="text-right">
+        <TableCell className="text-right space-x-1">
              {canEdit && (
-                <Button variant="ghost" size="icon" onClick={() => handleEditClick(member)}>
-                    <Edit className="h-4 w-4" />
-                </Button>
+                <>
+                  <Button variant="ghost" size="icon" onClick={() => handleEditClick(member)}>
+                      <Edit className="h-4 w-4" />
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                        <UserX className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will mark {member.firstName} {member.lastName} as 'Deleted'. They will no longer appear in member lists and will lose access. This action can be reversed by a Site Admin.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive hover:bg-destructive/90"
+                          onClick={() => handleDeleteUser(member.id)}
+                        >
+                          Confirm Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
             )}
         </TableCell>
       </TableRow>
