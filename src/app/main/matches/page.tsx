@@ -348,14 +348,16 @@ function MatchesPageContent() {
                       {status !== 'Completed' && (
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  onClick={() => handleRegister(match)}
-                                  disabled={isUserRegistered}
-                                >
-                                    <LogIn className="h-4 w-4" />
-                                </Button>
+                                <div className="inline-block"> {/* Wrapper for tooltip on disabled */}
+                                    <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => handleRegister(match)}
+                                    disabled={isUserRegistered}
+                                    >
+                                        <LogIn className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </TooltipTrigger>
                             <TooltipContent><p>{isUserRegistered ? "Go to your profile page to un-register" : "Register for Match"}</p></TooltipContent>
                         </Tooltip>
@@ -429,14 +431,16 @@ function MatchesPageContent() {
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button 
-                                onClick={() => handleRegister(match)}
-                                disabled={isUserRegistered}
-                                size="sm"
-                            >
-                                <LogIn className="mr-2 h-4 w-4" />
-                                {isUserRegistered ? 'Registered' : 'Register'}
-                            </Button>
+                            <div className="inline-block"> {/* Wrapper for tooltip on disabled */}
+                                <Button 
+                                    onClick={() => handleRegister(match)}
+                                    disabled={isUserRegistered}
+                                    size="sm"
+                                >
+                                    <LogIn className="mr-2 h-4 w-4" />
+                                    {isUserRegistered ? 'Registered' : 'Register'}
+                                </Button>
+                            </div>
                           </TooltipTrigger>
                            <TooltipContent><p>{isUserRegistered ? "Go to your profile page to un-register" : "Register for Match"}</p></TooltipContent>
                         </Tooltip>
@@ -611,5 +615,3 @@ export default function MatchesPage() {
         </Suspense>
     )
 }
-
-    
