@@ -17,6 +17,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -29,10 +30,10 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, onSnapshot, doc, getDoc, getDocs } from 'firebase/firestore';
-import type { User, Club } from '@/lib/types';
+import { collection, query, where, onSnapshot, doc, getDoc, getDocs, updateDoc } from 'firebase/firestore';
+import type { User, Club, UserRole } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search } from 'lucide-react';
+import { Search, Trash2 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 export default function MarshalsPage() {
@@ -42,9 +43,11 @@ export default function MarshalsPage() {
 
   const [marshals, setMarshals] = useState<User[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
+  const [userProfile, setUserProfile] = useState<User | null>(null);
   
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -62,6 +65,7 @@ export default function MarshalsPage() {
                 return;
             }
             const userData = userDoc.data() as User;
+            setUserProfile(userData);
 
             if (isSiteAdmin) {
                 // Fetch all clubs for Site Admin
@@ -120,24 +124,62 @@ export default function MarshalsPage() {
     return fullName.includes(searchTerm.toLowerCase());
   });
 
+  const canEdit = isSiteAdmin || userProfile?.role === 'Club Admin';
+
+  const handleRemoveMarshal = async (marshalId: string) => {
+    if (!firestore) return;
+    setIsProcessing(true);
+    try {
+        const userDocRef = doc(firestore, 'users', marshalId);
+        await updateDoc(userDocRef, { role: 'Angler' });
+        toast({
+            title: 'Success!',
+            description: 'The user has been demoted to Angler and removed from the marshal list.'
+        });
+    } catch (error) {
+        console.error("Error removing marshal:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Could not update the user\'s role.'
+        });
+    } finally {
+        setIsProcessing(false);
+    }
+  };
+
   const renderMarshalList = () => {
     if (isLoading) {
       return Array.from({ length: 4 }).map((_, i) => (
         <TableRow key={i}>
           <TableCell><Skeleton className="h-4 w-32" /></TableCell>
           <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+          {canEdit && <TableCell><Skeleton className="h-10 w-24" /></TableCell>}
         </TableRow>
       ));
     }
     
     if (filteredMarshals.length === 0) {
-        return <TableRow><TableCell colSpan={2} className="h-24 text-center">No marshals found for this club.</TableCell></TableRow>;
+        return <TableRow><TableCell colSpan={canEdit ? 3 : 2} className="h-24 text-center">No marshals found for this club.</TableCell></TableRow>;
     }
     
     return filteredMarshals.map(marshal => (
       <TableRow key={marshal.id}>
         <TableCell className="font-medium">{`${marshal.firstName} ${marshal.lastName}`}</TableCell>
         <TableCell>{marshal.email}</TableCell>
+        {canEdit && (
+            <TableCell className="text-right">
+                <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    onClick={() => handleRemoveMarshal(marshal.id)}
+                    disabled={isProcessing}
+                >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                </Button>
+            </TableCell>
+        )}
       </TableRow>
     ));
   };
@@ -146,7 +188,7 @@ export default function MarshalsPage() {
     <div className="flex flex-col gap-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Marshals</h1>
-        <p className="text-muted-foreground">View all club marshals.</p>
+        <p className="text-muted-foreground">View and manage club marshals.</p>
       </div>
       
       <Card>
@@ -189,6 +231,7 @@ export default function MarshalsPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
+                {canEdit && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -200,4 +243,3 @@ export default function MarshalsPage() {
     </div>
   );
 }
-
