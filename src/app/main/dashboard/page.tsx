@@ -335,7 +335,7 @@ export default function DashboardPage() {
                     alt={`Recent match image ${index + 1}`} 
                     fill 
                     sizes="(max-width: 1280px) 25vw, 33vw"
-                    style={{ objectFit: 'cover' }}
+                    style={{ objectFit: 'contain' }}
                     className="rounded-md"
                 />
               </div>
