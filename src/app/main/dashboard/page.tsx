@@ -325,11 +325,11 @@ export default function DashboardPage() {
         )
     }
     return (
-      <Carousel className="w-full">
+      <Carousel className="w-full h-full">
         <CarouselContent>
           {recentMatchImages.map((url, index) => (
             <CarouselItem key={index}>
-              <div className="relative aspect-video w-full">
+              <div className="relative aspect-video w-full h-full">
                 <NextImage 
                     src={url} 
                     alt={`Recent match image ${index + 1}`} 
@@ -406,7 +406,7 @@ export default function DashboardPage() {
             </CardContent>
         </Card>
 
-         <Card>
+         <Card className="flex flex-col">
             <CardHeader>
                 <CardTitle>Recent Photos</CardTitle>
                 {isLoadingResults ? (
@@ -415,7 +415,7 @@ export default function DashboardPage() {
                     <CardDescription>From the last match</CardDescription>
                 )}
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="p-2 flex-grow">
                 {renderImageGallery()}
             </CardContent>
         </Card>
