@@ -19,7 +19,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, UserPlus, FileText, Trophy, Scale, LogIn, Edit, UserMinus, MapPin, MoreVertical } from 'lucide-react';
+import { PlusCircle, UserPlus, FileText, Trophy, Scale, LogIn, Edit, UserMinus, MapPin, MoreVertical, Image as ImageIcon } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -52,6 +52,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { RemoveAnglerModal } from '@/components/remove-angler-modal';
 import Link from 'next/link';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useRouter } from 'next/navigation';
 
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
@@ -89,6 +90,7 @@ export default function MatchesPage() {
   const { toast } = useToast();
   const { isSiteAdmin, loading: adminLoading } = useAdminAuth();
   const isMobile = useIsMobile();
+  const router = useRouter();
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
@@ -117,6 +119,7 @@ export default function MatchesPage() {
     handleAddAnglers,
     handleRemoveAnglers,
     handleViewAnglerList,
+    handleManageImages,
   } = useMatchActions();
 
   // Effect to get the user's primary club or all clubs for admin
@@ -263,6 +266,14 @@ export default function MatchesPage() {
                           </TooltipTrigger>
                           <TooltipContent><p>Angler List</p></TooltipContent>
                       </Tooltip>
+                      <Tooltip>
+                          <TooltipTrigger asChild>
+                               <Button variant="ghost" size="icon" onClick={() => handleManageImages(match.id)}>
+                                  <ImageIcon className="h-4 w-4" />
+                              </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p>Manage Images</p></TooltipContent>
+                      </Tooltip>
                        <Tooltip>
                           <TooltipTrigger asChild>
                               <Button variant="ghost" size="icon" onClick={() => handleViewResults(match)}>
@@ -393,6 +404,10 @@ export default function MatchesPage() {
                                 <FileText className="mr-2 h-4 w-4" />
                                 <span>View Angler List</span>
                             </DropdownMenuItem>
+                             <DropdownMenuItem onClick={() => handleManageImages(match.id)}>
+                                <ImageIcon className="mr-2 h-4 w-4" />
+                                <span>Manage Images</span>
+                            </DropdownMenuItem>
                              <DropdownMenuItem onClick={() => handleViewResults(match)}>
                                 <Trophy className="mr-2 h-4 w-4" />
                                 <span>View Results</span>
@@ -514,4 +529,3 @@ export default function MatchesPage() {
     </>
   );
 }
-

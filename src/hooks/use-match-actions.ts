@@ -49,6 +49,10 @@ export const useMatchActions = () => {
     setSelectedMatchForModal(match);
     setIsDisplayAnglerListModalOpen(true);
   };
+
+  const handleManageImages = (matchId: string) => {
+    router.push(`/main/matches/${matchId}/images`);
+  };
   
   const handleManagePegs = (matchId: string) => {
      toast({
@@ -131,6 +135,7 @@ export const useMatchActions = () => {
     handleViewAnglerList,
     handleManagePegs,
     handleWeighIn,
+    handleManageImages,
     closeResultsModal,
     closeAnglerListModal,
     closeDisplayAnglerListModal,
