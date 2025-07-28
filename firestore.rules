@@ -4,73 +4,47 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user is authenticated
-    function isAuthenticated() {
-      return request.auth != null;
+    // Helper functions
+    function isSiteAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
     }
 
-    // Helper function to get the user's role from the 'users' collection
-    function getUserRole(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+    function isClubAdmin(clubId) {
+      let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      let userPrimaryClubId = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId;
+      return (userRole == 'Club Admin' && userPrimaryClubId == clubId) || isSiteAdmin();
+    }
+    
+    function isMarshal(clubId) {
+      let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+       let userPrimaryClubId = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId;
+      return (userRole == 'Marshal' && userPrimaryClubId == clubId) || isClubAdmin(clubId) || isSiteAdmin();
     }
 
-    // By default, deny all access.
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // Users can only read and update their own document.
-    // New users are created client-side during sign-up/club selection.
+    // Collection Rules
     match /users/{userId} {
-      allow read, update, create: if isAuthenticated() && request.auth.uid == userId;
-      // Site Admins can read any user profile
-      allow read: if isAuthenticated() && getUserRole(request.auth.uid) == 'Site Admin';
-      // Admins can change other users' roles/status
-      allow update: if isAuthenticated() && (getUserRole(request.auth.uid) == 'Site Admin' || getUserRole(request.auth.uid) == 'Club Admin');
+      allow read, write: if request.auth.uid == userId || isSiteAdmin();
+      allow list: if isSiteAdmin();
     }
 
-    // Clubs can be read by any authenticated user.
-    // Only Site Admins can create, update, or delete clubs.
     match /clubs/{clubId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && getUserRole(request.auth.uid) == 'Site Admin';
+      allow read: if request.auth != null;
+      allow write: if isSiteAdmin();
     }
 
-    // Series can be read by any authenticated user.
-    // Admins can create/edit series.
     match /series/{seriesId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && (getUserRole(request.auth.uid) == 'Site Admin' || getUserRole(request.auth.uid) == 'Club Admin');
-    }
-    
-    // Matches can be read by any authenticated user.
-    // Write access is controlled:
-    // - Registration is an update to an array, check for user's own UID.
-    // - General writes (create/update/delete) for admins/marshals.
-    match /matches/{matchId} {
-      allow read: if isAuthenticated();
-      allow create, delete: if isAuthenticated() && (getUserRole(request.auth.uid) == 'Site Admin' || getUserRole(request.auth.uid) == 'Club Admin');
-      
-      // Allow general updates for admins/marshals
-      // Allow a user to update a match IF they are only adding/removing their own UID from the 'registeredAnglers' list
-      allow update: if isAuthenticated() && (
-        (getUserRole(request.auth.uid) == 'Site Admin' || getUserRole(request.auth.uid) == 'Club Admin' || getUserRole(request.auth.uid) == 'Marshal') ||
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['registeredAnglers', 'registeredCount']))
-      );
-    }
-    
-    // Results can be read by anyone authenticated.
-    // Results can only be written by Admins or Marshals.
-    match /results/{resultId} {
-        allow read: if isAuthenticated();
-        allow write: if isAuthenticated() && (getUserRole(request.auth.uid) == 'Site Admin' || getUserRole(request.auth.uid) == 'Club Admin' || getUserRole(request.auth.uid) == 'Marshal');
+      allow read: if request.auth != null;
+      allow create, update: if isClubAdmin(request.resource.data.clubId) || isSiteAdmin();
     }
 
-    // Settings (like the About page) can be read by anyone.
-    // Only a Site Admin can write to settings.
-    match /settings/{settingId} {
-        allow read: if isAuthenticated();
-        allow write: if isAuthenticated() && getUserRole(request.auth.uid) == 'Site Admin';
+    match /matches/{matchId} {
+      allow read: if request.auth != null;
+      allow create, update: if isClubAdmin(request.resource.data.clubId) || isSiteAdmin();
+    }
+    
+    match /results/{resultId} {
+        allow read: if request.auth != null;
+        allow create, update: if isMarshal(request.resource.data.clubId);
     }
   }
 }
