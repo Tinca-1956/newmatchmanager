@@ -39,6 +39,23 @@ interface AnglerDetails {
     lastName: string;
 }
 
+// Helper function to fetch documents in chunks
+async function getDocsInChunks<T>(ids: string[], collectionName: string): Promise<T[]> {
+    if (!ids.length) return [];
+    const chunks: string[][] = [];
+    for (let i = 0; i < ids.length; i += 30) {
+        chunks.push(ids.slice(i, i + 30));
+    }
+
+    const results: T[] = [];
+    for (const chunk of chunks) {
+        const usersQuery = query(collection(firestore, collectionName), where('__name__', 'in', chunk));
+        const snapshot = await getDocs(usersQuery);
+        snapshot.forEach(doc => results.push({ id: doc.id, ...doc.data() } as T));
+    }
+    return results;
+}
+
 export function RemoveAnglerModal({ isOpen, onClose, match }: RemoveAnglerModalProps) {
   const [registeredAnglers, setRegisteredAnglers] = useState<AnglerDetails[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -56,13 +73,7 @@ export function RemoveAnglerModal({ isOpen, onClose, match }: RemoveAnglerModalP
         }
 
         try {
-          const usersQuery = query(collection(firestore, 'users'), where('__name__', 'in', match.registeredAnglers));
-          const usersSnapshot = await getDocs(usersQuery);
-          const usersData = usersSnapshot.docs.map(d => ({
-            id: d.id,
-            firstName: d.data().firstName,
-            lastName: d.data().lastName,
-          } as AnglerDetails));
+          const usersData = await getDocsInChunks<AnglerDetails>(match.registeredAnglers, 'users');
           setRegisteredAnglers(usersData);
         } catch (error) {
           console.error("Error fetching registered anglers:", error);

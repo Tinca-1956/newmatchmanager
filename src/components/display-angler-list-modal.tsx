@@ -43,6 +43,23 @@ interface AnglerDetails {
     section?: string;
 }
 
+// Helper function to fetch documents in chunks
+async function getDocsInChunks<T>(ids: string[], collectionName: string): Promise<T[]> {
+    if (!ids.length) return [];
+    const chunks: string[][] = [];
+    for (let i = 0; i < ids.length; i += 30) {
+        chunks.push(ids.slice(i, i + 30));
+    }
+
+    const results: T[] = [];
+    for (const chunk of chunks) {
+        const usersQuery = query(collection(firestore, collectionName), where('__name__', 'in', chunk));
+        const snapshot = await getDocs(usersQuery);
+        snapshot.forEach(doc => results.push({ id: doc.id, ...doc.data() } as T));
+    }
+    return results;
+}
+
 export function DisplayAnglerListModal({ isOpen, onClose, match }: DisplayAnglerListModalProps) {
   const [anglerDetails, setAnglerDetails] = useState<AnglerDetails[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -59,10 +76,8 @@ export function DisplayAnglerListModal({ isOpen, onClose, match }: DisplayAngler
         }
 
         try {
-          // Fetch user documents for registered anglers
-          const usersQuery = query(collection(firestore, 'users'), where('__name__', 'in', match.registeredAnglers));
-          const usersSnapshot = await getDocs(usersQuery);
-          const usersData = usersSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as User));
+          // Fetch user documents for registered anglers in chunks
+          const usersData = await getDocsInChunks<User>(match.registeredAnglers, 'users');
 
           // Fetch results for the match to get peg and section
           const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', match.id));

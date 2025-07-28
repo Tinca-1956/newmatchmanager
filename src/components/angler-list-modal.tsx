@@ -206,4 +206,3 @@ export function AnglerListModal({ isOpen, onClose, matchId }: AnglerListModalPro
     </Dialog>
   );
 }
-
