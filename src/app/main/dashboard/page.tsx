@@ -316,11 +316,11 @@ export default function DashboardPage() {
 
   const renderImageGallery = () => {
     if (isLoadingResults) {
-        return <Skeleton className="w-full h-full" />
+        return <Skeleton className="w-full h-full min-h-[200px]" />
     }
     if (recentMatchImages.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center h-full text-center p-4 border border-dashed rounded-lg bg-muted/50">
+            <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center p-4 border border-dashed rounded-lg bg-muted/50">
                 <ImageIcon className="h-12 w-12 text-muted-foreground" />
                 <p className="mt-4 text-sm text-muted-foreground">No images found for the most recent match.</p>
             </div>
@@ -332,17 +332,17 @@ export default function DashboardPage() {
             align: "start",
             loop: true,
         }}
-         className="w-full h-full"
+         className="w-full"
       >
-        <CarouselContent className="-ml-1 h-full">
+        <CarouselContent className="-ml-1">
           {recentMatchImages.map((url, index) => (
-            <CarouselItem key={index} className="pl-1 h-full">
-              <div className="relative w-full h-full">
+            <CarouselItem key={index} className="pl-1">
+              <div className="relative aspect-square w-full">
                 <NextImage
                   src={url}
                   alt={`Recent match image ${index + 1}`}
                   fill
-                  sizes="(max-width: 1280px) 25vw, 33vw"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
                   style={{ objectFit: 'contain' }}
                   className="rounded-md"
                 />
@@ -350,10 +350,8 @@ export default function DashboardPage() {
             </CarouselItem>
           ))}
         </CarouselContent>
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-4">
-             <CarouselPrevious />
-             <CarouselNext />
-        </div>
+        <CarouselPrevious />
+        <CarouselNext />
       </Carousel>
     );
   }
@@ -434,3 +432,4 @@ export default function DashboardPage() {
     </>
   );
 }
+
