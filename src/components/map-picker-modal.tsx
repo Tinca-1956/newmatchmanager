@@ -52,8 +52,10 @@ const LocationMarker = ({ position, setPosition }: { position: LatLngExpression,
 export function MapPickerModal({ isOpen, onClose, currentCoords, onLocationSelect }: MapPickerModalProps) {
   const [position, setPosition] = useState<LatLngExpression | null>(currentCoords);
   const mapRef = useRef<LeafletMap>(null);
+   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    setIsClient(true);
     setPosition(currentCoords || [51.505, -0.09]); // Default to London if no coords
   }, [currentCoords]);
   
@@ -87,7 +89,7 @@ export function MapPickerModal({ isOpen, onClose, currentCoords, onLocationSelec
         </DialogHeader>
         
         <div className="flex-grow rounded-md overflow-hidden">
-            {position && (
+            {isClient && position && (
                 <MapContainer
                     center={position}
                     zoom={13}
