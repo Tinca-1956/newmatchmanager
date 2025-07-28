@@ -39,11 +39,10 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 export default function MarshalsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { isSiteAdmin, loading: adminLoading } = useAdminAuth();
+  const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
 
   const [marshals, setMarshals] = useState<User[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
-  const [userProfile, setUserProfile] = useState<User | null>(null);
   
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
@@ -65,7 +64,6 @@ export default function MarshalsPage() {
                 return;
             }
             const userData = userDoc.data() as User;
-            setUserProfile(userData);
 
             if (isSiteAdmin) {
                 // Fetch all clubs for Site Admin
@@ -124,7 +122,7 @@ export default function MarshalsPage() {
     return fullName.includes(searchTerm.toLowerCase());
   });
 
-  const canEdit = isSiteAdmin || userProfile?.role === 'Club Admin';
+  const canEdit = isSiteAdmin || isClubAdmin;
 
   const handleRemoveMarshal = async (marshalId: string) => {
     if (!firestore) return;

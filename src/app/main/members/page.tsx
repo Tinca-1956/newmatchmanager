@@ -56,7 +56,7 @@ import { Label } from '@/components/ui/label';
 export default function MembersPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { isSiteAdmin, loading: adminLoading } = useAdminAuth();
+  const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
 
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
@@ -241,7 +241,7 @@ export default function MembersPage() {
     return clubMatch && matchesSearch && matchesStatus && matchesRole;
   });
 
-  const canEdit = isSiteAdmin || allUsers.find(m => m.id === user?.uid)?.role === 'Club Admin';
+  const canEdit = isSiteAdmin || isClubAdmin;
 
   const renderMemberList = () => {
     if (isLoading) {

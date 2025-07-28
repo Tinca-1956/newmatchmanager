@@ -5,10 +5,18 @@ import { useState, useEffect } from 'react';
 import { useAuth } from './use-auth';
 import { firestore } from '@/lib/firebase-client';
 import { doc, onSnapshot } from 'firebase/firestore';
+import type { UserRole } from '@/lib/types';
 
-export const useAdminAuth = () => {
+interface AdminAuth {
+    isSiteAdmin: boolean;
+    isClubAdmin: boolean;
+    loading: boolean;
+    userRole: UserRole | null;
+}
+
+export const useAdminAuth = (): AdminAuth => {
   const { user, loading: authLoading } = useAuth();
-  const [isSiteAdmin, setIsSiteAdmin] = useState(false);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -18,33 +26,36 @@ export const useAdminAuth = () => {
 
     if (!user) {
       setLoading(false);
-      setIsSiteAdmin(false);
+      setUserRole(null);
       return;
     }
 
     if (!firestore) {
       setLoading(false);
-      setIsSiteAdmin(false);
+      setUserRole(null);
       console.error("Firestore not initialized for admin check");
       return;
     }
 
     const userDocRef = doc(firestore, 'users', user.uid);
     const unsubscribe = onSnapshot(userDocRef, (doc) => {
-      if (doc.exists() && doc.data().role === 'Site Admin') {
-        setIsSiteAdmin(true);
+      if (doc.exists()) {
+        setUserRole(doc.data().role as UserRole);
       } else {
-        setIsSiteAdmin(false);
+        setUserRole(null);
       }
       setLoading(false);
     }, (error) => {
       console.error("Error checking admin status:", error);
-      setIsSiteAdmin(false);
+      setUserRole(null);
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, [user, authLoading]);
+  
+  const isSiteAdmin = userRole === 'Site Admin';
+  const isClubAdmin = userRole === 'Club Admin';
 
-  return { isSiteAdmin, loading };
+  return { isSiteAdmin, isClubAdmin, userRole, loading: authLoading || loading };
 };
