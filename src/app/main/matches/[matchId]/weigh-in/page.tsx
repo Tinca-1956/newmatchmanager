@@ -78,37 +78,55 @@ export default function WeighInPage() {
       if (doc.exists()) {
         const profile = doc.data() as User;
         setUserProfile(profile);
-        const editableRoles: UserRole[] = ['Marshal', 'Club Admin', 'Site Admin'];
-        setCanEdit(editableRoles.includes(profile.role));
       }
     });
     return () => unsubscribe();
   }, [authUser]);
 
+  // Determine if the user can edit based on role and match status
+  useEffect(() => {
+    if (!userProfile || !match) {
+      setCanEdit(false);
+      return;
+    }
+
+    const isAdmin = userProfile.role === 'Site Admin' || userProfile.role === 'Club Admin';
+    const isMarshal = userProfile.role === 'Marshal';
+    
+    if (isAdmin) {
+      setCanEdit(true);
+    } else if (isMarshal) {
+      // Marshals can edit unless the match is completed.
+      setCanEdit(match.status !== 'Completed');
+    } else {
+      setCanEdit(false);
+    }
+  }, [userProfile, match]);
+
+
   // Main data fetching and subscription effect
   useEffect(() => {
     if (!matchId || !firestore) return;
 
-    const fetchMatchDetails = async () => {
-      const matchDocRef = doc(firestore, 'matches', matchId);
-      const matchDoc = await getDoc(matchDocRef);
-      if (matchDoc.exists()) {
-        const matchData = matchDoc.data();
-        setMatch({ 
-            id: matchDoc.id,
-            ...matchData,
-            date: (matchData.date as Timestamp).toDate(),
-        } as Match);
-      } else {
-        toast({ variant: 'destructive', title: 'Error', description: 'Match not found.' });
-        router.back();
-      }
-    };
-    fetchMatchDetails();
+    const matchDocRef = doc(firestore, 'matches', matchId);
+    // Subscribe to match changes to get status updates
+    const unsubscribeMatch = onSnapshot(matchDocRef, (doc) => {
+        if (doc.exists()) {
+            const matchData = doc.data();
+            setMatch({ 
+                id: doc.id,
+                ...matchData,
+                date: (matchData.date as Timestamp).toDate(),
+            } as Match);
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: 'Match not found.' });
+            router.back();
+        }
+    });
 
     // Subscribe to results for this match
     const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', matchId));
-    const unsubscribe = onSnapshot(resultsQuery, async (snapshot) => {
+    const unsubscribeResults = onSnapshot(resultsQuery, async (snapshot) => {
       setIsLoading(true);
       try {
         const resultsData = snapshot.docs.map(doc => ({
@@ -117,13 +135,12 @@ export default function WeighInPage() {
         } as AnglerResultData));
         
         // Ensure we have a result entry for every registered angler
-        const matchDocRef = doc(firestore, 'matches', matchId);
-        const matchDoc = await getDoc(matchDocRef);
-        if (!matchDoc.exists()) {
+        const currentMatchDoc = await getDoc(matchDocRef);
+        if (!currentMatchDoc.exists()) {
              setIsLoading(false);
              return;
         }
-        const currentMatch = matchDoc.data() as Match;
+        const currentMatch = currentMatchDoc.data() as Match;
         
         if (!currentMatch?.registeredAnglers?.length) {
             setResults([]);
@@ -169,7 +186,10 @@ export default function WeighInPage() {
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+        unsubscribeMatch();
+        unsubscribeResults();
+    };
   }, [matchId, router, toast]);
   
   const calculateRanks = (currentResults: AnglerResultData[]): AnglerResultData[] => {
