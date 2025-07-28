@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -66,6 +65,7 @@ export default function DashboardPage() {
   const [recentResults, setRecentResults] = useState<Result[]>([]);
   const [recentMatchName, setRecentMatchName] = useState<string>('');
   const [recentSeriesName, setRecentSeriesName] = useState<string>('');
+  const [recentMatchLocation, setRecentMatchLocation] = useState<string>('');
   const [recentMatchPaidPlaces, setRecentMatchPaidPlaces] = useState<number>(0);
 
 
@@ -158,6 +158,7 @@ export default function DashboardPage() {
             const recentMatch = completedMatches[0];
             setRecentMatchName(recentMatch.name);
             setRecentSeriesName(recentMatch.seriesName);
+            setRecentMatchLocation(recentMatch.location);
             setRecentMatchPaidPlaces(recentMatch.paidPlaces || 0);
             
             const resultsQuery = query(
@@ -198,6 +199,7 @@ export default function DashboardPage() {
             setRecentResults([]);
             setRecentMatchName('');
             setRecentSeriesName('');
+            setRecentMatchLocation('');
         }
         setIsLoadingResults(false);
     };
@@ -297,7 +299,7 @@ export default function DashboardPage() {
     });
   };
   
-  const recentResultsTitle = recentSeriesName && recentMatchName ? `${recentSeriesName} - ${recentMatchName}` : 'Last completed match'
+  const recentResultsTitle = recentSeriesName && recentMatchName ? `${recentSeriesName} - ${recentMatchName} at ${recentMatchLocation}` : 'Last completed match'
 
   return (
     <>
