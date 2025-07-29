@@ -54,6 +54,7 @@ interface AnglerResultData {
   position: number | null;
   resultDocId?: string; // Firestore document ID of the result
   sectionRank?: number | null;
+  payout?: number | string;
 }
 
 export default function WeighInPage() {
@@ -162,6 +163,7 @@ export default function WeighInPage() {
                 status: existingResult?.status || 'NYW',
                 position: existingResult?.position || null,
                 resultDocId: existingResult?.resultDocId,
+                payout: existingResult?.payout || 0,
             };
         });
         
@@ -271,7 +273,11 @@ export default function WeighInPage() {
         const batch = writeBatch(firestore);
 
         // Recalculate ranks for all anglers based on the latest change
-        const resultsWithParsedWeights = results.map(r => ({...r, weight: parseFloat(r.weight as string) || 0}));
+        const resultsWithParsedWeights = results.map(r => ({
+            ...r, 
+            weight: parseFloat(r.weight as string) || 0,
+            payout: parseFloat(r.payout as string) || 0,
+        }));
         const updatedResultsWithRanks = calculateRanks(resultsWithParsedWeights);
 
         // Update all results with their new positions/ranks
@@ -289,6 +295,7 @@ export default function WeighInPage() {
                 status: res.status,
                 position: res.position,
                 sectionRank: res.sectionRank,
+                payout: Number(res.payout) || 0,
             };
             const docRefToUpdate = res.resultDocId 
                 ? doc(firestore, 'results', res.resultDocId)
@@ -468,6 +475,17 @@ export default function WeighInPage() {
                              />
                         </div>
                         <div className="space-y-2">
+                             <Label htmlFor={`payout-${angler.userId}`}>Payout</Label>
+                             <Input 
+                                id={`payout-${angler.userId}`} 
+                                type="number" 
+                                step="0.01" 
+                                value={angler.payout}
+                                onChange={e => handleFieldChange(angler.userId, 'payout', e.target.value)} 
+                                disabled={!canEdit} 
+                             />
+                        </div>
+                        <div className="space-y-2">
                             <Label htmlFor={`status-${angler.userId}`}>Status</Label>
                             <Select value={angler.status} onValueChange={(value) => handleFieldChange(angler.userId, 'status', value)} disabled={!canEdit}>
                                 <SelectTrigger id={`status-${angler.userId}`}>
@@ -507,6 +525,7 @@ export default function WeighInPage() {
               <TableHead>Status</TableHead>
               <TableHead>Overall</TableHead>
               <TableHead>Section Rank</TableHead>
+              <TableHead>Payout</TableHead>
               <TableHead className="text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
@@ -520,6 +539,7 @@ export default function WeighInPage() {
                 <TableCell><Skeleton className="h-10 w-full" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-full" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                <TableCell><Skeleton className="h-10 w-full" /></TableCell>
                 <TableCell><Skeleton className="h-10 w-full" /></TableCell>
               </TableRow>
             ))}
@@ -542,6 +562,7 @@ export default function WeighInPage() {
                         <TableHead>Status</TableHead>
                         <TableHead>Overall</TableHead>
                         <TableHead>Section Rank</TableHead>
+                        <TableHead>Payout</TableHead>
                         <TableHead className="text-right">Action</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -586,6 +607,16 @@ export default function WeighInPage() {
                                 </TableCell>
                                 <TableCell>{angler.position || '-'}</TableCell>
                                 <TableCell>{angler.sectionRank || '-'}</TableCell>
+                                <TableCell>
+                                    <Input 
+                                        type="number" 
+                                        step="0.01" 
+                                        value={angler.payout} 
+                                        onChange={e => handleFieldChange(angler.userId, 'payout', e.target.value)} 
+                                        disabled={!canEdit} 
+                                        className="h-9 w-24"
+                                    />
+                                </TableCell>
                                 <TableCell className="text-right">
                                     <Button size="sm" onClick={() => handleSaveResult(angler.userId)} disabled={isSaving === angler.userId || !canEdit}>
                                     {isSaving === angler.userId ? 'Saving...' : 'Save'}

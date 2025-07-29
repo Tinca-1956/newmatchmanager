@@ -72,4 +72,5 @@ export interface Result {
   peg?: string;
   section?: string;
   points?: number;
+  payout?: number;
 }
