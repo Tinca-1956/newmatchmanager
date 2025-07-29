@@ -92,13 +92,9 @@ export default function WeighInPage() {
     }
 
     const isAdmin = userProfile.role === 'Site Admin' || userProfile.role === 'Club Admin';
-    const isMarshal = userProfile.role === 'Marshal';
     
     if (isAdmin) {
       setCanEdit(true);
-    } else if (isMarshal) {
-      // Marshals can edit unless the match is completed.
-      setCanEdit(match.status !== 'Completed');
     } else {
       setCanEdit(false);
     }

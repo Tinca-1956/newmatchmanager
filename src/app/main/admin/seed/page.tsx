@@ -21,7 +21,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 const sampleUsers = (clubId: string): Omit<User, 'id'>[] => [
   { firstName: 'John', lastName: 'Angler', email: 'john.angler@test.com', role: 'Angler', memberStatus: 'Member', primaryClubId: clubId },
-  { firstName: 'Jane', lastName: 'Fisher', email: 'jane.fisher@test.com', role: 'Marshal', memberStatus: 'Member', primaryClubId: clubId },
   { firstName: 'Peter', lastName: 'Smith', email: 'peter.smith@test.com', role: 'Club Admin', memberStatus: 'Member', primaryClubId: clubId },
   { firstName: 'Susan', lastName: 'Reel', email: 'susan.reel@test.com', role: 'Angler', memberStatus: 'Pending', primaryClubId: clubId },
 ];
