@@ -1,65 +1,49 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to get user's club ID
-    function getUserClubId(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.primaryClubId;
+    
+    // Default deny all reads and writes
+    match /{document=**} {
+      allow read, write: if false;
     }
 
-    // Rules for the 'users' collection
+    // Allow a user to read their own document
     match /users/{userId} {
-      // Allow a user to read/write their own document
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-
-      // Allow a user to list/read other users ONLY if they are in the same club
-      allow list: if request.auth != null &&
-                     request.query.get("primaryClubId") == getUserClubId(request.auth.uid);
+      allow read: if request.auth.uid == userId;
+      // Allow admins to update user profiles
+      allow update: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Site Admin', 'Club Admin'];
     }
 
-    // Rules for the 'clubs' collection
+    // Allow users to query the 'users' collection if they are querying for their own club.
+    // This rule is what enables the Members page to work.
+    match /users/{userId} {
+       allow list: if request.auth != null && 
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == resource.data.primaryClubId;
+    }
+    
+    // CLUBS
     match /clubs/{clubId} {
-      // Allow any authenticated user to read club information
       allow read: if request.auth != null;
-      // Only allow site admins to create, update, or delete clubs
-      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
     }
 
-    // Rules for the 'series' collection
+    // SERIES
     match /series/{seriesId} {
-      // Allow any authenticated user to read series information
       allow read: if request.auth != null;
-      // Allow admins of the corresponding club to write
-      allow write: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin' ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin'
-      );
+      allow create, update: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Site Admin', 'Club Admin'];
     }
 
-    // Rules for the 'matches' collection
+    // MATCHES
     match /matches/{matchId} {
-        // Allow any authenticated user to read match data
-        allow read: if request.auth != null;
-        // Allow admins/marshals of the club to write
-        allow write: if request.auth != null && (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin' ||
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin' ||
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Marshal'
-        );
+      allow read: if request.auth != null;
+      allow create, update: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Site Admin', 'Club Admin'];
     }
 
-    // Rules for the 'results' collection
+    // RESULTS
     match /results/{resultId} {
-        // Allow any authenticated user to read results
-        allow read: if request.auth != null;
-        // Allow admins/marshals of the club to write
-        allow write: if request.auth != null && (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin' ||
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin' ||
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Marshal'
-        );
+      allow read: if request.auth != null;
+      allow create, update: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Site Admin', 'Club Admin', 'Marshal'];
     }
   }
 }
