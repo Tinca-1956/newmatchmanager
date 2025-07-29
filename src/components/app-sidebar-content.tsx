@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -18,7 +17,6 @@ import {
   Trash2,
   Beaker,
   TestTube,
-  ShieldCheck,
 } from 'lucide-react';
 import { SheetClose } from './ui/sheet';
 import { useAuth } from '@/hooks/use-auth';
@@ -32,7 +30,6 @@ const navItems = [
   { href: '/main/profile', icon: UserIcon, label: 'Profile' },
   { href: '/main/clubs', icon: Shield, label: 'Clubs' },
   { href: '/main/members', icon: Users, label: 'Members', adminOnly: true },
-  { href: '/main/marshals', icon: ShieldCheck, label: 'Marshals', adminOnly: true },
   { href: '/main/series', icon: Trophy, label: 'Series' },
   { href: '/main/matches', icon: Swords, label: 'Matches' },
   { href: '/main/results', icon: Medal, label: 'Results' },
