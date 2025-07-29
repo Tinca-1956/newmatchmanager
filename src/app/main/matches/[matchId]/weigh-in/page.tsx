@@ -228,7 +228,7 @@ export default function WeighInPage() {
         const dnwSectionRank = lastSectionRank + 1;
 
         sectionResults.forEach(result => {
-            const originalIndex = resultsWithRanks.findIndex(r => r.userId === result.userId && r.matchId === result.matchId);
+            const originalIndex = resultsWithRanks.findIndex(r => r.userId === result.userId);
             if (originalIndex !== -1) {
                 let sectionRank: number | null = null;
                 if (result.status === 'OK' && result.weight > 0) {
@@ -495,7 +495,7 @@ export default function WeighInPage() {
   }
 
   const renderListView = () => {
-    if (isLoading) {
+    if (isLoading || !match) {
       return (
         <Table>
           <TableHeader>
@@ -528,6 +528,8 @@ export default function WeighInPage() {
       );
     }
 
+    const paidPlaces = match?.paidPlaces || 0;
+
     return (
         <div className="overflow-x-auto">
             <Table className="min-w-full">
@@ -544,48 +546,54 @@ export default function WeighInPage() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {sortedResults.map(angler => (
-                        <TableRow key={angler.userId}>
-                            <TableCell className="font-medium">{angler.userName}</TableCell>
-                            <TableCell>
-                                <Input value={angler.peg} onChange={e => handleFieldChange(angler.userId, 'peg', e.target.value)} disabled={!canEdit} className="h-9 w-20"/>
-                            </TableCell>
-                             <TableCell>
-                                <Input value={angler.section} onChange={e => handleFieldChange(angler.userId, 'section', e.target.value)} disabled={!canEdit} className="h-9 w-20"/>
-                            </TableCell>
-                            <TableCell>
-                                <Input 
-                                    type="number" 
-                                    step="0.001" 
-                                    value={angler.weight} 
-                                    onChange={e => handleFieldChange(angler.userId, 'weight', e.target.value)} 
-                                    disabled={!canEdit} 
-                                    className="h-9 w-24"
-                                />
-                            </TableCell>
-                            <TableCell>
-                                 <Select value={angler.status} onValueChange={(value) => handleFieldChange(angler.userId, 'status', value)} disabled={!canEdit}>
-                                    <SelectTrigger className="h-9 w-28">
-                                        <SelectValue placeholder="Select status" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="NYW">NYW</SelectItem>
-                                        <SelectItem value="OK">OK</SelectItem>
-                                        <SelectItem value="DNW">DNW</SelectItem>
-                                        <SelectItem value="DNF">DNF</SelectItem>
-                                        <SelectItem value="DSQ">DSQ</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </TableCell>
-                            <TableCell>{angler.position || '-'}</TableCell>
-                            <TableCell>{angler.sectionRank || '-'}</TableCell>
-                            <TableCell className="text-right">
-                                <Button size="sm" onClick={() => handleSaveResult(angler.userId)} disabled={isSaving === angler.userId || !canEdit}>
-                                   {isSaving === angler.userId ? 'Saving...' : 'Save'}
-                                </Button>
-                            </TableCell>
-                        </TableRow>
-                    ))}
+                    {sortedResults.map(angler => {
+                        const isPaidPlace = angler.position !== null && paidPlaces > 0 && angler.position <= paidPlaces;
+                        return (
+                            <TableRow 
+                                key={angler.userId}
+                                className={isPaidPlace ? 'bg-green-100 dark:bg-green-900/30' : ''}
+                            >
+                                <TableCell className="font-medium">{angler.userName}</TableCell>
+                                <TableCell>
+                                    <Input value={angler.peg} onChange={e => handleFieldChange(angler.userId, 'peg', e.target.value)} disabled={!canEdit} className="h-9 w-20"/>
+                                </TableCell>
+                                <TableCell>
+                                    <Input value={angler.section} onChange={e => handleFieldChange(angler.userId, 'section', e.target.value)} disabled={!canEdit} className="h-9 w-20"/>
+                                </TableCell>
+                                <TableCell>
+                                    <Input 
+                                        type="number" 
+                                        step="0.001" 
+                                        value={angler.weight} 
+                                        onChange={e => handleFieldChange(angler.userId, 'weight', e.target.value)} 
+                                        disabled={!canEdit} 
+                                        className="h-9 w-24"
+                                    />
+                                </TableCell>
+                                <TableCell>
+                                    <Select value={angler.status} onValueChange={(value) => handleFieldChange(angler.userId, 'status', value)} disabled={!canEdit}>
+                                        <SelectTrigger className="h-9 w-28">
+                                            <SelectValue placeholder="Select status" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="NYW">NYW</SelectItem>
+                                            <SelectItem value="OK">OK</SelectItem>
+                                            <SelectItem value="DNW">DNW</SelectItem>
+                                            <SelectItem value="DNF">DNF</SelectItem>
+                                            <SelectItem value="DSQ">DSQ</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </TableCell>
+                                <TableCell>{angler.position || '-'}</TableCell>
+                                <TableCell>{angler.sectionRank || '-'}</TableCell>
+                                <TableCell className="text-right">
+                                    <Button size="sm" onClick={() => handleSaveResult(angler.userId)} disabled={isSaving === angler.userId || !canEdit}>
+                                    {isSaving === angler.userId ? 'Saving...' : 'Save'}
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        )
+                    })}
                 </TableBody>
             </Table>
         </div>
