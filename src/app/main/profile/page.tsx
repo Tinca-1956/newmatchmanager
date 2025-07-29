@@ -54,8 +54,6 @@ export default function ProfilePage() {
   const [newPassword, setNewPassword] = useState('');
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   
-  const [selectedSecondaryClubId, setSelectedSecondaryClubId] = useState<string>('');
-
   const [upcomingMatches, setUpcomingMatches] = useState<Match[]>([]);
   const [isMatchesLoading, setIsMatchesLoading] = useState(true);
 
@@ -70,9 +68,6 @@ export default function ProfilePage() {
       if (doc.exists()) {
         const userData = { id: doc.id, ...doc.data() } as User;
         setProfile(userData);
-        if(userData.secondaryClubId) {
-            setSelectedSecondaryClubId(userData.secondaryClubId);
-        }
       }
       setIsLoading(false);
     }, (error) => {
@@ -142,7 +137,6 @@ export default function ProfilePage() {
         firstName: profile.firstName,
         lastName: profile.lastName,
         primaryClubId: profile.primaryClubId,
-        secondaryClubId: selectedSecondaryClubId || '',
       });
       toast({ title: 'Success!', description: 'Your profile has been updated.' });
     } catch (error) {
@@ -181,32 +175,6 @@ export default function ProfilePage() {
     }
   };
   
-  const handleAddClubClick = () => {
-    if(!selectedSecondaryClubId) {
-       toast({
-        variant: 'destructive',
-        title: 'No Club Selected',
-        description: 'Please select a club from the dropdown first.',
-      });
-      return;
-    }
-    
-    if(selectedSecondaryClubId === profile?.primaryClubId) {
-      toast({
-        variant: 'destructive',
-        title: 'Invalid Selection',
-        description: 'You cannot select your primary club as a secondary club.',
-      });
-      return;
-    }
-    
-    // Future logic to add club will go here. For now, it just passes the checks.
-     toast({
-        title: 'Club Ready to Add',
-        description: 'This is where the logic to add the club will be implemented.',
-      });
-  };
-
   const handleUnregister = async (matchId: string) => {
     if (!user || !firestore) return;
     
@@ -310,37 +278,6 @@ export default function ProfilePage() {
              <p className="text-sm text-muted-foreground">
               This is your main club for dashboard and default views.
             </p>
-          </div>
-          <div className="space-y-2">
-              <Label htmlFor="secondaryClub">Secondary Club</Label>
-              <div className="flex items-center gap-2">
-                  <Select
-                      value={selectedSecondaryClubId}
-                      onValueChange={(value) => setSelectedSecondaryClubId(value === 'none' ? '' : value)}
-                    >
-                      <SelectTrigger id="secondaryClub">
-                          <SelectValue placeholder="Select a secondary club" />
-                      </SelectTrigger>
-                      <SelectContent>
-                          <SelectItem value="none">None</SelectItem>
-                          {clubs
-                              .filter(c => c.id !== profile.primaryClubId)
-                              .map((club) => (
-                                  <SelectItem key={club.id} value={club.id}>
-                                      {club.name}
-                                  </SelectItem>
-                              ))}
-                      </SelectContent>
-                  </Select>
-                   {selectedSecondaryClubId && (
-                      <Button type="button" onClick={handleAddClubClick}>
-                          Add Club
-                      </Button>
-                  )}
-              </div>
-               <p className="text-sm text-muted-foreground">
-                  Join other clubs as a secondary member.
-              </p>
           </div>
         </CardContent>
         <CardFooter className="border-t px-6 py-4">
