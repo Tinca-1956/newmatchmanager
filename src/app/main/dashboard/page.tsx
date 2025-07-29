@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/carousel"
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
@@ -210,9 +211,9 @@ export default function DashboardPage() {
 
   }, [userProfile, toast]);
 
-  const handleGoToMatch = () => {
-    if (recentMatchId) {
-      router.push(`/main/matches?matchId=${recentMatchId}`);
+  const handleGoToMatch = (matchId: string | null) => {
+    if (matchId) {
+      router.push(`/main/matches?matchId=${matchId}`);
     }
   };
 
@@ -223,6 +224,7 @@ export default function DashboardPage() {
           <TableCell><Skeleton className="h-4 w-full" /></TableCell>
           <TableCell><Skeleton className="h-4 w-full" /></TableCell>
           <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+          <TableCell><Skeleton className="h-8 w-8" /></TableCell>
         </TableRow>
       ));
     }
@@ -258,6 +260,20 @@ export default function DashboardPage() {
                   </Link>
                 )}
             </div>
+        </TableCell>
+        <TableCell className="text-right">
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                         <Button variant="ghost" size="icon" onClick={() => handleGoToMatch(match.id)}>
+                            <ArrowRight className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Go to match details</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
         </TableCell>
       </TableRow>
     ));
@@ -378,6 +394,7 @@ export default function DashboardPage() {
                             <TableHead>Date &amp; Series</TableHead>
                             <TableHead>Match</TableHead>
                             <TableHead>Venue &amp; Status</TableHead>
+                            <TableHead><span className="sr-only">Actions</span></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -413,7 +430,7 @@ export default function DashboardPage() {
             </CardContent>
             {recentMatchId && (
                 <CardFooter>
-                    <Button onClick={handleGoToMatch} variant="outline" className="w-full">
+                    <Button onClick={() => handleGoToMatch(recentMatchId)} variant="outline" className="w-full">
                         Go to Match
                         <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
