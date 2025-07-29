@@ -108,12 +108,14 @@ export function DisplayAnglerListModal({ isOpen, onClose, match }: DisplayAngler
     
     (doc as any).autoTable({
         startY: 30,
-        head: [['Angler Name', 'Section', 'Peg', 'Weight (kg)', 'Payout']],
+        head: [['Angler Name', 'Section', 'Peg', 'Weight (kg)', 'Match Fee', 'Pool Fee', 'Payout']],
         body: anglerDetails.map(a => [
             `${a.firstName} ${a.lastName}`,
             '', // Blank for Section
             '', // Blank for Peg
             '', // Blank for Weight
+            '', // Blank for Match Fee
+            '', // Blank for Pool Fee
             '', // Blank for Payout
         ]),
         theme: 'grid',
@@ -152,6 +154,8 @@ export function DisplayAnglerListModal({ isOpen, onClose, match }: DisplayAngler
                             <TableHead>Section</TableHead>
                             <TableHead>Peg</TableHead>
                             <TableHead>Weight (kg)</TableHead>
+                            <TableHead>Match Fee</TableHead>
+                            <TableHead>Pool Fee</TableHead>
                             <TableHead>Payout</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -164,11 +168,13 @@ export function DisplayAnglerListModal({ isOpen, onClose, match }: DisplayAngler
                                     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                 </TableRow>
                             ))
                         ) : anglerDetails.length === 0 ? (
                              <TableRow>
-                                <TableCell colSpan={5} className="text-center h-24">
+                                <TableCell colSpan={7} className="text-center h-24">
                                     No anglers are registered for this match yet.
                                 </TableCell>
                             </TableRow>
@@ -176,6 +182,8 @@ export function DisplayAnglerListModal({ isOpen, onClose, match }: DisplayAngler
                             anglerDetails.map(angler => (
                                 <TableRow key={angler.id}>
                                     <TableCell className="font-medium">{angler.firstName} {angler.lastName}</TableCell>
+                                    <TableCell></TableCell>
+                                    <TableCell></TableCell>
                                     <TableCell></TableCell>
                                     <TableCell></TableCell>
                                     <TableCell></TableCell>
