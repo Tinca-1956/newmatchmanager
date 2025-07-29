@@ -4,81 +4,59 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isAuth() {
-      return request.auth != null;
+    // Helper function to get a user's primary club ID from their document
+    function getUserPrimaryClubId(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.primaryClubId;
     }
 
-    // Site Admin: Has the 'Site Admin' role in their custom claims
-    function isSiteAdmin() {
-      return isAuth() && request.auth.token.role == 'Site Admin';
-    }
-
-    // Club Admin: Has the 'Club Admin' role in their custom claims
-    function isClubAdmin() {
-      return isAuth() && request.auth.token.role == 'Club Admin';
-    }
-
-    // Marshal: Has the 'Marshal' role
-    function isMarshal() {
-      return isAuth() && request.auth.token.role == 'Marshal';
-    }
-    
-    // isAdmin: Is either a Site Admin or a Club Admin
-    function isAdmin() {
-      return isSiteAdmin() || isClubAdmin();
-    }
-
-    // Club Rules:
-    // - Any authenticated user can read clubs
-    // - Only Site Admins can create, update, or delete clubs
-    match /clubs/{clubId} {
-      allow read: if isAuth();
-      allow write: if isSiteAdmin();
-    }
-
-    // User Rules:
+    // Rules for the 'users' collection
     match /users/{userId} {
-      // Any authenticated user can read their own user document
-      allow get: if isAuth() && request.auth.uid == userId;
-      
-      // Admins can list all users. (This rule might be too broad and needs review based on app functionality)
-      // For now, let's assume admins need this for the members page.
-      allow list: if isAdmin();
+      // Allow a user to read/write their own document
+      allow read, update: if request.auth.uid == userId;
 
-      // A user can create their own document
+      // Allow a user to create their own user document
       allow create: if request.auth.uid == userId;
-
-      // An admin can update any user, or a user can update their own document
-      allow update: if isAdmin() || request.auth.uid == userId;
-
-      // Only Site Admins can delete user documents
-      allow delete: if isSiteAdmin();
+      
+      // Allow a user to see a list of other users if they are in the same club
+      allow list: if request.auth != null && getUserPrimaryClubId(request.auth.uid) == resource.data.primaryClubId;
     }
 
-    // Series Rules:
-    // - Authenticated users can read series data (needed for various pages)
-    // - Admins can write (create, update, delete) series data
+    // Rules for the 'clubs' collection
+    match /clubs/{clubId} {
+      // Allow any authenticated user to read club information
+      allow read: if request.auth != null;
+
+      // Only allow site admins to create, update, or delete clubs
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
+    }
+
+    // Rules for the 'series' collection
     match /series/{seriesId} {
-      allow read: if isAuth();
-      allow write: if isAdmin();
+       // Allow any authenticated user to read series information
+      allow read: if request.auth != null;
+
+      // Only allow admins to write to series
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Site Admin', 'Club Admin'];
     }
 
-    // Match Rules
+    // Rules for the 'matches' collection
     match /matches/{matchId} {
-        // Any authenticated user can read match details
-        allow read: if isAuth();
-        // Admins can create and delete matches
-        allow create, delete: if isAdmin();
-        // An admin can update any match, or a user can update if they are registering/unregistering
-        allow update: if isAdmin() || (isAuth() && "registeredAnglers" in request.resource.data);
+       // Allow any authenticated user to read match information
+      allow read: if request.auth != null;
+
+      // Allow admins to create/update matches. 
+      // Allow users to update if they are registering (only changing specific fields)
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Site Admin', 'Club Admin']
+                    || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['registeredAnglers', 'registeredCount']));
     }
     
-    // Results Rules
+    // Rules for the 'results' collection
     match /results/{resultId} {
-      // Any authenticated user can read results
-      allow read: if isAuth();
-      // Only Marshals and Admins can write results
-      allow write: if isMarshal() || isAdmin();
+      // Allow any authenticated user to read results
+      allow read: if request.auth != null;
+      
+      // Allow only admins and marshals to write results
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Site Admin', 'Club Admin', 'Marshal'];
     }
   }
 }
