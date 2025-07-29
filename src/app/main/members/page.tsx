@@ -299,7 +299,7 @@ export default function MembersPage() {
           )}
         </TableCell>
         <TableCell>
-           {canEdit ? (
+           {canEdit && member.role !== 'Site Admin' ? (
             <Select
               value={member.role}
               onValueChange={(value) => handleRoleChange(member.id, value as UserRole)}
