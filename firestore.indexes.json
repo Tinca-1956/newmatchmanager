@@ -48,6 +48,16 @@
         {
           "fieldPath": "primaryClubId",
           "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "primaryClubId",
+          "order": "ASCENDING"
         },
         {
           "fieldPath": "memberStatus",
