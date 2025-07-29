@@ -39,7 +39,7 @@ const navItems = [
   { href: '/main/results', icon: Medal, label: 'Results' },
   { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users', adminOnly: true, siteAdminOnly: true },
   { href: '/main/admin/seed', icon: Beaker, label: 'Seed Data', adminOnly: true, siteAdminOnly: true },
-  { href: '/main/test-access', icon: TestTube, label: 'Test Access', adminOnly: true, siteAdminOnly: true },
+  { href: '/main/test-access', icon: TestTube, label: 'Test Access' },
   { href: '/main/emulator', icon: FlaskConical, label: 'Emulator', adminOnly: true, emulatorOnly: true },
   { href: '/main/about', icon: Info, label: 'About' },
 ];
