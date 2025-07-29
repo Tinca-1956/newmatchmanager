@@ -146,7 +146,7 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
     
     (doc as any).autoTable({
         startY: 40,
-        head: [['Overall', 'Name', 'Kg', 'Peg', 'Section', 'Section Rank', 'Status']],
+        head: [['Overall', 'Name', 'Kg', 'Peg', 'Section', 'Sec Rank', 'Payout', 'Status']],
         body: sortedResults.map(r => [
             r.position,
             r.userName,
@@ -154,6 +154,7 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
             r.peg || '',
             r.section || '',
             r.sectionRank || '',
+            r.payout ? `£${r.payout.toFixed(2)}` : '-',
             r.status || 'OK'
         ]),
         theme: 'striped',
@@ -219,6 +220,7 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
                     <TableHead>Peg</TableHead>
                     <TableHead>Section</TableHead>
                     <TableHead>Section Rank</TableHead>
+                    <TableHead>Payout</TableHead>
                     <TableHead>Status</TableHead>
                 </TableRow>
                 </TableHeader>
@@ -232,12 +234,13 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
                         <TableCell><Skeleton className="h-4 w-10" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-10" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-10" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                     </TableRow>
                     ))
                 ) : sortedResults.length === 0 ? (
                     <TableRow>
-                        <TableCell colSpan={7} className="text-center h-24">
+                        <TableCell colSpan={8} className="text-center h-24">
                             No results have been recorded for this match yet.
                         </TableCell>
                     </TableRow>
@@ -259,6 +262,7 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
                             <TableCell>{result.peg || '-'}</TableCell>
                             <TableCell>{result.section || '-'}</TableCell>
                             <TableCell>{result.sectionRank || '-'}</TableCell>
+                            <TableCell>{result.payout ? `£${result.payout.toFixed(2)}` : '-'}</TableCell>
                             <TableCell>
                                 <Badge variant={result.status === 'OK' ? 'outline' : 'secondary'}>{result.status}</Badge>
                             </TableCell>
