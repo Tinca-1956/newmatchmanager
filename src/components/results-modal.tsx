@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -154,7 +153,7 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
             r.peg || '',
             r.section || '',
             r.sectionRank || '',
-            r.payout ? `£${r.payout.toFixed(2)}` : '-',
+            r.payout ? `¤${r.payout.toFixed(2)}` : '-',
             r.status || 'OK'
         ]),
         theme: 'striped',
@@ -262,7 +261,7 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
                             <TableCell>{result.peg || '-'}</TableCell>
                             <TableCell>{result.section || '-'}</TableCell>
                             <TableCell>{result.sectionRank || '-'}</TableCell>
-                            <TableCell>{result.payout ? `£${result.payout.toFixed(2)}` : '-'}</TableCell>
+                            <TableCell>{result.payout ? `¤${result.payout.toFixed(2)}` : '-'}</TableCell>
                             <TableCell>
                                 <Badge variant={result.status === 'OK' ? 'outline' : 'secondary'}>{result.status}</Badge>
                             </TableCell>
