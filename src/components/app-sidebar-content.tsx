@@ -32,8 +32,8 @@ const navItems = [
   { href: '/main/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/main/profile', icon: UserIcon, label: 'Profile' },
   { href: '/main/clubs', icon: Shield, label: 'Clubs' },
-  { href: '/main/members', icon: Users, label: 'Members' },
-  { href: '/main/marshals', icon: CircleUserRound, label: 'Marshals' },
+  { href: '/main/members', icon: Users, label: 'Members', adminOnly: true },
+  { href: '/main/marshals', icon: CircleUserRound, label: 'Marshals', adminOnly: true },
   { href: '/main/series', icon: Trophy, label: 'Series' },
   { href: '/main/matches', icon: Swords, label: 'Matches' },
   { href: '/main/results', icon: Medal, label: 'Results' },
@@ -100,7 +100,7 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
       if (item.adminOnly && !isSiteAdmin && !isClubAdmin) {
           return false;
       }
-
+      
       return true;
   }).sort((a, b) => {
       const adminOrder = ['/main/admin/edit-seed-users', '/main/users/deleted', '/main/admin/seed', '/main/emulator', '/main/test-access'];
