@@ -320,10 +320,7 @@ function MatchesPageContent() {
                               </TooltipTrigger>
                               <TooltipContent><p>Edit Match</p></TooltipContent>
                           </Tooltip>
-                        </>
-                      )}
-                      {canWeighIn && (
-                        <Tooltip>
+                           <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button variant="ghost" size="icon" onClick={() => handleWeighIn(match.id)}>
                                     <Scale className="h-4 w-4" />
@@ -331,8 +328,7 @@ function MatchesPageContent() {
                             </TooltipTrigger>
                             <TooltipContent><p>Manage Weigh-in</p></TooltipContent>
                         </Tooltip>
-                      )}
-                      <Tooltip>
+                        <Tooltip>
                           <TooltipTrigger asChild>
                               <Button variant="ghost" size="icon" onClick={() => handleViewAnglerList(match)}>
                                   <FileText className="h-4 w-4" />
@@ -340,7 +336,10 @@ function MatchesPageContent() {
                           </TooltipTrigger>
                           <TooltipContent><p>Angler List</p></TooltipContent>
                       </Tooltip>
-                       <Tooltip>
+                        </>
+                      )}
+                      
+                      <Tooltip>
                           <TooltipTrigger asChild>
                               <Button variant="ghost" size="icon" onClick={() => handleViewResults(match)}>
                                   <Trophy className="h-4 w-4" />
@@ -477,18 +476,16 @@ function MatchesPageContent() {
                                         <Edit className="mr-2 h-4 w-4" />
                                         <span>Edit Match</span>
                                     </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleWeighIn(match.id)}>
+                                      <Scale className="mr-2 h-4 w-4" />
+                                      <span>Manage Weigh-in</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleViewAnglerList(match)}>
+                                        <FileText className="mr-2 h-4 w-4" />
+                                        <span>View Angler List</span>
+                                    </DropdownMenuItem>
                                 </>
                             )}
-                            {canWeighIn && (
-                                <DropdownMenuItem onClick={() => handleWeighIn(match.id)}>
-                                    <Scale className="mr-2 h-4 w-4" />
-                                    <span>Manage Weigh-in</span>
-                                </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem onClick={() => handleViewAnglerList(match)}>
-                                <FileText className="mr-2 h-4 w-4" />
-                                <span>View Angler List</span>
-                            </DropdownMenuItem>
                              <DropdownMenuItem onClick={() => handleViewResults(match)}>
                                 <Trophy className="mr-2 h-4 w-4" />
                                 <span>View Results</span>
