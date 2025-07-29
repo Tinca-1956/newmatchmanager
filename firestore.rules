@@ -1,44 +1,64 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId} {
-      // Any authenticated user can read their own document or update their own name/club.
-      // Other updates (role, status) are handled by backend logic/admins.
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      
-      // TEMPORARY FIX: Allow any authenticated user to list all users.
-      // This is to unblock the members page. We can refine this later.
-      allow list: if request.auth != null;
+
+    // Helper function to check if the user has an Admin role
+    function isAdmin() {
+      return request.auth.token.role == 'Site Admin' || request.auth.token.role == 'Club Admin';
     }
 
+    // Helper function to check if the user is a Marshal
+    function isMarshal() {
+      return request.auth.token.role == 'Marshal';
+    }
+    
+    // Helper function to check if the user making the request belongs to the club that owns the resource
+    function isClubMember(clubId) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
+    }
+
+    match /users/{userId} {
+      // Any authenticated user can read their own document
+      allow read: if request.auth != null && request.auth.uid == userId;
+      // Admins of the same club can update user details (like name, role, status)
+      allow update: if request.auth != null && isAdmin() && isClubMember(resource.data.primaryClubId);
+       // Admins can create users (though this is typically handled by registration)
+      allow create: if request.auth != null && isAdmin();
+    }
+    
     match /clubs/{clubId} {
-      // All authenticated users can read club information.
+      // Any authenticated user can read club information
       allow read: if request.auth != null;
-      // Only site admins can create/update/delete clubs.
-      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
+      // Only Site Admins can create or update club information
+      allow create, update: if request.auth != null && request.auth.token.role == 'Site Admin';
     }
 
     match /series/{seriesId} {
-       // All authenticated users can read series information.
-      allow read: if request.auth != null;
-      // Only admins/marshals of that club can write.
-      allow write: if request.auth != null && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin' || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin');
+        // Any authenticated user belonging to the club can read series info
+        allow read: if request.auth != null && isClubMember(resource.data.clubId);
+        // Only admins of the club can create or update a series
+        allow create, update: if request.auth != null && isAdmin() && isClubMember(resource.data.clubId);
     }
     
     match /matches/{matchId} {
-       // All authenticated users can read match information.
-      allow read: if request.auth != null;
-       // Only admins/marshals of that club can write.
-      allow write: if request.auth != null && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin' || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin');
+        // Any authenticated user belonging to the club can read match info
+        allow read: if request.auth != null && isClubMember(resource.data.clubId);
+        // Only admins of the club can create or update a match
+        allow create, update: if request.auth != null && isAdmin() && isClubMember(resource.data.clubId);
+    }
+    
+    match /results/{resultId} {
+      // Admins and Marshals of the club can read and write results
+      allow read, write: if request.auth != null && (isAdmin() || isMarshal()) && isClubMember(resource.data.clubId);
     }
 
-    match /results/{resultId} {
-       // All authenticated users can read results.
-      allow read: if request.auth != null;
-       // Only admins/marshals of that club can write.
-      allow write: if request.auth != null && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin' || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin');
+    // This rule is required for the weigh-in page to function correctly for Marshals.
+    // It allows a user to query the users collection if they are an admin or marshal.
+     match /databases/{database}/documents {
+      match /users/{userId} {
+        allow list: if request.auth != null && (isAdmin() || isMarshal());
+      }
     }
   }
 }
