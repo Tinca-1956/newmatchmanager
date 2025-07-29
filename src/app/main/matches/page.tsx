@@ -93,7 +93,7 @@ const getCalculatedStatus = (match: Match): MatchStatus => {
 function MatchesPageContent() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
+  const { isSiteAdmin, isClubAdmin, userRole, loading: adminLoading } = useAdminAuth();
   const isMobile = useIsMobile();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -233,6 +233,7 @@ function MatchesPageContent() {
   };
 
   const canEdit = isSiteAdmin || isClubAdmin;
+  const canWeighIn = canEdit || userRole === 'Marshal';
 
   const renderMatchList = () => {
     if (isLoading) {
@@ -313,14 +314,6 @@ function MatchesPageContent() {
                           </Tooltip>
                            <Tooltip>
                               <TooltipTrigger asChild>
-                                   <Button variant="ghost" size="icon" onClick={() => handleWeighIn(match.id)}>
-                                      <Scale className="h-4 w-4" />
-                                  </Button>
-                              </TooltipTrigger>
-                              <TooltipContent><p>Manage Weigh-in</p></TooltipContent>
-                          </Tooltip>
-                           <Tooltip>
-                              <TooltipTrigger asChild>
                                   <Button variant="ghost" size="icon" onClick={() => handleEditMatch(match)}>
                                       <Edit className="h-4 w-4" />
                                   </Button>
@@ -328,6 +321,16 @@ function MatchesPageContent() {
                               <TooltipContent><p>Edit Match</p></TooltipContent>
                           </Tooltip>
                         </>
+                      )}
+                      {canWeighIn && (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" onClick={() => handleWeighIn(match.id)}>
+                                    <Scale className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Manage Weigh-in</p></TooltipContent>
+                        </Tooltip>
                       )}
                       <Tooltip>
                           <TooltipTrigger asChild>
@@ -470,15 +473,17 @@ function MatchesPageContent() {
                                         <ImageIcon className="mr-2 h-4 w-4" />
                                         <span>Manage Images</span>
                                     </DropdownMenuItem>
-                                     <DropdownMenuItem onClick={() => handleWeighIn(match.id)}>
-                                        <Scale className="mr-2 h-4 w-4" />
-                                        <span>Manage Weigh-in</span>
-                                    </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => handleEditMatch(match)}>
                                         <Edit className="mr-2 h-4 w-4" />
                                         <span>Edit Match</span>
                                     </DropdownMenuItem>
                                 </>
+                            )}
+                            {canWeighIn && (
+                                <DropdownMenuItem onClick={() => handleWeighIn(match.id)}>
+                                    <Scale className="mr-2 h-4 w-4" />
+                                    <span>Manage Weigh-in</span>
+                                </DropdownMenuItem>
                             )}
                             <DropdownMenuItem onClick={() => handleViewAnglerList(match)}>
                                 <FileText className="mr-2 h-4 w-4" />
