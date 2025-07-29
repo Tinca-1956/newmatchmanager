@@ -298,7 +298,7 @@ export default function ResultsPage() {
 
         (doc as any).autoTable({
             startY: 40,
-            head: [['Pos', 'Angler', 'Peg', 'Section', 'Sec Rank', 'Weight (Kg)', 'Status']],
+            head: [['Pos', 'Angler', 'Peg', 'Section', 'Sec Rank', 'Weight (Kg)', 'Payout', 'Status']],
             body: sortedResults.map(r => [
                 r.position || '-',
                 r.userName,
@@ -306,6 +306,7 @@ export default function ResultsPage() {
                 r.section || '-',
                 r.sectionRank || '-',
                 r.weight.toFixed(3),
+                r.payout ? `¤${r.payout.toFixed(2)}` : '-',
                 r.status || 'OK',
             ]),
             theme: 'striped',
@@ -339,6 +340,7 @@ export default function ResultsPage() {
                     <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                 </TableRow>
             ));
@@ -347,7 +349,7 @@ export default function ResultsPage() {
         if (sortedResults.length === 0) {
             return (
                 <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
+                    <TableCell colSpan={8} className="h-24 text-center">
                        {selectedMatchId ? "No results found for this match." : "Select a match to view results."}
                     </TableCell>
                 </TableRow>
@@ -367,6 +369,7 @@ export default function ResultsPage() {
                     <TableCell>{result.section || '-'}</TableCell>
                     <TableCell>{result.sectionRank || '-'}</TableCell>
                     <TableCell>{result.weight.toFixed(3)}</TableCell>
+                    <TableCell>{result.payout ? `¤${result.payout.toFixed(2)}` : '-'}</TableCell>
                     <TableCell><Badge variant="outline">{result.status || 'OK'}</Badge></TableCell>
                 </TableRow>
             );
@@ -491,6 +494,7 @@ export default function ResultsPage() {
                                 <TableHead>Section</TableHead>
                                 <TableHead>Section Rank</TableHead>
                                 <TableHead>Weight (Kg)</TableHead>
+                                <TableHead>Payout</TableHead>
                                 <TableHead>Status</TableHead>
                             </TableRow>
                         </TableHeader>
