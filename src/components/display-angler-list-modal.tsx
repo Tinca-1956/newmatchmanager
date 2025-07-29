@@ -98,25 +98,34 @@ export function DisplayAnglerListModal({ isOpen, onClose, match }: DisplayAngler
   const handleDownloadPdf = () => {
     if (!match || anglerDetails.length === 0) return;
     
-    const doc = new jsPDF();
+    // Initialize jsPDF with millimeters as units for easier sizing
+    const doc = new jsPDF({ unit: 'mm' });
     
     const title = `Angler List: ${match.name}`;
 
     doc.setFontSize(18);
     doc.text(title, 14, 22);
     
-    // This is the original PDF output. It will be changed in the next step.
     (doc as any).autoTable({
         startY: 30,
-        head: [['Angler Name', 'Section', 'Peg']],
+        head: [['Angler Name', 'Section', 'Peg', 'Weight (kg)', 'Payout']],
         body: anglerDetails.map(a => [
             `${a.firstName} ${a.lastName}`,
-            '', // Placeholder for Section
-            ''  // Placeholder for Peg
+            '', // Blank for Section
+            '', // Blank for Peg
+            '', // Blank for Weight
+            '', // Blank for Payout
         ]),
         theme: 'grid',
-        styles: { lineColor: [0, 0, 0], lineWidth: 0.1 },
-        headStyles: { fillColor: [34, 49, 63], textColor: [255, 255, 255] }
+        styles: { 
+            lineColor: [0, 0, 0], // Black grid lines
+            lineWidth: 0.1,
+            minCellHeight: 8 // Set row height to 8mm
+        },
+        headStyles: { 
+            fillColor: [34, 49, 63], 
+            textColor: [255, 255, 255]
+        }
     });
 
     doc.save(`angler-list-${match.name.replace(/\s+/g, '-')}.pdf`);
