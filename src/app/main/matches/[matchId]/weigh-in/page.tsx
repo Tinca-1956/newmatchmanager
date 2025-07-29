@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   Card,
@@ -36,7 +36,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, List, LayoutGrid } from 'lucide-react';
+import { ArrowLeft, List, LayoutGrid, SortAsc } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
 import { doc, getDoc, collection, query, where, onSnapshot, writeBatch, Timestamp, getDocs } from 'firebase/firestore';
@@ -53,6 +53,7 @@ interface AnglerResultData {
   status: WeighInStatus;
   position: number | null;
   resultDocId?: string; // Firestore document ID of the result
+  sectionRank?: number | null;
 }
 
 export default function WeighInPage() {
@@ -68,6 +69,7 @@ export default function WeighInPage() {
   const [canEdit, setCanEdit] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
+  const [sortBy, setSortBy] = useState<'Peg' | 'Overall' | 'Section'>('Peg');
   const [isSaving, setIsSaving] = useState<string | null>(null); // Store userId of saving angler
 
   // Fetch user profile to check role
@@ -165,15 +167,7 @@ export default function WeighInPage() {
         
         // Recalculate ranks and update state
         const rankedResults = calculateRanks(combinedResults);
-
-        // Sort by peg number by default
-        const sortedByPeg = rankedResults.sort((a, b) => {
-            const pegA = a.peg || '';
-            const pegB = b.peg || '';
-            return pegA.localeCompare(pegB, undefined, { numeric: true, sensitivity: 'base' });
-        });
-
-        setResults(sortedByPeg);
+        setResults(rankedResults);
 
       } catch (error) {
         console.error("Error processing results:", error);
@@ -190,6 +184,7 @@ export default function WeighInPage() {
   }, [matchId, router, toast]);
   
   const calculateRanks = (currentResults: AnglerResultData[]): AnglerResultData[] => {
+    // Overall Ranks
     const sortedByWeight = [...currentResults]
       .filter(r => r.status === 'OK' && (typeof r.weight === 'number' && r.weight > 0))
       .sort((a, b) => (b.weight as number) - (a.weight as number));
@@ -202,20 +197,53 @@ export default function WeighInPage() {
     const lastRank = sortedByWeight.length;
     const didNotWeighRank = lastRank + 1;
 
-    return currentResults.map(r => {
+    let resultsWithRanks = currentResults.map(r => {
         let position: number | null = null;
         if (r.status === 'OK' && (typeof r.weight === 'number' && r.weight > 0)) {
             position = positionMap.get(r.userId) || null;
         } else if (['DNW', 'DNF', 'DSQ'].includes(r.status)) {
             position = didNotWeighRank;
         }
-
-        return {
-            ...r,
-            position,
-        };
+        return { ...r, position };
     });
-};
+    
+    // Section Ranks
+    const resultsBySection: { [key: string]: AnglerResultData[] } = {};
+    resultsWithRanks.forEach(result => {
+        const section = result.section || 'default';
+        if (!resultsBySection[section]) {
+            resultsBySection[section] = [];
+        }
+        resultsBySection[section].push(result);
+    });
+
+    for (const sectionKey in resultsBySection) {
+        const sectionResults = resultsBySection[sectionKey];
+        
+        const sectionSortedByWeight = sectionResults
+            .filter(r => r.status === 'OK' && r.weight > 0)
+            .sort((a, b) => (b.weight as number) - (a.weight as number));
+
+        const lastSectionRank = sectionSortedByWeight.length;
+        const dnwSectionRank = lastSectionRank + 1;
+
+        sectionResults.forEach(result => {
+            const originalIndex = resultsWithRanks.findIndex(r => r.userId === result.userId && r.matchId === result.matchId);
+            if (originalIndex !== -1) {
+                let sectionRank: number | null = null;
+                if (result.status === 'OK' && result.weight > 0) {
+                    const rank = sectionSortedByWeight.findIndex(r => r.userId === result.userId);
+                    sectionRank = rank !== -1 ? rank + 1 : null;
+                } else if (['DNW', 'DNF', 'DSQ'].includes(result.status || '')) {
+                    sectionRank = dnwSectionRank;
+                }
+                 resultsWithRanks[originalIndex].sectionRank = sectionRank;
+            }
+        });
+    }
+
+    return resultsWithRanks;
+  };
   
   const handleFieldChange = (userId: string, field: keyof AnglerResultData, value: string | number) => {
     setResults(prev => 
@@ -226,7 +254,7 @@ export default function WeighInPage() {
             return r;
         })
     );
-};
+  };
   
   const handleSaveResult = async (userId: string) => {
     if (!firestore || !match) return;
@@ -246,44 +274,9 @@ export default function WeighInPage() {
         const resultsWithParsedWeights = results.map(r => ({...r, weight: parseFloat(r.weight as string) || 0}));
         const updatedResultsWithRanks = calculateRanks(resultsWithParsedWeights);
 
-        // Find the specific result to save from the newly ranked list
-        const resultToSaveFromRanked = updatedResultsWithRanks.find(r => r.userId === userId);
-        if (!resultToSaveFromRanked) {
-             throw new Error("Could not find result in ranked list.");
-        }
-
-        const resultToSave = {
-            matchId: match.id,
-            seriesId: match.seriesId,
-            clubId: match.clubId,
-            date: match.date,
-            userId: resultToSaveFromRanked.userId,
-            userName: resultToSaveFromRanked.userName,
-            peg: resultToSaveFromRanked.peg,
-            section: resultToSaveFromRanked.section,
-            weight: Number(resultToSaveFromRanked.weight) || 0,
-            status: resultToSaveFromRanked.status,
-            position: resultToSaveFromRanked.position,
-        };
-        
-        const resultDocRef = resultToSaveFromRanked.resultDocId 
-            ? doc(firestore, 'results', resultToSaveFromRanked.resultDocId)
-            : doc(collection(firestore, 'results'));
-        
-        batch.set(resultDocRef, resultToSave, { merge: true });
-        
-        // Then, update all other results with their new positions
+        // Update all results with their new positions/ranks
         updatedResultsWithRanks.forEach(res => {
-            // No need to update the one we are already saving
-            if (res.userId === userId) return;
-
-            const docRefToUpdate = res.resultDocId 
-                ? doc(firestore, 'results', res.resultDocId)
-                : doc(collection(firestore, 'results')); // Should not happen for existing results, but safe
-            
-            // This ensures a result document is created if it doesn't exist,
-            // and updated with the new rank if it does.
-            batch.set(docRefToUpdate, { 
+            const resultToSave = {
                 matchId: match.id,
                 seriesId: match.seriesId,
                 clubId: match.clubId,
@@ -295,12 +288,18 @@ export default function WeighInPage() {
                 weight: Number(res.weight) || 0,
                 status: res.status,
                 position: res.position,
-             }, { merge: true });
+                sectionRank: res.sectionRank,
+            };
+            const docRefToUpdate = res.resultDocId 
+                ? doc(firestore, 'results', res.resultDocId)
+                : doc(collection(firestore, 'results'));
+            
+            batch.set(docRefToUpdate, resultToSave, { merge: true });
         });
         
         await batch.commit();
 
-        toast({ title: 'Success', description: `${anglerResult.userName}'s result has been saved.` });
+        toast({ title: 'Success', description: `Results saved successfully.` });
     } catch (error) {
         console.error("Error saving result:", error);
         toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the result.' });
@@ -308,6 +307,28 @@ export default function WeighInPage() {
         setIsSaving(null);
     }
   };
+
+  const sortedResults = useMemo(() => {
+    const resultsCopy = [...results];
+     if (sortBy === 'Overall') {
+        return resultsCopy.sort((a, b) => (a.position || 999) - (b.position || 999));
+    }
+    if (sortBy === 'Section') {
+        return resultsCopy.sort((a, b) => {
+            const sectionA = a.section || '';
+            const sectionB = b.section || '';
+            if (sectionA < sectionB) return -1;
+            if (sectionA > sectionB) return 1;
+            return (a.sectionRank || 999) - (b.sectionRank || 999);
+        });
+    }
+    // Default to 'Peg'
+    return resultsCopy.sort((a, b) => {
+        const pegA = a.peg || '';
+        const pegB = b.peg || '';
+        return pegA.localeCompare(pegB, undefined, { numeric: true, sensitivity: 'base' });
+    });
+  }, [results, sortBy]);
   
   const renderHeader = () => {
     if (isLoading || !match) {
@@ -330,12 +351,25 @@ export default function WeighInPage() {
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back to Matches
                 </Button>
-                <div className="md:hidden">
+                <div className="md:hidden flex items-center gap-2">
+                     <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="text-xs sm:text-sm">
+                                <SortAsc className="mr-2 h-4 w-4" />
+                                Sort
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => setSortBy('Peg')}>Peg</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('Overall')}>Overall</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('Section')}>Section</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" className="text-xs sm:text-sm">
                                 {viewMode === 'card' ? <LayoutGrid className="mr-2 h-4 w-4" /> : <List className="mr-2 h-4 w-4" />}
-                                Display
+                                View
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
@@ -360,25 +394,32 @@ export default function WeighInPage() {
             </div>
 
             {/* Desktop Display Toggle */}
-             <div className="hidden md:flex justify-end items-center order-3 md:w-48 gap-2">
-                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="text-xs sm:text-sm">
-                            {viewMode === 'card' ? <LayoutGrid className="mr-2 h-4 w-4" /> : <List className="mr-2 h-4 w-4" />}
-                            Display: {viewMode === 'card' ? 'Cards' : 'List'}
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                        <DropdownMenuItem onClick={() => setViewMode('card')}>
-                             <LayoutGrid className="mr-2 h-4 w-4" />
-                            Card View
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setViewMode('list')}>
-                             <List className="mr-2 h-4 w-4" />
-                            List View
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+             <div className="hidden md:flex justify-end items-center order-3 md:w-auto gap-2">
+                 <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="sort-by">Sort By</Label>
+                    <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
+                        <SelectTrigger id="sort-by" className="w-[120px]">
+                            <SelectValue placeholder="Sort..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Peg">Peg</SelectItem>
+                            <SelectItem value="Overall">Overall</SelectItem>
+                            <SelectItem value="Section">Section</SelectItem>
+                        </SelectContent>
+                    </Select>
+                 </div>
+                 <div className="flex flex-col gap-1.5">
+                     <Label>Display</Label>
+                     <Select value={viewMode} onValueChange={(v) => setViewMode(v as any)}>
+                         <SelectTrigger className="w-[120px]">
+                             <SelectValue placeholder="View..." />
+                         </SelectTrigger>
+                         <SelectContent>
+                            <SelectItem value="card">Card View</SelectItem>
+                            <SelectItem value="list">List View</SelectItem>
+                         </SelectContent>
+                     </Select>
+                 </div>
              </div>
         </div>
     )
@@ -395,11 +436,14 @@ export default function WeighInPage() {
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {results.map((angler) => (
+            {sortedResults.map((angler) => (
                 <Card key={angler.userId}>
                     <CardHeader>
                         <CardTitle>{angler.userName}</CardTitle>
-                        {angler.position && <CardDescription>Overall Rank: {angler.position}</CardDescription>}
+                        <div className="flex gap-4 text-sm text-muted-foreground">
+                            {angler.position && <span>Overall: {angler.position}</span>}
+                            {angler.sectionRank && <span>Section: {angler.sectionRank}</span>}
+                        </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
@@ -456,13 +500,14 @@ export default function WeighInPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[25%]">Angler</TableHead>
-              <TableHead className="w-[15%]">Peg No.</TableHead>
-              <TableHead className="w-[15%]">Section</TableHead>
-              <TableHead className="w-[15%]">Weight (Kg)</TableHead>
-              <TableHead className="w-[15%]">Status</TableHead>
-              <TableHead className="w-[10%]">Rank</TableHead>
-              <TableHead className="w-[10%] text-right">Action</TableHead>
+              <TableHead>Angler</TableHead>
+              <TableHead>Peg</TableHead>
+              <TableHead>Section</TableHead>
+              <TableHead>Weight (Kg)</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Overall</TableHead>
+              <TableHead>Section Rank</TableHead>
+              <TableHead className="text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -473,6 +518,7 @@ export default function WeighInPage() {
                 <TableCell><Skeleton className="h-10 w-full" /></TableCell>
                 <TableCell><Skeleton className="h-10 w-full" /></TableCell>
                 <TableCell><Skeleton className="h-10 w-full" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-full" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-full" /></TableCell>
                 <TableCell><Skeleton className="h-10 w-full" /></TableCell>
               </TableRow>
@@ -487,24 +533,25 @@ export default function WeighInPage() {
             <Table className="min-w-full">
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-[25%]">Angler</TableHead>
-                        <TableHead className="w-[15%]">Peg No.</TableHead>
-                        <TableHead className="w-[15%]">Section</TableHead>
-                        <TableHead className="w-[15%]">Weight (Kg)</TableHead>
-                        <TableHead className="w-[15%]">Status</TableHead>
-                        <TableHead className="w-[10%]">Rank</TableHead>
-                        <TableHead className="w-[10%] text-right">Action</TableHead>
+                        <TableHead>Angler</TableHead>
+                        <TableHead>Peg</TableHead>
+                        <TableHead>Section</TableHead>
+                        <TableHead>Weight (Kg)</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Overall</TableHead>
+                        <TableHead>Section Rank</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {results.map(angler => (
+                    {sortedResults.map(angler => (
                         <TableRow key={angler.userId}>
                             <TableCell className="font-medium">{angler.userName}</TableCell>
                             <TableCell>
-                                <Input value={angler.peg} onChange={e => handleFieldChange(angler.userId, 'peg', e.target.value)} disabled={!canEdit} className="h-9"/>
+                                <Input value={angler.peg} onChange={e => handleFieldChange(angler.userId, 'peg', e.target.value)} disabled={!canEdit} className="h-9 w-20"/>
                             </TableCell>
                              <TableCell>
-                                <Input value={angler.section} onChange={e => handleFieldChange(angler.userId, 'section', e.target.value)} disabled={!canEdit} className="h-9"/>
+                                <Input value={angler.section} onChange={e => handleFieldChange(angler.userId, 'section', e.target.value)} disabled={!canEdit} className="h-9 w-20"/>
                             </TableCell>
                             <TableCell>
                                 <Input 
@@ -513,12 +560,12 @@ export default function WeighInPage() {
                                     value={angler.weight} 
                                     onChange={e => handleFieldChange(angler.userId, 'weight', e.target.value)} 
                                     disabled={!canEdit} 
-                                    className="h-9"
+                                    className="h-9 w-24"
                                 />
                             </TableCell>
                             <TableCell>
                                  <Select value={angler.status} onValueChange={(value) => handleFieldChange(angler.userId, 'status', value)} disabled={!canEdit}>
-                                    <SelectTrigger className="h-9">
+                                    <SelectTrigger className="h-9 w-28">
                                         <SelectValue placeholder="Select status" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -531,6 +578,7 @@ export default function WeighInPage() {
                                 </Select>
                             </TableCell>
                             <TableCell>{angler.position || '-'}</TableCell>
+                            <TableCell>{angler.sectionRank || '-'}</TableCell>
                             <TableCell className="text-right">
                                 <Button size="sm" onClick={() => handleSaveResult(angler.userId)} disabled={isSaving === angler.userId || !canEdit}>
                                    {isSaving === angler.userId ? 'Saving...' : 'Save'}
