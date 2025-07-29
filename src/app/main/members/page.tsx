@@ -109,64 +109,47 @@ export default function MembersPage() {
             const isSiteAdmin = userData.role === 'Site Admin';
 
             if (isSiteAdmin) {
-                // Fetch all clubs for Site Admin
                 const clubsQuery = collection(firestore, 'clubs');
                 const clubsSnapshot = await getDocs(clubsQuery);
                 const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
                 setClubs(clubsData);
                 setSelectedClubId(userData.primaryClubId || (clubsData.length > 0 ? clubsData[0].id : ''));
-                
-                // Fetch all users for Site Admin
-                const allUsersQuery = collection(firestore, 'users');
-                const unsubscribe = onSnapshot(allUsersQuery, (snapshot) => {
-                    const usersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
-                    setAllUsers(usersData);
-                    setIsLoading(false);
-                }, (error) => {
-                    console.error("Error fetching all users: ", error);
-                    toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch users.' });
-                    setIsLoading(false);
-                });
-                return unsubscribe;
-
             } else {
-                // For non-Site Admins, fetch only members of their primary club
                 setSelectedClubId(userData.primaryClubId || '');
-                if (userData.primaryClubId) {
-                    const membersQuery = query(collection(firestore, 'users'), where('primaryClubId', '==', userData.primaryClubId));
-                    const unsubscribe = onSnapshot(membersQuery, (snapshot) => {
-                        const membersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
-                        setAllUsers(membersData);
-                        setIsLoading(false);
-                    }, (error) => {
-                        console.error("Error fetching club members: ", error);
-                        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch club members.' });
-                        setIsLoading(false);
-                    });
-                    return unsubscribe;
-                } else {
-                    setAllUsers([]);
-                    setIsLoading(false);
-                }
             }
         } catch (error) {
             console.error("Error fetching initial data: ", error);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not load initial data.' });
-            setIsLoading(false);
+        } finally {
+            // Loading state will be set to false in the next effect that fetches users
         }
     };
-
-    const unsubscribePromise = fetchInitialData();
-
-    return () => {
-        unsubscribePromise.then(unsubscribe => {
-            if (unsubscribe) {
-                unsubscribe();
-            }
-        });
-    };
+    
+    fetchInitialData();
 
   }, [user, toast]);
+  
+  useEffect(() => {
+    if (!selectedClubId || !firestore) {
+      setIsLoading(false);
+      setAllUsers([]);
+      return;
+    }
+    
+    setIsLoading(true);
+    const membersQuery = query(collection(firestore, 'users'), where('primaryClubId', '==', selectedClubId));
+    const unsubscribe = onSnapshot(membersQuery, (snapshot) => {
+        const membersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+        setAllUsers(membersData);
+        setIsLoading(false);
+    }, (error) => {
+        console.error("Error fetching club members: ", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch club members.' });
+        setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [selectedClubId, toast]);
   
   const handleEditClick = (userToEdit: User) => {
     setSelectedUser({ ...userToEdit }); // Create a copy to edit
@@ -260,12 +243,12 @@ export default function MembersPage() {
 
   const filteredMembers = allUsers.filter(member => {
     const isSiteAdmin = currentUserProfile?.role === 'Site Admin';
+    // When site admin, filter by selected club. Otherwise, selectedClubId is already the user's club so no need to filter again.
     const clubMatch = isSiteAdmin ? !selectedClubId || member.primaryClubId === selectedClubId : true;
     const fullName = `${member.firstName} ${member.lastName}`.toLowerCase();
     const matchesSearch = fullName.includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter.length === 0 || statusFilter.includes(member.memberStatus);
     const matchesRole = roleFilter.length === 0 || roleFilter.includes(member.role);
-    // Exclude users already marked as 'Deleted'
     const notDeleted = member.memberStatus !== 'Deleted';
     return clubMatch && matchesSearch && matchesStatus && matchesRole && notDeleted;
   });
@@ -287,7 +270,7 @@ export default function MembersPage() {
     }
     
     if (filteredMembers.length === 0) {
-        return <TableRow><TableCell colSpan={canEdit ? (canViewEmail ? 5 : 4) : (canViewEmail ? 3 : 2)} className="h-24 text-center">No members found.</TableCell></TableRow>;
+        return <TableRow><TableCell colSpan={canEdit ? (canViewEmail ? 5 : 4) : (canViewEmail ? 4 : 3)} className="h-24 text-center">No members found.</TableCell></TableRow>;
     }
     
     return filteredMembers.map(member => (
@@ -411,69 +394,73 @@ export default function MembersPage() {
                       onChange={(e) => setSearchTerm(e.target.value)}
                   />
               </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="ml-auto">
-                    <ListFilter className="mr-2 h-4 w-4" />
-                    Filter
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuCheckboxItem
-                    checked={statusFilter.includes('Pending')}
-                    onCheckedChange={() => toggleFilter('status', 'Pending')}
-                  >
-                    Pending
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={statusFilter.includes('Member')}
-                    onCheckedChange={() => toggleFilter('status', 'Member')}
-                  >
-                    Member
-                  </DropdownMenuCheckboxItem>
-                   <DropdownMenuCheckboxItem
-                    checked={statusFilter.includes('Suspended')}
-                    onCheckedChange={() => toggleFilter('status', 'Suspended')}
-                  >
-                    Suspended
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={statusFilter.includes('Blocked')}
-                    onCheckedChange={() => toggleFilter('status', 'Blocked')}
-                  >
-                    Blocked
-                  </DropdownMenuCheckboxItem>
+              {canEdit && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="ml-auto">
+                        <ListFilter className="mr-2 h-4 w-4" />
+                        Filter
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuCheckboxItem
+                        checked={statusFilter.includes('Pending')}
+                        onCheckedChange={() => toggleFilter('status', 'Pending')}
+                      >
+                        Pending
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem
+                        checked={statusFilter.includes('Member')}
+                        onCheckedChange={() => toggleFilter('status', 'Member')}
+                      >
+                        Member
+                      </DropdownMenuCheckboxItem>
+                       <DropdownMenuCheckboxItem
+                        checked={statusFilter.includes('Suspended')}
+                        onCheckedChange={() => toggleFilter('status', 'Suspended')}
+                      >
+                        Suspended
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem
+                        checked={statusFilter.includes('Blocked')}
+                        onCheckedChange={() => toggleFilter('status', 'Blocked')}
+                      >
+                        Blocked
+                      </DropdownMenuCheckboxItem>
 
-                  <DropdownMenuLabel>Filter by Role</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                   <DropdownMenuCheckboxItem
-                    checked={roleFilter.includes('Angler')}
-                    onCheckedChange={() => toggleFilter('role', 'Angler')}
-                  >
-                    Angler
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={roleFilter.includes('Marshal')}
-                    onCheckedChange={() => toggleFilter('role', 'Marshal')}
-                  >
-                    Marshal
-                  </DropdownMenuCheckboxItem>
-                   <DropdownMenuCheckboxItem
-                    checked={roleFilter.includes('Club Admin')}
-                    onCheckedChange={() => toggleFilter('role', 'Club Admin')}
-                  >
-                    Club Admin
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={roleFilter.includes('Site Admin')}
-                    onCheckedChange={() => toggleFilter('role', 'Site Admin')}
-                  >
-                    Site Admin
-                  </DropdownMenuCheckboxItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                      <DropdownMenuLabel>Filter by Role</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                       <DropdownMenuCheckboxItem
+                        checked={roleFilter.includes('Angler')}
+                        onCheckedChange={() => toggleFilter('role', 'Angler')}
+                      >
+                        Angler
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem
+                        checked={roleFilter.includes('Marshal')}
+                        onCheckedChange={() => toggleFilter('role', 'Marshal')}
+                      >
+                        Marshal
+                      </DropdownMenuCheckboxItem>
+                       <DropdownMenuCheckboxItem
+                        checked={roleFilter.includes('Club Admin')}
+                        onCheckedChange={() => toggleFilter('role', 'Club Admin')}
+                      >
+                        Club Admin
+                      </DropdownMenuCheckboxItem>
+                      {currentUserProfile?.role === 'Site Admin' && (
+                        <DropdownMenuCheckboxItem
+                            checked={roleFilter.includes('Site Admin')}
+                            onCheckedChange={() => toggleFilter('role', 'Site Admin')}
+                        >
+                            Site Admin
+                        </DropdownMenuCheckboxItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+              )}
             </div>
             <Table>
               <TableHeader>
@@ -493,7 +480,7 @@ export default function MembersPage() {
         </Card>
       </div>
 
-      {selectedUser && (
+      {selectedUser && canEdit && (
         <Dialog open={isEditDialogOpen} onOpenChange={() => { setIsEditDialogOpen(false); setSelectedUser(null); }}>
           <DialogContent className="sm:max-w-md">
             <form onSubmit={handleUserUpdate}>
