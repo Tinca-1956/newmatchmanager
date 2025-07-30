@@ -8,6 +8,16 @@
         {
           "fieldPath": "clubId",
           "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "matches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "clubId",
+          "order": "ASCENDING"
         },
         {
           "fieldPath": "date",
@@ -52,6 +62,16 @@
         {
           "fieldPath": "date",
           "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "primaryClubId",
+          "order": "ASCENDING"
         }
       ]
     },
