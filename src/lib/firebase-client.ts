@@ -23,27 +23,31 @@ const firebaseConfig: FirebaseOptions = {
 
 // This check ensures this code only runs in the browser.
 if (typeof window !== 'undefined') {
-    if (getApps().length === 0) {
-        app = initializeApp(firebaseConfig);
+    if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY") {
+        console.error("Firebase configuration is missing or incomplete. Please check your .env.local file.");
     } else {
-        app = getApp();
-    }
-    
-    auth = getAuth(app);
-    firestore = getFirestore(app);
-    storage = getStorage(app);
+        if (getApps().length === 0) {
+            app = initializeApp(firebaseConfig);
+        } else {
+            app = getApp();
+        }
+        
+        auth = getAuth(app);
+        firestore = getFirestore(app);
+        storage = getStorage(app);
 
-    // This is the correct way to conditionally connect to emulators.
-    // It depends on an environment variable and ensures it only runs once.
-    if (process.env.NEXT_PUBLIC_USE_EMULATORS === 'true' && !emulatorsConnected) {
-        console.log("Connecting to Firebase emulators...");
-        try {
-            connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
-            connectFirestoreEmulator(firestore, 'localhost', 8080);
-            connectStorageEmulator(storage, 'localhost', 9199);
-            emulatorsConnected = true; // Set the flag to prevent reconnecting
-        } catch(e) {
-            console.error("Error connecting to emulators. This can happen on hot reloads. It's often safe to ignore.", e);
+        // This is the correct way to conditionally connect to emulators.
+        // It depends on an environment variable and ensures it only runs once.
+        if (process.env.NEXT_PUBLIC_USE_EMULATORS === 'true' && !emulatorsConnected) {
+            console.log("Connecting to Firebase emulators...");
+            try {
+                connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
+                connectFirestoreEmulator(firestore, 'localhost', 8080);
+                connectStorageEmulator(storage, 'localhost', 9199);
+                emulatorsConnected = true; // Set the flag to prevent reconnecting
+            } catch(e) {
+                console.error("Error connecting to emulators. This can happen on hot reloads. It's often safe to ignore.", e);
+            }
         }
     }
 }
