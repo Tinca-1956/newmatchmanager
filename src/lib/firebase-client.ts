@@ -22,43 +22,45 @@ let auth: Auth | null = null;
 let firestore: Firestore | null = null;
 let storage: FirebaseStorage | null = null;
 
+// This code runs in the browser.
 if (typeof window !== 'undefined') {
-  const completeConfig = isConfigComplete(firebaseConfig);
+  // If we are in development mode and running on localhost, connect to the emulators.
+  // The NEXT_PUBLIC_USE_EMULATORS variable is set to "true" in the `dev` script in package.json
+  const useEmulators =
+    process.env.NODE_ENV === 'development';
 
-  if (process.env.NODE_ENV === 'development' || !completeConfig) {
-    // We are in a dev environment OR the production config is missing.
-    // We will try to connect to the emulators.
-    try {
-      console.log("Attempting to connect to Firebase services...");
-      
-      // Initialize with a minimal config for emulators to work.
-      // The projectId is necessary for Firestore rules testing.
-      const emulatorConfig = {
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'newmatchmanager-backend'
-      };
-      
-      app = !getApps().length ? initializeApp(emulatorConfig) : getApp();
-      auth = getAuth(app);
-      firestore = getFirestore(app);
-      storage = getStorage(app);
-      
-      console.log("Connecting to Firebase Emulators");
-      connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
-      connectFirestoreEmulator(firestore, 'localhost', 8080);
-      connectStorageEmulator(storage, 'localhost', 9199);
+  if (useEmulators) {
+    console.log('Connecting to Firebase Emulators');
+    
+    // Initialize with a minimal config for emulators to work.
+    const emulatorConfig = {
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'newmatchmanager'
+    };
+    app = getApps().length === 0 ? initializeApp(emulatorConfig) : getApp();
+    
+    auth = getAuth(app);
+    firestore = getFirestore(app);
+    storage = getStorage(app);
 
-    } catch (e) {
-      console.error("Failed to initialize Firebase with emulators", e);
-    }
+    // Connect to the emulators
+    connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
+    connectFirestoreEmulator(firestore, 'localhost', 8080);
+    connectStorageEmulator(storage, 'localhost', 9199);
+
   } else {
-    // We are in production and have a complete config.
-    try {
-      app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-      auth = getAuth(app);
-      firestore = getFirestore(app);
-      storage = getStorage(app);
-    } catch(e) {
-      console.error("Failed to initialize Firebase in production", e);
+    // We are in a deployed environment (or local production build).
+    // Use the full firebaseConfig with environment variables.
+    if (isConfigComplete(firebaseConfig)) {
+      try {
+        app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+        auth = getAuth(app);
+        firestore = getFirestore(app);
+        storage = getStorage(app);
+      } catch(e) {
+        console.error("Failed to initialize Firebase in production", e);
+      }
+    } else {
+      console.error("Production Firebase config is incomplete. Check your environment variables.");
     }
   }
 
