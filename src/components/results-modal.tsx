@@ -139,43 +139,10 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
     return resultsCopy;
   }, [results, sortBy]);
 
-  const handleDownloadPdf = async () => {
+  const handleDownloadPdf = () => {
     if (!match || sortedResults.length === 0) return;
     
     const doc = new jsPDF({ unit: 'mm' });
-    
-    // Add logo if available
-    if (club?.imageUrl) {
-        try {
-            // Use a canvas to convert the image to a data URL, avoiding CORS issues.
-            const image = new Image();
-            image.crossOrigin = "Anonymous"; // Important for CORS
-            image.src = club.imageUrl;
-            await new Promise<void>((resolve, reject) => {
-                image.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = image.width;
-                    canvas.height = image.height;
-                    const ctx = canvas.getContext('2d');
-                    ctx?.drawImage(image, 0, 0);
-                    const dataUrl = canvas.toDataURL('image/png');
-                    doc.addImage(dataUrl, 'PNG', 14, 15, 20, 20);
-                    resolve();
-                };
-                image.onerror = (err) => {
-                    console.error("Error loading image for PDF:", err);
-                    reject(new Error("Failed to load image"));
-                };
-            });
-        } catch (error) {
-            console.error("Error processing logo for PDF:", error);
-            toast({
-                variant: 'destructive',
-                title: 'Logo Error',
-                description: 'Could not add the club logo to the PDF. The PDF will be created without it.'
-            });
-        }
-    }
     
     const title = `Full Results: ${match.name}`;
     const subtitle = `${match.seriesName} - ${format(match.date as Date, 'PPP')}`;
@@ -183,9 +150,9 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
 
 
     doc.setFontSize(18);
-    doc.text(title, 40, 22);
+    doc.text(title, 14, 22);
     doc.setFontSize(12);
-    doc.text(subtitle, 40, 30);
+    doc.text(subtitle, 14, 30);
     
     (doc as any).autoTable({
         startY: 40,
