@@ -1,48 +1,52 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper Functions
+
+    // Helper functions
     function isSiteAdmin() {
       return request.auth.token.role == 'Site Admin';
     }
-    
+
     function isClubAdmin(clubId) {
-      return request.auth.token.role == 'Club Admin' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return request.auth.token.role == 'Club Admin' && userDoc.primaryClubId == clubId;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
     
     function isMemberOf(clubId) {
-       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
+      let userDoc = getUserData();
+      return userDoc.primaryClubId == clubId && userDoc.memberStatus == 'Member';
     }
 
-    // Collection Rules
+    // Collection rules
     match /users/{userId} {
-      allow read: if request.auth != null && (request.auth.uid == userId || isSiteAdmin() || isMemberOf(resource.data.primaryClubId));
-      allow create: if request.auth != null;
-      allow update: if request.auth != null && (request.auth.uid == userId || isSiteAdmin());
-      allow delete: if isSiteAdmin();
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == userId || isSiteAdmin();
     }
 
     match /clubs/{clubId} {
       allow read: if request.auth != null;
-      allow create, update, delete: if isSiteAdmin();
+      allow write: if isSiteAdmin();
     }
-    
+
     match /series/{seriesId} {
-      allow read: if request.auth != null && (isSiteAdmin() || isMemberOf(resource.data.clubId));
-      allow create, update, delete: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
+      allow read: if request.auth != null;
+      allow write: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
     }
 
     match /matches/{matchId} {
-      allow read: if request.auth != null && (isSiteAdmin() || isMemberOf(resource.data.clubId));
-      allow create, update, delete: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
+      allow read: if request.auth != null;
+      allow write: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
     }
-    
+
     match /results/{resultId} {
-        allow read: if request.auth != null && (isSiteAdmin() || isMemberOf(resource.data.clubId));
-        allow create, update: if request.auth != null; // More granular control handled by application logic/backend
-        allow delete: if isSiteAdmin();
+      allow read: if request.auth != null;
+      allow write: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
     }
   }
 }
