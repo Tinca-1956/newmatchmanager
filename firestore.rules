@@ -1,10 +1,9 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // Helper Functions
     function isSignedIn() {
       return request.auth != null;
     }
@@ -12,61 +11,61 @@ service cloud.firestore {
     function isUser(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
+
+    function getRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isOneOfRoles(roles) {
+      return isSignedIn() && getRole() in roles;
+    }
     
-    function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
-    }
-
     function isSiteAdmin() {
-        return isSignedIn() && getUserData(request.auth.uid).role == 'Site Admin';
+        return isSignedIn() && getRole() == 'Site Admin';
     }
 
-    function isClubAdmin(clubId) {
-        let user = getUserData(request.auth.uid);
-        return isSignedIn() &&
-               user.primaryClubId == clubId &&
-               user.role in ['Site Admin', 'Club Admin'];
-    }
-
-    function isClubMember(clubId) {
-       let user = getUserData(request.auth.uid);
-       return isSignedIn() &&
-              user.primaryClubId == clubId &&
-              user.memberStatus == 'Member';
-    }
-
-    // Collection Rules
+    // Rules for 'users' collection
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isUser(userId) || isSiteAdmin();
-      allow delete: if isSiteAdmin();
+      allow read: if isSiteAdmin() || isUser(userId);
+      allow write: if isSiteAdmin() || isUser(userId);
+      allow list: if isSiteAdmin();
     }
 
+    // Rules for 'clubs' collection
     match /clubs/{clubId} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isSiteAdmin();
+      allow write: if isSiteAdmin();
+      allow list: if isSignedIn();
     }
-
+    
+    // Rules for 'series' collection
     match /series/{seriesId} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
+        allow read: if isSignedIn();
+        allow create, update: if isOneOfRoles(['Site Admin', 'Club Admin']);
+        allow delete: if isSiteAdmin();
+        allow list: if isSignedIn();
     }
     
-    match /matches/{matchId} {
-      // Allow reading a single match document if the user is a site admin or a member of that match's club.
-      allow get: if isSiteAdmin() || isClubMember(get(/databases/$(database)/documents/matches/$(matchId)).data.clubId);
-      
-      // Allow listing matches if the user is a site admin, or if their query is scoped to the club they are a member of.
-      allow list: if isSiteAdmin() || (isSignedIn() && request.query.clubId == getUserData(request.auth.uid).primaryClubId);
-
-      allow create, update: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
-      allow delete: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
-    }
-    
+    // Rules for 'results' collection
     match /results/{resultId} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
+        allow read: if isSignedIn();
+        allow create, update: if isOneOfRoles(['Site Admin', 'Club Admin', 'Marshal']);
+        allow delete: if isSiteAdmin();
+    }
+
+    // Rules for 'matches' collection
+    match /matches/{matchId} {
+      // Allow any signed-in user to get a single match document.
+      allow get: if isSignedIn();
+
+      // Allow users to list matches if they are a Site Admin, OR if the query they are making
+      // is for their own specific clubId.
+      allow list: if isSiteAdmin() || (
+        isSignedIn() && request.query.where.clubId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId
+      );
+      
+      // Allow create, update, delete for Admins
+      allow create, update, delete: if isOneOfRoles(['Site Admin', 'Club Admin']);
     }
   }
 }
