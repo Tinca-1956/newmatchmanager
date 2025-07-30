@@ -2,9 +2,15 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow read and write access to any file if the user is signed in.
+    // Grant read access to everyone for all files
     match /{allPaths=**} {
-      allow read, write: if request.auth != null;
+      allow read;
+    }
+    
+    // Grant write access only on files within the 'matches' folder
+    // to any user that is authenticated.
+    match /matches/{matchId}/{allPaths=**} {
+      allow write: if request.auth != null;
     }
   }
 }
