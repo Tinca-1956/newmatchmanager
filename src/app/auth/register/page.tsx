@@ -84,7 +84,7 @@ export default function RegisterPage() {
         });
         
         await auth.signOut();
-        router.push('/login');
+        router.push('/auth/login');
       }
 
     } catch (error: unknown) {
@@ -159,7 +159,7 @@ export default function RegisterPage() {
       </form>
       <CardFooter className="text-center text-sm">
         Already have an account?{' '}
-        <Link href="/login" className="underline ml-1">
+        <Link href="/auth/login" className="underline ml-1">
           Login
         </Link>
       </CardFooter>

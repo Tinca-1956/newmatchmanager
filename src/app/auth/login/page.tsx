@@ -92,7 +92,7 @@ export default function LoginPage() {
          router.push('/main/dashboard');
       } else {
         // This is a first-time login for a registered user
-        router.push('/select-club');
+        router.push('/auth/select-club');
       }
     } catch (error: unknown) {
       // if it's a resend attempt and the password is wrong, that's okay.
@@ -179,7 +179,7 @@ export default function LoginPage() {
       </form>
       <CardFooter className="text-center text-sm">
         Don&apos;t have an account?{' '}
-        <Link href="/register" className="underline ml-1">
+        <Link href="/auth/register" className="underline ml-1">
           Sign up
         </Link>
       </CardFooter>
