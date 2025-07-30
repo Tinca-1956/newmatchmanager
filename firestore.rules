@@ -1,63 +1,55 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper functions to reduce duplication
-    function isUserAuthenticated() {
+    
+    // Helper Functions
+    function isAuth() {
       return request.auth != null;
     }
-
+    
+    function isUser(userId) {
+      return isAuth() && request.auth.uid == userId;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
     function isSiteAdmin() {
-      return isUserAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
+      return isAuth() && getUserData().role == 'Site Admin';
     }
-
+    
     function isClubAdmin(clubId) {
-      return isUserAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
-    }
-    
-    function isMarshal(clubId) {
-      return isUserAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Marshal' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
+      return isAuth() && getUserData().primaryClubId == clubId && getUserData().role == 'Club Admin';
     }
 
-    function isClubMember(clubId) {
-       return isUserAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
-    }
-    
-    function isOwner(userId) {
-        return isUserAuthenticated() && request.auth.uid == userId;
-    }
-
-    // Matches collection rules
-    match /matches/{matchId} {
-      allow read: if isUserAuthenticated();
-      allow write: if isUserAuthenticated() && (isSiteAdmin() || isClubAdmin(resource.data.clubId));
-    }
-
-    // Results collection rules
-    match /results/{resultId} {
-       allow read: if isUserAuthenticated();
-       allow write: if isUserAuthenticated() && (isSiteAdmin() || isClubAdmin(resource.data.clubId) || isMarshal(resource.data.clubId));
-    }
-    
-    // Clubs collection rules
-    match /clubs/{clubId} {
-      allow read: if isUserAuthenticated();
-      allow write: if isUserAuthenticated() && isSiteAdmin();
-    }
-
-    // Series collection rules
-    match /series/{seriesId} {
-       allow read: if isUserAuthenticated();
-       allow write: if isUserAuthenticated() && (isSiteAdmin() || isClubAdmin(resource.data.clubId));
-    }
-
-    // Users collection rules
     match /users/{userId} {
-      allow read: if isUserAuthenticated() && (isOwner(userId) || isSiteAdmin() || isClubMember(get(/databases/$(database)/documents/users/$(userId)).data.primaryClubId));
-      allow create: if isUserAuthenticated() && isOwner(userId);
-      allow update: if isUserAuthenticated() && (isOwner(userId) || isSiteAdmin() || isClubAdmin(resource.data.primaryClubId));
-      allow delete: if isUserAuthenticated() && isSiteAdmin();
+      allow read: if isAuth();
+      allow write: if isUser(userId) || isSiteAdmin();
+    }
+    
+    match /clubs/{clubId} {
+      allow read: if isAuth();
+      allow write: if isSiteAdmin();
+    }
+    
+    match /series/{seriesId} {
+      allow read: if isAuth();
+      allow write: if isSiteAdmin() || isClubAdmin(get(/databases/$(database)/documents/series/$(seriesId)).data.clubId);
+    }
+    
+    match /matches/{matchId} {
+      // Allow any authenticated user to read/list matches.
+      // This is a temporary, simplified rule to unblock the main page.
+      allow read: if isAuth();
+      allow write: if isAuth() && (isSiteAdmin() || isClubAdmin(resource.data.clubId));
+    }
+    
+    match /results/{resultId} {
+      allow read: if isAuth();
+      allow write: if isAuth();
     }
   }
 }
