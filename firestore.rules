@@ -1,57 +1,55 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Helper Function ---
-    // Fetches the role directly from the user's document in Firestore.
-    // This is more reliable than relying on auth token claims which can have propagation delays.
-    function getRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    function getUserData(userId) {
+      // It's safer to check for existence before accessing data
+      return getAfter(/databases/$(database)/documents/users/$(userId));
     }
 
-    // --- User Rules ---
-    // Users can read their own profile.
-    // Users can only update their own profile.
+    function isUserRole(userId, role) {
+      // Check for existence and then the role
+      let userDoc = getUserData(userId);
+      return userDoc != null && userDoc.data.role == role;
+    }
+    
+    function isUserClubAdmin(userId, clubId) {
+      let userDoc = getUserData(userId);
+      return userDoc != null && 
+             userDoc.data.role == 'Club Admin' && 
+             userDoc.data.primaryClubId == clubId;
+    }
+
     match /users/{userId} {
-      allow read: if request.auth.uid == userId;
-      allow write: if request.auth.uid == userId;
+      allow read: if request.auth.uid == userId || isUserRole(request.auth.uid, 'Site Admin');
+      allow update: if request.auth.uid == userId;
+      allow create: if request.auth.uid == userId;
+      // Allow admins to change roles/status
+      allow write: if isUserRole(request.auth.uid, 'Site Admin') || isUserClubAdmin(request.auth.uid, resource.data.primaryClubId);
     }
 
-    // --- Club Rules ---
-    // Any authenticated user can read the list of clubs.
-    // Only a Site Admin can create, update, or delete clubs.
     match /clubs/{clubId} {
       allow read: if request.auth != null;
-      allow write: if getRole() == 'Site Admin';
+      allow write: if isUserRole(request.auth.uid, 'Site Admin');
     }
 
-    // --- Series Rules ---
-    // Any authenticated user can read series data.
-    // Only a Site Admin or a Club Admin of that specific club can write to a series.
     match /series/{seriesId} {
       allow read: if request.auth != null;
-      allow write: if getRole() == 'Site Admin' || (getRole() == 'Club Admin' && request.resource.data.clubId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId);
+      // Allow write if the user is a Site Admin OR a Club Admin of the club specified in the new/updated series document
+      allow write: if isUserRole(request.auth.uid, 'Site Admin') || isUserClubAdmin(request.auth.uid, request.resource.data.clubId);
     }
 
-    // --- Match Rules ---
-    // Any authenticated user can read match data.
-    // A Site Admin or a Club Admin of that club can create/update matches.
-    // Any authenticated user can update a match document if they are only adding themselves
-    // to the 'registeredAnglers' array (i.e., registering for a match).
     match /matches/{matchId} {
       allow read: if request.auth != null;
-      allow write: if getRole() == 'Site Admin' || (getRole() == 'Club Admin' && request.resource.data.clubId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId)
-                  || (request.auth.uid in request.resource.data.registeredAnglers && !(request.auth.uid in resource.data.registeredAnglers));
+      // Corrected write rule for matches
+      allow write: if isUserRole(request.auth.uid, 'Site Admin') || isUserClubAdmin(request.auth.uid, request.resource.data.clubId);
     }
-
-    // --- Result Rules ---
-    // Any authenticated user can read results.
-    // A Site Admin or a Club Admin of that club can write results.
+    
     match /results/{resultId} {
       allow read: if request.auth != null;
-      allow write: if getRole() == 'Site Admin' || (getRole() == 'Club Admin' && request.resource.data.clubId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId);
+      // Corrected write rule for results
+      allow write: if isUserRole(request.auth.uid, 'Site Admin') || isUserClubAdmin(request.auth.uid, request.resource.data.clubId);
     }
   }
 }
