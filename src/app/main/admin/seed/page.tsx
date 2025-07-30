@@ -18,12 +18,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const sampleClub: Omit<Club, 'id'> = {
-  name: 'Default Angling Club',
-  description: 'The default club created by the seeder.',
-  imageUrl: 'https://placehold.co/100x100.png',
-};
-
 const sampleUsers = (clubId: string): Omit<User, 'id'>[] => [
   { firstName: 'John', lastName: 'Angler', email: 'john.angler@test.com', role: 'Angler', memberStatus: 'Member', primaryClubId: clubId },
   { firstName: 'Peter', lastName: 'Smith', email: 'peter.smith@test.com', role: 'Club Admin', memberStatus: 'Member', primaryClubId: clubId },
@@ -35,23 +29,6 @@ export default function SeedDataPage() {
     const { isSiteAdmin, loading: adminLoading } = useAdminAuth();
     const { toast } = useToast();
     const [isSeeding, setIsSeeding] = useState(false);
-    
-    const handleSeedClub = async () => {
-      if (!firestore) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Firestore is not initialized.' });
-        return;
-      }
-      setIsSeeding(true);
-      try {
-        await addDoc(collection(firestore, 'clubs'), sampleClub);
-        toast({ title: 'Success!', description: 'Sample club has been seeded.' });
-      } catch (error) {
-        console.error('Error seeding club:', error);
-        toast({ variant: 'destructive', title: 'Seed Failed', description: 'Could not seed the sample club.' });
-      } finally {
-        setIsSeeding(false);
-      }
-    };
 
     const handleSeedUsers = async () => {
         if (!firestore) {
@@ -64,7 +41,7 @@ export default function SeedDataPage() {
             // We need a club to associate with
             const clubsSnapshot = await getDocs(collection(firestore, 'clubs'));
             if (clubsSnapshot.empty) {
-                toast({ variant: 'destructive', title: 'Error', description: 'No clubs found in the database. Please seed a club first.' });
+                toast({ variant: 'destructive', title: 'Error', description: 'No clubs found in the database. A club must exist before seeding users.' });
                 setIsSeeding(false);
                 return;
             }
@@ -134,12 +111,9 @@ export default function SeedDataPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Seed Actions</CardTitle>
-                    <CardDescription>Click the buttons to add sample data to your database. Seed a club before you seed users.</CardDescription>
+                    <CardDescription>Click the button to add sample users to your database. A club must exist for users to be added.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                     <Button onClick={handleSeedClub} disabled={isSeeding}>
-                        {isSeeding ? 'Seeding...' : 'Seed Club'}
-                    </Button>
                      <Button onClick={handleSeedUsers} disabled={isSeeding}>
                         {isSeeding ? 'Seeding...' : 'Seed Users'}
                     </Button>
