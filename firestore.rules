@@ -1,61 +1,81 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check if a user is a Site Admin by reading their user document
+
+    // Helper function to get user role from the 'users' collection
+    function getUserRole(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+    }
+    
+    // Helper function to check if a user is a member of a specific club
+    function isClubMember(userId, clubId) {
+      let userDoc = get(/databases/$(database)/documents/users/$(userId)).data;
+      return userDoc.primaryClubId == clubId || userDoc.secondaryClubId == clubId;
+    }
+    
+    // Helper function to check if the user is a Site Admin
     function isSiteAdmin(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role == 'Site Admin';
+        return getUserRole(userId) == 'Site Admin';
     }
 
-    // Helper function to check if a user is an admin of a specific club
+    // Helper function to check if user is a Club Admin for a specific club
     function isClubAdmin(userId, clubId) {
-      let userDoc = get(/databases/$(database)/documents/users/$(userId)).data;
-      return userDoc.role == 'Club Admin' && userDoc.primaryClubId == clubId;
-    }
-    
-    // Helper function to check if user is a member of the match's club
-    function isMemberOfClub(userId, clubId) {
-      let userDoc = get(/databases/$(database)/documents/users/$(userId)).data;
-      return userDoc.primaryClubId == clubId;
+        let userDoc = get(/databases/$(database)/documents/users/$(userId)).data;
+        return userDoc.role == 'Club Admin' && userDoc.primaryClubId == clubId;
     }
 
-    // Users can read/write their own user document. Site Admins can read/update any.
+    // Users can read/write their own profile.
+    // Site Admins can read/write/list any profile.
+    // Club Admins can list users in their own club.
     match /users/{userId} {
-      allow read: if request.auth != null && (request.auth.uid == userId || isSiteAdmin(request.auth.uid));
-      allow write: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && isSiteAdmin(request.auth.uid);
+      allow read: if request.auth.uid == userId || isSiteAdmin(request.auth.uid);
+      allow write: if request.auth.uid == userId || isSiteAdmin(request.auth.uid);
+      allow list: if isSiteAdmin(request.auth.uid) || 
+                       (isClubAdmin(request.auth.uid, resource.data.primaryClubId));
     }
 
-    // Clubs can be read by any authenticated user, but only written by Site Admins.
+    // Any authenticated user can read clubs. Only Site Admins can create/update.
     match /clubs/{clubId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && isSiteAdmin(request.auth.uid);
+      allow read: if request.auth.uid != null;
+      allow write: if isSiteAdmin(request.auth.uid);
     }
     
-    // Series can be read by any authenticated user, written by admins of that club or Site Admins
+    // Only Site Admins and Club Admins of that club can write series.
+    // Any authenticated user can read series.
     match /series/{seriesId} {
-        allow read: if request.auth != null;
-        allow create, update, delete: if request.auth != null && (isClubAdmin(request.auth.uid, resource.data.clubId) || isSiteAdmin(request.auth.uid));
-    }
-
-    // Match documents
-    match /matches/{matchId} {
-      // Anyone can read a single match document.
-      allow get: if request.auth != null;
-      
-      // Allow listing matches if the user is a Site Admin OR if they are querying by their own clubId.
-      allow list: if request.auth != null && (isSiteAdmin(request.auth.uid) || request.query.get("where")[0][2] == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId);
-
-      // Create/Update/Delete allowed for Site Admins or Club Admins of the relevant club.
-      allow create, update, delete: if request.auth != null && (isClubAdmin(request.auth.uid, resource.data.clubId) || isSiteAdmin(request.auth.uid));
+        allow read: if request.auth.uid != null;
+        allow write: if isSiteAdmin(request.auth.uid) || isClubAdmin(request.auth.uid, resource.data.clubId);
     }
     
-    // Results can be read by any authenticated user.
-    // Writes are handled by more specific rules or backend logic (e.g. Cloud Functions/weigh-in page)
+    // Complex rules for matches
+    match /matches/{matchId} {
+      // READ a single match: User must be a Site Admin OR a member of the club the match belongs to.
+      allow get: if isSiteAdmin(request.auth.uid) || isClubMember(request.auth.uid, resource.data.clubId);
+      
+      // LIST matches: User must be a Site Admin OR the query must be filtered by a club they are a member of.
+      allow list: if isSiteAdmin(request.auth.uid) || 
+                     (request.query.limit <= 100 && isClubMember(request.auth.uid, request.query.clubId));
+
+      // CREATE a match: User must be a Site Admin OR a Club Admin of that club.
+      allow create: if isSiteAdmin(request.auth.uid) || isClubAdmin(request.auth.uid, request.resource.data.clubId);
+      
+      // UPDATE a match: 
+      // Case 1: Registering/Unregistering (updating registeredAnglers) - any authenticated user can do this for themselves.
+      // Case 2: General updates - User must be a Site Admin OR Club Admin of that club.
+      allow update: if (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['registeredAnglers', 'registeredCount']) && request.auth.uid != null) ||
+                       isSiteAdmin(request.auth.uid) || 
+                       isClubAdmin(request.auth.uid, resource.data.clubId);
+                       
+      // DELETE a match: User must be a Site Admin OR a Club Admin of that club.
+      allow delete: if isSiteAdmin(request.auth.uid) || isClubAdmin(request.auth.uid, resource.data.clubId);
+    }
+    
+    // Results can be read by any member of the club.
+    // Writes are handled by the weigh-in page logic (admins/marshals).
     match /results/{resultId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && (isSiteAdmin(request.auth.uid) || isClubAdmin(request.auth.uid, resource.data.clubId));
+      allow read: if isSiteAdmin(request.auth.uid) || isClubMember(request.auth.uid, resource.data.clubId);
+      allow write: if isSiteAdmin(request.auth.uid) || isClubAdmin(request.auth.uid, resource.data.clubId);
     }
   }
 }
