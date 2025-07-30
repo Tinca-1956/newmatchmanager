@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -128,88 +127,87 @@ function MatchesPageContent() {
     handleManageImages,
   } = useMatchActions();
 
-  // Combined effect to set up initial state and subscribe to matches
+  // Effect for fetching clubs (for site admin)
   useEffect(() => {
-      if (adminLoading || !firestore || !user) {
-          return;
-      }
+      if (adminLoading || !isSiteAdmin || !firestore) return;
 
-      let unsubscribeFromMatches = () => {};
-
-      const setupAndFetch = async () => {
-          setIsLoading(true);
-
-          let clubIdToFetch: string | undefined;
-
-          // Step 1: Determine the clubId
-          if (isSiteAdmin) {
-              const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
-              const clubsSnapshot = await getDocs(clubsQuery);
-              const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
-              setClubs(clubsData);
-              
-              if (selectedClubId) {
-                  clubIdToFetch = selectedClubId;
-              } else if (userProfile?.primaryClubId) {
-                  clubIdToFetch = userProfile.primaryClubId;
+      const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
+      const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
+          const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+          setClubs(clubsData);
+          // Set initial selection
+          if (!selectedClubId) {
+              if (userProfile?.primaryClubId && clubsData.some(c => c.id === userProfile.primaryClubId)) {
                   setSelectedClubId(userProfile.primaryClubId);
               } else if (clubsData.length > 0) {
-                  clubIdToFetch = clubsData[0].id;
                   setSelectedClubId(clubsData[0].id);
               }
-          } else if (userProfile?.primaryClubId) {
-              clubIdToFetch = userProfile.primaryClubId;
-              setSelectedClubId(userProfile.primaryClubId);
           }
-          
-          // Step 2: If a clubId is determined, fetch its matches
-          if (clubIdToFetch) {
-              let matchesQuery;
-              if (matchIdFilter) {
-                  matchesQuery = query(
-                      collection(firestore, 'matches'),
-                      where('__name__', '==', matchIdFilter)
-                  );
-              } else {
-                  matchesQuery = query(
-                      collection(firestore, 'matches'),
-                      where('clubId', '==', clubIdToFetch),
-                      orderBy('date', 'desc')
-                  );
-              }
+      });
 
-              unsubscribeFromMatches = onSnapshot(matchesQuery, (snapshot) => {
-                  const matchesData = snapshot.docs.map(doc => {
-                      const data = doc.data();
-                      let date = data.date;
-                      if (date instanceof Timestamp) {
-                          date = date.toDate();
-                      }
-                      return {
-                          id: doc.id,
-                          ...data,
-                          date,
-                      } as Match;
-                  });
-                  setMatches(matchesData);
-                  setIsLoading(false);
-              }, (error) => {
-                  console.error("Error fetching matches: ", error);
-                  toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches.' });
-                  setIsLoading(false);
-              });
-          } else {
-              setMatches([]);
-              setIsLoading(false);
-          }
-      };
+      return () => unsubscribe();
+  }, [isSiteAdmin, adminLoading, userProfile?.primaryClubId]);
 
-      setupAndFetch();
 
-      return () => {
-          unsubscribeFromMatches();
-      };
-  }, [user, userProfile, isSiteAdmin, adminLoading, selectedClubId, matchIdFilter, toast]);
+  // Effect for setting selectedClubId for non-admins
+  useEffect(() => {
+      if (!adminLoading && !isSiteAdmin && userProfile?.primaryClubId) {
+          setSelectedClubId(userProfile.primaryClubId);
+      }
+  }, [isSiteAdmin, adminLoading, userProfile?.primaryClubId]);
+
+
+  // Main data fetching and subscription effect for matches
+  useEffect(() => {
+    if (!selectedClubId || !firestore) {
+        setIsLoading(false);
+        setMatches([]); // Clear matches if no club is selected
+        return;
+    }
+    
+    setIsLoading(true);
+
+    let matchesQuery;
+    if (matchIdFilter) {
+        // If a specific match ID is in the URL, fetch only that match.
+        matchesQuery = query(
+            collection(firestore, 'matches'),
+            where('__name__', '==', matchIdFilter),
+            where('clubId', '==', selectedClubId) // Ensure it belongs to the selected club for security
+        );
+    } else {
+        // Otherwise, fetch all matches for the selected club.
+        matchesQuery = query(
+            collection(firestore, 'matches'),
+            where('clubId', '==', selectedClubId),
+            orderBy('date', 'desc')
+        );
+    }
+    
+    const unsubscribe = onSnapshot(matchesQuery, (snapshot) => {
+        const matchesData = snapshot.docs.map(doc => {
+            const data = doc.data();
+            let date = data.date;
+            if (date instanceof Timestamp) {
+                date = date.toDate();
+            }
+            return {
+                id: doc.id,
+                ...data,
+                date,
+            } as Match;
+        });
+        setMatches(matchesData);
+        setIsLoading(false);
+    }, (error) => {
+        console.error("Error fetching matches: ", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches.' });
+        setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+
+  }, [selectedClubId, matchIdFilter, toast]);
 
   const displayedMatches = useMemo(() => {
     return matches.map(match => {
