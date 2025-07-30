@@ -155,11 +155,14 @@ function MatchesPageContent() {
                     const matchDoc = await getDoc(matchDocRef);
                     if (matchDoc.exists()) {
                         setSelectedClubId(matchDoc.data().clubId);
-                    } else {
-                        setSelectedClubId(userData.primaryClubId || (clubsData.length > 0 ? clubsData[0].id : ''));
+                    } else if (clubsData.length > 0) {
+                        // Fallback if match not found but clubs exist
+                        setSelectedClubId(userData.primaryClubId || clubsData[0].id);
                     }
-                } else {
-                    setSelectedClubId(userData.primaryClubId || (clubsData.length > 0 ? clubsData[0].id : ''));
+                } else if (userData.primaryClubId) {
+                    setSelectedClubId(userData.primaryClubId);
+                } else if (clubsData.length > 0) {
+                    setSelectedClubId(clubsData[0].id);
                 }
             } else {
                 setSelectedClubId(userData.primaryClubId || '');
