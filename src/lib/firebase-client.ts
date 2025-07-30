@@ -34,7 +34,8 @@ if (typeof window !== 'undefined') {
         
         auth = getAuth(app);
         firestore = getFirestore(app);
-        storage = getStorage(app);
+        // Correctly initialize storage with the bucket URL
+        storage = getStorage(app, firebaseConfig.storageBucket);
 
         // This is the correct way to conditionally connect to emulators.
         // It depends on an environment variable and ensures it only runs once.
