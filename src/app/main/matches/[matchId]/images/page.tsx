@@ -47,22 +47,6 @@ interface MatchDetails {
 
 const MAX_IMAGE_WIDTH = 1920; // Resize images to a max width of 1920px
 
-function getFirebaseErrorMessage(error: any): string {
-    if (typeof error === 'object' && error !== null && 'code' in error) {
-        switch (error.code) {
-            case 'storage/unauthorized':
-                return 'Permission denied. Please check your storage security rules.';
-            case 'storage/object-not-found':
-                return 'File not found. It may have been deleted.';
-            case 'storage/canceled':
-                return 'Upload was canceled.';
-            default:
-                return error.message || 'An unknown storage error occurred.';
-        }
-    }
-    return 'An unexpected error occurred.';
-}
-
 export default function ManageImagesPage() {
   const router = useRouter();
   const params = useParams();
@@ -200,7 +184,12 @@ export default function ManageImagesPage() {
                     },
                     (error) => {
                         console.error('Upload failed:', error);
-                        reject(error); // This is critical for catching permission errors
+                        toast({ 
+                            variant: 'destructive', 
+                            title: `Upload Failed`, 
+                            description: 'Permission denied. Please check your storage security rules.'
+                        });
+                        reject(error);
                     },
                     async () => {
                         try {
@@ -217,13 +206,9 @@ export default function ManageImagesPage() {
                     }
                 );
             });
-        } catch (error: any) {
+        } catch (error) {
             console.error(`Error with file ${file.name}:`, error)
-            toast({ 
-                variant: 'destructive', 
-                title: `Upload Failed: ${file.name}`, 
-                description: getFirebaseErrorMessage(error) 
-            });
+            // The toast is already shown in the uploadTask's error handler, no need for another one here.
             // Stop processing further files if one fails
             break;
         }
@@ -433,5 +418,7 @@ export default function ManageImagesPage() {
     </>
   );
 }
+
+    
 
     
