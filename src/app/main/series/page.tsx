@@ -598,9 +598,9 @@ export default function SeriesPage() {
                         <DialogDescription>
                             Update details for {selectedSeries.name}.
                              {selectedSeries.isCompleted ? (
-                                <p className="font-bold pt-2">SERIES COMPLETE</p>
+                                <div className="font-bold pt-2">SERIES COMPLETE</div>
                             ) : (
-                                <p className="font-bold pt-2">SERIES IN PROGRESS</p>
+                                <div className="font-bold pt-2">SERIES IN PROGRESS</div>
                             )}
                         </DialogDescription>
                     </DialogHeader>
@@ -650,9 +650,9 @@ export default function SeriesPage() {
                         <DialogDescription>
                              Overall standings based on the sum of section positions from all completed matches in this series.
                              {selectedSeriesForAction.isCompleted ? (
-                                <p className="font-bold pt-2">SERIES COMPLETE</p>
+                                <div className="font-bold pt-2">SERIES COMPLETE</div>
                             ) : (
-                                <p className="font-bold pt-2">SERIES IN PROGRESS</p>
+                                <div className="font-bold pt-2">SERIES IN PROGRESS</div>
                             )}
                             <p className="text-xs text-muted-foreground pt-2">
                                 The total points represent each anglers total points for all matches in the series. Where anglers did not attend a match in the series they are awarded maximum points. The match secretary will finalise the league standings after the final match has been completed
