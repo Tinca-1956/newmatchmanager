@@ -1,63 +1,48 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to get user's role directly from their user document
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-    }
-    
-    // Helper function to check if the user is a Site Admin by reading their document
+  
+    // Helper Functions
     function isSiteAdmin() {
-      return getUserRole() == 'Site Admin';
+      return request.auth.token.role == 'Site Admin';
     }
     
-    // Helper function to check if the user belongs to a club
+    function isClubAdmin(clubId) {
+      return request.auth.token.role == 'Club Admin' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
+    }
+    
     function isMemberOf(clubId) {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
-    }
-    
-    // Helper function to check if user is a Club Admin of a specific club
-    function isClubAdminOf(clubId) {
-      return isMemberOf(clubId) && getUserRole() == 'Club Admin';
+       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
     }
 
-    // Matches can be read by any Site Admin or a member of that club
-    match /matches/{matchId} {
-      allow read: if request.auth != null && (isSiteAdmin() || isMemberOf(resource.data.clubId));
-      allow write: if request.auth != null && (isSiteAdmin() || isClubAdminOf(request.resource.data.clubId));
-    }
-    
-    // All authenticated users can read club data
-    // Only Site Admins can create/update/delete clubs
-    match /clubs/{clubId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && isSiteAdmin();
-    }
-    
-    // Users can read their own user document
-    // Users can be created by anyone (for signup)
-    // Users can only be updated by themselves, a club admin of their club, or a site admin
-    // Users can only be deleted by a site admin
+    // Collection Rules
     match /users/{userId} {
-      allow read: if request.auth != null;
+      allow read: if request.auth != null && (request.auth.uid == userId || isSiteAdmin() || isMemberOf(resource.data.primaryClubId));
       allow create: if request.auth != null;
-      allow update: if request.auth.uid == userId || isSiteAdmin() || isClubAdminOf(resource.data.primaryClubId);
+      allow update: if request.auth != null && (request.auth.uid == userId || isSiteAdmin());
       allow delete: if isSiteAdmin();
     }
-    
-    // Series can be read by any Site Admin or a member of that club
-    match /series/{seriesId} {
-       allow read: if request.auth != null && (isSiteAdmin() || isMemberOf(resource.data.clubId));
-       allow write: if request.auth != null && (isSiteAdmin() || isClubAdminOf(request.resource.data.clubId));
+
+    match /clubs/{clubId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if isSiteAdmin();
     }
     
-    // Results can be read by any Site Admin or a member of that club
+    match /series/{seriesId} {
+      allow read: if request.auth != null && (isSiteAdmin() || isMemberOf(resource.data.clubId));
+      allow create, update, delete: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
+    }
+
+    match /matches/{matchId} {
+      allow read: if request.auth != null && (isSiteAdmin() || isMemberOf(resource.data.clubId));
+      allow create, update, delete: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
+    }
+    
     match /results/{resultId} {
         allow read: if request.auth != null && (isSiteAdmin() || isMemberOf(resource.data.clubId));
-        allow write: if request.auth != null && (isSiteAdmin() || isClubAdminOf(request.resource.data.clubId));
+        allow create, update: if request.auth != null; // More granular control handled by application logic/backend
+        allow delete: if isSiteAdmin();
     }
   }
 }
