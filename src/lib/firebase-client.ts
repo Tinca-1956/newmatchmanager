@@ -34,7 +34,7 @@ if (typeof window !== 'undefined') {
       // Initialize with a minimal config for emulators to work.
       // The projectId is necessary for Firestore rules testing.
       const emulatorConfig = {
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'matchmanager-backend-v2'
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'newmatchmanager-backend'
       };
       
       app = !getApps().length ? initializeApp(emulatorConfig) : getApp();

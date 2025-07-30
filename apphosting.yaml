@@ -3,7 +3,7 @@
 
 # A unique identifier for the backend.
 # If you create a new backend, you can specify a new ID here.
-backendId: matchmanager-backend-v2
+backendId: newmatchmanager-backend
 
 runConfig:
   # Increase this value if you'd like to automatically spin up
