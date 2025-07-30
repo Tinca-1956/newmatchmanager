@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Card,
   CardContent,
@@ -19,7 +19,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit } from 'lucide-react';
+import { PlusCircle, Edit, Upload } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -32,12 +32,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { firestore } from '@/lib/firebase-client';
+import { firestore, storage } from '@/lib/firebase-client';
 import { collection, addDoc, onSnapshot, doc, updateDoc, query, orderBy } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import type { Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import Image from 'next/image';
+import { Progress } from '@/components/ui/progress';
 
 const initialClubState: Omit<Club, 'id'> = {
   name: '',
@@ -48,14 +50,17 @@ const initialClubState: Omit<Club, 'id'> = {
 export default function ClubsPage() {
   const { toast } = useToast();
   const { isSiteAdmin, loading: adminLoading } = useAdminAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [clubs, setClubs] = useState<Club[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
-  const [selectedClub, setSelectedClub] = useState<Club | Omit<Club, 'id'>>(initialClubState);
+  const [selectedClub, setSelectedClub] = useState<Partial<Club>>(initialClubState);
 
   useEffect(() => {
     if (!firestore) {
@@ -81,6 +86,7 @@ export default function ClubsPage() {
 
   const handleOpenDialog = (mode: 'create' | 'edit', club?: Club) => {
     setDialogMode(mode);
+    setUploadProgress(0);
     if (mode === 'edit' && club) {
         setSelectedClub(club);
     } else {
@@ -96,7 +102,7 @@ export default function ClubsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firestore || !selectedClub.name) {
+    if (!firestore || !selectedClub?.name) {
         toast({ variant: 'destructive', title: 'Error', description: 'Club name is required.' });
         return;
     }
@@ -108,7 +114,7 @@ export default function ClubsPage() {
     };
 
     try {
-        if (dialogMode === 'edit' && 'id' in selectedClub) {
+        if (dialogMode === 'edit' && 'id' in selectedClub && selectedClub.id) {
             const clubDocRef = doc(firestore, 'clubs', selectedClub.id);
             await updateDoc(clubDocRef, clubData);
             toast({ title: 'Success!', description: 'Club updated successfully.' });
@@ -125,10 +131,43 @@ export default function ClubsPage() {
     }
   };
 
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0 || !storage || !selectedClub?.id) {
+      return;
+    }
+    const file = e.target.files[0];
+    const storageRef = ref(storage, `clubs/${selectedClub.id}/logo-${Date.now()}`);
+    const uploadTask = uploadBytesResumable(storageRef, file);
+
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    uploadTask.on('state_changed', 
+      (snapshot) => {
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        setUploadProgress(progress);
+      },
+      (error) => {
+        console.error('Upload failed:', error);
+        toast({ variant: 'destructive', title: 'Upload failed', description: 'Could not upload the logo.' });
+        setIsUploading(false);
+      },
+      async () => {
+        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+        setSelectedClub(prev => ({ ...prev!, imageUrl: downloadURL }));
+        setIsUploading(false);
+        toast({ title: 'Success!', description: 'Logo uploaded. Remember to save your changes.' });
+      }
+    );
+  };
+
   const renderClubList = () => {
     if (isLoading || adminLoading) {
       return Array.from({ length: 4 }).map((_, i) => (
         <TableRow key={i}>
+          <TableCell>
+            <Skeleton className="h-10 w-10 rounded-full" />
+          </TableCell>
           <TableCell>
             <Skeleton className="h-4 w-32" />
           </TableCell>
@@ -146,6 +185,9 @@ export default function ClubsPage() {
     
     return clubs.map(club => (
       <TableRow key={club.id}>
+        <TableCell>
+          <Image src={club.imageUrl} alt={club.name} width={40} height={40} className="rounded-full" />
+        </TableCell>
         <TableCell className="font-medium">{club.name}</TableCell>
         <TableCell>{club.description}</TableCell>
         {isSiteAdmin && (
@@ -184,6 +226,7 @@ export default function ClubsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-16">Logo</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Description</TableHead>
                   {isSiteAdmin && <TableHead className="text-right">Actions</TableHead>}
@@ -216,20 +259,35 @@ export default function ClubsPage() {
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="name" className="text-right">Name</Label>
-                        <Input id="name" name="name" value={selectedClub.name} onChange={handleInputChange} className="col-span-3" required />
+                        <Input id="name" name="name" value={selectedClub.name || ''} onChange={handleInputChange} className="col-span-3" required />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="description" className="text-right">Description</Label>
-                        <Textarea id="description" name="description" value={selectedClub.description} onChange={handleInputChange} className="col-span-3" />
+                        <Textarea id="description" name="description" value={selectedClub.description || ''} onChange={handleInputChange} className="col-span-3" />
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="imageUrl" className="text-right">Image URL</Label>
-                        <Input id="imageUrl" name="imageUrl" value={selectedClub.imageUrl} onChange={handleInputChange} className="col-span-3" placeholder="https://placehold.co/100x100.png" />
-                    </div>
+                    {dialogMode === 'edit' && (
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="logo" className="text-right">Logo</Label>
+                        <div className="col-span-3 space-y-2">
+                          <input type="file" ref={fileInputRef} onChange={handleLogoUpload} className="hidden" accept="image/*" />
+                          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                            <Upload className="mr-2 h-4 w-4" />
+                            {isUploading ? 'Uploading...' : 'Upload Logo'}
+                          </Button>
+                          {isUploading && <Progress value={uploadProgress} className="w-full h-2" />}
+                          {selectedClub.imageUrl && (
+                            <div className="mt-2 flex items-center gap-4">
+                               <p className="text-xs text-muted-foreground">Current:</p>
+                               <Image src={selectedClub.imageUrl} alt="Current logo" width={40} height={40} className="rounded-md" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                 </div>
                 <DialogFooter>
                     <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                    <Button type="submit" disabled={isSaving}>
+                    <Button type="submit" disabled={isSaving || isUploading}>
                     {isSaving ? 'Saving...' : 'Save Club'}
                     </Button>
                 </DialogFooter>

@@ -12,35 +12,69 @@ import { firestore } from '@/lib/firebase-client';
 import { doc, getDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import type { Club } from '@/lib/types';
+import Image from 'next/image';
 
 export default function AppHeader() {
   const { user, userProfile, loading } = useAuth();
-  const [primaryClubName, setPrimaryClubName] = useState<string | null>(null);
+  const [primaryClub, setPrimaryClub] = useState<Club | null>(null);
+  const [isClubLoading, setIsClubLoading] = useState(true);
 
   useEffect(() => {
-    const fetchClubName = async () => {
+    const fetchClub = async () => {
         if (userProfile?.primaryClubId && firestore) {
+            setIsClubLoading(true);
             try {
                 const clubDocRef = doc(firestore, 'clubs', userProfile.primaryClubId);
                 const clubDoc = await getDoc(clubDocRef);
                 if (clubDoc.exists()) {
-                    setPrimaryClubName(clubDoc.data().name);
+                    setPrimaryClub({ id: clubDoc.id, ...clubDoc.data() } as Club);
                 } else {
-                    setPrimaryClubName('Club not found');
+                    setPrimaryClub(null);
                 }
             } catch (error) {
-                console.error('Error fetching primary club name:', error);
-                setPrimaryClubName('Error loading club');
+                console.error('Error fetching primary club:', error);
+                setPrimaryClub(null);
+            } finally {
+              setIsClubLoading(false);
             }
         } else if (userProfile) {
-            setPrimaryClubName('No primary club selected');
+            setPrimaryClub(null);
+            setIsClubLoading(false);
         }
     };
     
     if (!loading) {
-        fetchClubName();
+        fetchClub();
     }
   }, [userProfile, loading]);
+
+  const renderClubInfo = () => {
+    if (loading || isClubLoading) {
+      return (
+        <div className="flex items-center gap-2">
+            <Skeleton className="h-8 w-8 rounded-full bg-sidebar-accent" />
+            <Skeleton className="h-6 w-48 bg-sidebar-accent" />
+        </div>
+      )
+    }
+
+    if (primaryClub && primaryClub.imageUrl) {
+        return (
+            <div className="flex items-center gap-2 cursor-default">
+                <Image src={primaryClub.imageUrl} alt={`${primaryClub.name} logo`} width={32} height={32} className="rounded-full" />
+                <span className="font-bold text-lg">{primaryClub.name}</span>
+            </div>
+        )
+    }
+
+    return (
+        <div className="flex items-center gap-2 cursor-default">
+            <Shield className="h-5 w-5 text-sidebar-foreground/70" />
+            <span className="font-bold text-lg">{primaryClub?.name || 'No Primary Club'}</span>
+        </div>
+    )
+  }
 
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-sidebar text-sidebar-foreground px-4 lg:h-[60px] lg:px-6">
@@ -65,17 +99,10 @@ export default function AppHeader() {
         <TooltipProvider>
             <Tooltip>
                 <TooltipTrigger asChild>
-                    <div className="flex items-center gap-2 cursor-default">
-                        <Shield className="h-5 w-5 text-sidebar-foreground/70" />
-                        {loading ? (
-                            <Skeleton className="h-6 w-48 bg-sidebar-accent" />
-                        ) : (
-                            <span className="font-bold text-lg">{primaryClubName}</span>
-                        )}
-                    </div>
+                    {renderClubInfo()}
                 </TooltipTrigger>
                 <TooltipContent side="bottom" align="start">
-                    <p className="text-left">To change the displayed club, edit your profile</p>
+                    <p className="text-left">To change the displayed club, edit your profile.</p>
                 </TooltipContent>
             </Tooltip>
         </TooltipProvider>
@@ -85,5 +112,3 @@ export default function AppHeader() {
     </header>
   );
 }
-
-    
