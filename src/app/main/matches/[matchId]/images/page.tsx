@@ -21,7 +21,7 @@ import NextImage from 'next/image';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { firestore, storage } from '@/lib/firebase-client';
-import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, DocumentSnapshot } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, DocumentSnapshot, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { Match, Club, User } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -71,14 +71,11 @@ export default function ManageImagesPage() {
       setIsLoading(false);
       return;
     }
-
-    const fetchDetails = async () => {
-      setIsLoading(true);
-      try {
-        const matchDocRef = doc(firestore, 'matches', matchId);
-        const matchDoc = await getDoc(matchDocRef);
-
-        if (!matchDoc.exists()) {
+    
+    // Subscribe to match updates
+    const matchDocRef = doc(firestore, 'matches', matchId);
+    const unsubscribe = onSnapshot(matchDocRef, async (matchDoc) => {
+       if (!matchDoc.exists()) {
           toast({ variant: 'destructive', title: 'Error', description: 'Match not found.' });
           setIsLoading(false);
           return;
@@ -86,40 +83,44 @@ export default function ManageImagesPage() {
         const matchData = { id: matchDoc.id, ...matchDoc.data() } as Match;
         setMatchData(matchData);
 
-        let clubName = 'N/A';
-        if (matchData.clubId) {
-          const clubDocRef = doc(firestore, 'clubs', matchData.clubId);
-          const clubDoc = await getDoc(clubDocRef);
-          if (clubDoc.exists()) {
-            clubName = (clubDoc.data() as Club).name;
-          }
+        if (!matchDetails) { // Only fetch these details once
+            setIsLoading(true);
+            try {
+                let clubName = 'N/A';
+                if (matchData.clubId) {
+                  const clubDocRef = doc(firestore, 'clubs', matchData.clubId);
+                  const clubDoc = await getDoc(clubDocRef);
+                  if (clubDoc.exists()) {
+                    clubName = (clubDoc.data() as Club).name;
+                  }
+                }
+
+                setMatchDetails({
+                  clubName: clubName,
+                  seriesName: matchData.seriesName,
+                  matchName: matchData.name,
+                  location: matchData.location,
+                });
+
+                if (user) {
+                  const userDocRef = doc(firestore, 'users', user.uid);
+                  const userDoc = await getDoc(userDocRef);
+                  if (userDoc.exists()) {
+                    const userData = userDoc.data() as User;
+                    setAnglerName(`${userData.firstName} ${userData.lastName}`);
+                  }
+                }
+            } catch (error) {
+                 console.error('Error fetching initial details:', error);
+                 toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch match details.' });
+            } finally {
+                setIsLoading(false);
+            }
         }
+    });
 
-        setMatchDetails({
-          clubName: clubName,
-          seriesName: matchData.seriesName,
-          matchName: matchData.name,
-          location: matchData.location,
-        });
-
-        if (user) {
-          const userDocRef = doc(firestore, 'users', user.uid);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            const userData = userDoc.data() as User;
-            setAnglerName(`${userData.firstName} ${userData.lastName}`);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching match details:', error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch match details.' });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchDetails();
-  }, [matchId, user, toast]);
+    return () => unsubscribe();
+  }, [matchId, user, toast, matchDetails]);
   
   const resizeImage = (file: File): Promise<Blob> => {
     return new Promise((resolve, reject) => {
@@ -156,7 +157,7 @@ export default function ManageImagesPage() {
   };
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!event.target.files || !matchId || !storage) return;
+    if (!event.target.files || !matchId || !storage || !firestore) return;
 
     const files = Array.from(event.target.files);
     if (files.length === 0) return;
@@ -164,7 +165,7 @@ export default function ManageImagesPage() {
     setIsUploading(true);
     setUploadProgress(0);
 
-    const uploadedUrls: string[] = [];
+    const matchDocRef = doc(firestore, 'matches', matchId);
 
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -185,31 +186,31 @@ export default function ManageImagesPage() {
                         reject(error);
                     },
                     async () => {
-                        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                        uploadedUrls.push(downloadURL);
-                        resolve();
+                        try {
+                            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                            // THIS IS THE FIX: Update Firestore immediately after getting the URL
+                            await updateDoc(matchDocRef, {
+                                mediaUrls: arrayUnion(downloadURL),
+                            });
+                            resolve();
+                        } catch(firestoreError) {
+                            console.error("Firestore update failed:", firestoreError);
+                            reject(firestoreError);
+                        }
                     }
                 );
             });
         } catch (error) {
             toast({ variant: 'destructive', title: 'Upload Failed', description: `Could not upload ${file.name}. Please try again.` });
-            // continue to next file
+            continue; // continue to next file
         }
     }
     
-    if (uploadedUrls.length > 0 && firestore) {
-      const matchDocRef = doc(firestore, 'matches', matchId);
-      await updateDoc(matchDocRef, {
-        mediaUrls: arrayUnion(...uploadedUrls),
-      });
-      // Refresh match data to show new images
-      setMatchData(prev => prev ? { ...prev, mediaUrls: [...(prev.mediaUrls || []), ...uploadedUrls] } : null);
-    }
-
-    toast({ title: 'Upload Complete', description: `${uploadedUrls.length} of ${files.length} images uploaded successfully.` });
+    // The onSnapshot listener will handle the UI update automatically.
+    // The toast message is now a success indicator for the entire process.
+    toast({ title: 'Upload Complete', description: `${files.length} image(s) uploaded successfully.` });
     setIsUploading(false);
     
-    // Reset file input
     if (fileInputRef.current) {
         fileInputRef.current.value = "";
     }
@@ -230,9 +231,7 @@ export default function ManageImagesPage() {
             mediaUrls: arrayRemove(imageUrl)
         });
 
-        // Update local state
-        setMatchData(prev => prev ? { ...prev, mediaUrls: prev.mediaUrls?.filter(url => url !== imageUrl) } : null);
-
+        // Local state will be updated by the onSnapshot listener
         toast({ title: 'Success', description: 'Image deleted successfully.' });
     } catch (error) {
         console.error("Error deleting image:", error);
@@ -411,3 +410,5 @@ export default function ManageImagesPage() {
     </>
   );
 }
+
+    
