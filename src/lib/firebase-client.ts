@@ -27,7 +27,7 @@ if (typeof window !== 'undefined') {
   // If we are in development mode and running on localhost, connect to the emulators.
   // The NEXT_PUBLIC_USE_EMULATORS variable is set to "true" in the `dev` script in package.json
   const useEmulators =
-    process.env.NODE_ENV === 'development';
+    process.env.NEXT_PUBLIC_USE_EMULATORS === 'true';
 
   if (useEmulators) {
     console.log('Connecting to Firebase Emulators');
