@@ -275,7 +275,7 @@ export default function ResultsPage() {
         return resultsCopy;
     }, [resultsForMatch, sortBy]);
 
-    const handleCreatePdf = () => {
+    const handleCreatePdf = async () => {
         if (sortedResults.length === 0) {
             toast({
                 variant: 'destructive',
@@ -285,16 +285,34 @@ export default function ResultsPage() {
             return;
         }
 
-        const doc = new jsPDF();
+        const doc = new jsPDF({ unit: 'mm' });
         const club = allClubs.find(c => c.id === selectedClubId);
         const series = seriesForClub.find(s => s.id === selectedSeriesId);
         const match = matchesForSeries.find(m => m.id === selectedMatchId);
         const paidPlaces = match?.paidPlaces || 0;
 
+        if (club?.imageUrl) {
+            try {
+                const response = await fetch(club.imageUrl);
+                const blob = await response.blob();
+                const reader = new FileReader();
+                await new Promise<void>((resolve, reject) => {
+                    reader.onload = () => {
+                        doc.addImage(reader.result as string, 'PNG', 14, 15, 20, 20);
+                        resolve();
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+            } catch (error) {
+                console.error("Error adding logo to PDF:", error);
+            }
+        }
+        
         doc.setFontSize(18);
-        doc.text(`Results for ${match?.name || 'Match'}`, 14, 22);
+        doc.text(`Results for ${match?.name || 'Match'}`, 40, 22);
         doc.setFontSize(12);
-        doc.text(`${series?.name || 'Series'} - ${club?.name || 'Club'}`, 14, 30);
+        doc.text(`${series?.name || 'Series'} - ${club?.name || 'Club'}`, 40, 30);
 
         (doc as any).autoTable({
             startY: 40,

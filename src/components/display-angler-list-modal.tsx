@@ -22,8 +22,8 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import type { Match, User } from '@/lib/types';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import type { Match, User, Club } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Download } from 'lucide-react';
 import jsPDF from 'jspdf';
@@ -60,6 +60,7 @@ async function getDocsInChunks<T>(ids: string[], collectionName: string): Promis
 
 export function DisplayAnglerListModal({ isOpen, onClose, match }: DisplayAnglerListModalProps) {
   const [anglerDetails, setAnglerDetails] = useState<AnglerDetails[]>([]);
+  const [club, setClub] = useState<Club | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -74,6 +75,12 @@ export function DisplayAnglerListModal({ isOpen, onClose, match }: DisplayAngler
         }
 
         try {
+          const clubDocRef = doc(firestore, 'clubs', match.clubId);
+          const clubDoc = await getDoc(clubDocRef);
+          if (clubDoc.exists()) {
+            setClub({ id: clubDoc.id, ...clubDoc.data() } as Club);
+          }
+
           // Fetch user documents for registered anglers in chunks
           const usersData = await getDocsInChunks<User>(match.registeredAnglers, 'users');
 
@@ -95,19 +102,36 @@ export function DisplayAnglerListModal({ isOpen, onClose, match }: DisplayAngler
     }
   }, [isOpen, match, toast]);
   
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     if (!match || anglerDetails.length === 0) return;
     
-    // Initialize jsPDF with millimeters as units for easier sizing
     const doc = new jsPDF({ unit: 'mm' });
     
+    // Add logo if available
+    if (club?.imageUrl) {
+        try {
+            const response = await fetch(club.imageUrl);
+            const blob = await response.blob();
+            const reader = new FileReader();
+            await new Promise<void>((resolve, reject) => {
+                reader.onload = () => {
+                    doc.addImage(reader.result as string, 'PNG', 14, 15, 20, 20);
+                    resolve();
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        } catch (error) {
+            console.error("Error adding logo to PDF:", error);
+        }
+    }
+    
     const title = `Angler List: ${match.name}`;
-
     doc.setFontSize(18);
-    doc.text(title, 14, 22);
+    doc.text(title, 40, 22);
     
     (doc as any).autoTable({
-        startY: 30,
+        startY: 40,
         head: [['Angler Name', 'Section', 'Peg', 'Weight (kg)', 'Match Fee', 'Pool Fee', 'Payout']],
         body: anglerDetails.map(a => [
             `${a.firstName} ${a.lastName}`,

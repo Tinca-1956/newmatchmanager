@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -22,8 +23,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
-import type { Match, Result } from '@/lib/types';
+import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
+import type { Match, Result, Club } from '@/lib/types';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -42,6 +43,7 @@ type ResultWithSectionRank = Result & { sectionRank?: number };
 
 export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
   const [results, setResults] = useState<ResultWithSectionRank[]>([]);
+  const [club, setClub] = useState<Club | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [sortBy, setSortBy] = useState<'Overall' | 'Section' | 'Peg'>('Overall');
 
@@ -51,6 +53,13 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
       const fetchResults = async () => {
         setIsLoading(true);
         try {
+          // Fetch Club info for logo
+          const clubDocRef = doc(firestore, 'clubs', match.clubId);
+          const clubDoc = await getDoc(clubDocRef);
+          if (clubDoc.exists()) {
+              setClub({ id: clubDoc.id, ...clubDoc.data() } as Club);
+          }
+
           const resultsQuery = query(
             collection(firestore, 'results'),
             where('matchId', '==', match.id)
@@ -128,10 +137,29 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
     return resultsCopy;
   }, [results, sortBy]);
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     if (!match || sortedResults.length === 0) return;
     
-    const doc = new jsPDF();
+    const doc = new jsPDF({ unit: 'mm' });
+    
+    // Add logo if available
+    if (club?.imageUrl) {
+        try {
+            const response = await fetch(club.imageUrl);
+            const blob = await response.blob();
+            const reader = new FileReader();
+            await new Promise<void>((resolve, reject) => {
+                reader.onload = () => {
+                    doc.addImage(reader.result as string, 'PNG', 14, 15, 20, 20);
+                    resolve();
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        } catch (error) {
+            console.error("Error adding logo to PDF:", error);
+        }
+    }
     
     const title = `Full Results: ${match.name}`;
     const subtitle = `${match.seriesName} - ${format(match.date as Date, 'PPP')}`;
@@ -139,9 +167,9 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
 
 
     doc.setFontSize(18);
-    doc.text(title, 14, 22);
+    doc.text(title, 40, 22);
     doc.setFontSize(12);
-    doc.text(subtitle, 14, 30);
+    doc.text(subtitle, 40, 30);
     
     (doc as any).autoTable({
         startY: 40,
