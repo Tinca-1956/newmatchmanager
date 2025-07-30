@@ -437,6 +437,14 @@ export default function SeriesPage() {
                     </TooltipTrigger>
                     <TooltipContent side="left"><p>View Matches</p></TooltipContent>
                 </Tooltip>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="outline" size="icon" onClick={() => handleOpenStandingsModal(series)} disabled={series.matchCount === 0}>
+                            <Trophy className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left"><p>View league standings</p></TooltipContent>
+                </Tooltip>
                 {canEdit && (
                     <>
                         <Tooltip>
@@ -446,14 +454,6 @@ export default function SeriesPage() {
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent side="left"><p>Check anglers</p></TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="outline" size="icon" onClick={() => handleOpenStandingsModal(series)} disabled={series.matchCount === 0}>
-                                    <Trophy className="h-4 w-4" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent side="left"><p>View league standings</p></TooltipContent>
                         </Tooltip>
                         <Tooltip>
                             <TooltipTrigger asChild>
