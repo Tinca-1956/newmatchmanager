@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   title: 'Match Manager',
   description: 'Manage your fishing matches with ease.',
   icons: {
-    icon: '/favicon.jpg', // Standard favicon
+    icon: '/favicon.png', // Standard favicon
     apple: '/apple-touch-icon.png', // For Apple devices
   },
   openGraph: {
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     description: 'Manage your fishing matches with ease.',
     images: [
       {
-        url: '/og-image.jpg', // Recommended size: 1200x630
+        url: '/og-image.png', // Recommended size: 1200x630
         width: 1200,
         height: 630,
         alt: 'Match Manager Logo',
