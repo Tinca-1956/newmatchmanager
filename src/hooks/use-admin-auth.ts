@@ -13,7 +13,7 @@ interface AdminAuth {
 }
 
 export const useAdminAuth = (): AdminAuth => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, userProfile, loading: authLoading } = useAuth();
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [claimsLoading, setClaimsLoading] = useState(true);
 
@@ -35,10 +35,21 @@ export const useAdminAuth = (): AdminAuth => {
         const idTokenResult = await user.getIdTokenResult(true);
         const claims = idTokenResult.claims;
         const roleFromClaims = claims.role as UserRole | undefined;
-        setUserRole(roleFromClaims || null);
+
+        // Use the role from claims if available, otherwise fall back to the Firestore profile role.
+        // This makes the UI more resilient if claims are slow to update.
+        if (roleFromClaims) {
+            setUserRole(roleFromClaims);
+        } else if (userProfile?.role) {
+            setUserRole(userProfile.role);
+        } else {
+            setUserRole(null);
+        }
+
       } catch (error) {
         console.error("Error fetching user token with claims:", error);
-        setUserRole(null);
+         // Fallback to profile role on error
+        setUserRole(userProfile?.role || null);
       } finally {
         setClaimsLoading(false);
       }
@@ -46,7 +57,7 @@ export const useAdminAuth = (): AdminAuth => {
     
     fetchClaims();
 
-  }, [user, authLoading]);
+  }, [user, userProfile, authLoading]);
   
   const isSiteAdmin = userRole === 'Site Admin';
   const isClubAdmin = userRole === 'Club Admin';
