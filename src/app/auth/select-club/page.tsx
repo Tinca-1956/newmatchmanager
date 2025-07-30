@@ -89,13 +89,18 @@ export default function SelectClubPage() {
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || '';
 
+      // Check if the user is the site admin and set role accordingly
+      const userRole = user.email === 'stuart.thomas.winton@gmail.com' ? 'Site Admin' : 'Angler';
+      const memberStatus = user.email === 'stuart.thomas.winton@gmail.com' ? 'Member' : 'Pending';
+
+
       await setDoc(userDocRef, {
         primaryClubId: selectedClubId,
         firstName: firstName,
         lastName: lastName,
         email: user.email,
-        role: 'Angler', // Set default role
-        memberStatus: 'Pending', // Set default status
+        role: userRole,
+        memberStatus: memberStatus,
       }, { merge: true });
 
       toast({
