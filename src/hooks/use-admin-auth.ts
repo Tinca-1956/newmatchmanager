@@ -18,44 +18,36 @@ export const useAdminAuth = (): AdminAuth => {
   const [claimsLoading, setClaimsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchClaims = async () => {
-      if (authLoading) {
-        return;
-      }
-
-      if (!user) {
+    // This effect now prioritizes the userProfile for role information,
+    // making the hook much more resilient to token claim propagation delays.
+    if (authLoading) {
+      return;
+    }
+    
+    if (!user || !userProfile) {
         setUserRole(null);
         setClaimsLoading(false);
         return;
-      }
-      
-      setClaimsLoading(true);
-      try {
-        // Force a refresh of the user's ID token to get the latest custom claims.
-        const idTokenResult = await user.getIdTokenResult(true);
+    }
+
+    setClaimsLoading(true);
+    // Directly use the role from the user's Firestore document.
+    // This is the most reliable source of truth immediately after login.
+    setUserRole(userProfile.role);
+    setClaimsLoading(false);
+    
+    // We can still try to refresh the token in the background to sync claims,
+    // but we no longer wait for it, preventing the UI from being blocked.
+    user.getIdTokenResult(true).then(idTokenResult => {
         const claims = idTokenResult.claims;
         const roleFromClaims = claims.role as UserRole | undefined;
-
-        // Use the role from claims if available, otherwise fall back to the Firestore profile role.
-        // This makes the UI more resilient if claims are slow to update.
-        if (roleFromClaims) {
+        if (roleFromClaims && roleFromClaims !== userProfile.role) {
+            console.warn("User role mismatch between claims and Firestore. Using claims role.");
             setUserRole(roleFromClaims);
-        } else if (userProfile?.role) {
-            setUserRole(userProfile.role);
-        } else {
-            setUserRole(null);
         }
-
-      } catch (error) {
-        console.error("Error fetching user token with claims:", error);
-         // Fallback to profile role on error
-        setUserRole(userProfile?.role || null);
-      } finally {
-        setClaimsLoading(false);
-      }
-    };
-    
-    fetchClaims();
+    }).catch(error => {
+        console.error("Could not refresh token for claims in background:", error);
+    });
 
   }, [user, userProfile, authLoading]);
   

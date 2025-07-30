@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -23,59 +24,12 @@ import { User, LogOut } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import Link from 'next/link';
 import { doc, getDoc } from 'firebase/firestore';
+import type { User as UserProfileType } from '@/lib/types';
 
-interface UserProfile {
-    firstName: string;
-    lastName: string;
-    role: string;
-}
 
 export function UserNav() {
-  const { user, loading } = useAuth();
+  const { user, userProfile, loading } = useAuth();
   const router = useRouter();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isFetchingProfile, setIsFetchingProfile] = useState(true);
-
-  useEffect(() => {
-    async function fetchUserProfile() {
-      if (user && firestore) {
-        setIsFetchingProfile(true);
-        try {
-          const userDocRef = doc(firestore, 'users', user.uid);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            setProfile({
-                firstName: data.firstName || '',
-                lastName: data.lastName || '',
-                role: data.role || 'Angler'
-            });
-          } else {
-             // Fallback for user doc not created yet, get from auth displayName
-            const nameParts = (user.displayName || '').split(' ');
-            const firstName = nameParts[0] || '';
-            const lastName = nameParts.slice(1).join(' ') || '';
-            setProfile({
-                firstName,
-                lastName,
-                role: 'Angler'
-            })
-          }
-        } catch (error) {
-          console.error("Error fetching user profile: ", error);
-          setProfile({ firstName: 'User', lastName: '', role: 'Angler'}); // Fallback profile
-        } finally {
-          setIsFetchingProfile(false);
-        }
-      } else {
-        setIsFetchingProfile(false);
-      }
-    }
-
-    if (!loading) {
-      fetchUserProfile();
-    }
-  }, [user, loading]);
 
   const handleLogout = async () => {
     if (!auth) return;
@@ -90,6 +44,11 @@ export function UserNav() {
   if (!user) {
     return null;
   }
+  
+  const displayName = userProfile ? `${userProfile.firstName} ${userProfile.lastName}` : user.displayName || 'User';
+  const displayEmail = user.email || 'No email';
+  const displayRole = userProfile?.role ? `(${userProfile.role})` : '';
+
 
   return (
     <DropdownMenu>
@@ -108,16 +67,16 @@ export function UserNav() {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-             {isFetchingProfile ? (
+             {loading ? (
                 <>
                     <Skeleton className="h-5 w-3/4" />
                     <Skeleton className="h-4 w-4/5" />
                 </>
             ) : (
                 <>
-                    <p className="text-sm font-medium leading-none">{`${profile?.firstName} ${profile?.lastName}`}</p>
+                    <p className="text-sm font-medium leading-none">{displayName}</p>
                     <p className="text-xs leading-none text-muted-foreground">
-                    {user.email} {profile?.role && `(${profile.role})`}
+                    {displayEmail} {displayRole}
                     </p>
                 </>
             )}
