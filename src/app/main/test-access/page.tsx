@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp, doc, getDoc } from 'firebase/firestore';
 import type { User, Match } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -25,6 +25,11 @@ export default function TestAccessPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [isMatchLoading, setIsMatchLoading] = useState(false);
   const [matchError, setMatchError] = useState<string | null>(null);
+
+  const [singleMatch, setSingleMatch] = useState<Match | null>(null);
+  const [isSingleMatchLoading, setIsSingleMatchLoading] = useState(false);
+  const [singleMatchError, setSingleMatchError] = useState<string | null>(null);
+
 
   const handleGetAnglers = async () => {
     if (!firestore || !userProfile?.primaryClubId) {
@@ -109,6 +114,49 @@ export default function TestAccessPage() {
       });
     } finally {
       setIsMatchLoading(false);
+    }
+  };
+  
+  const handleGetSingleMatch = async () => {
+    if (!firestore) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Firestore not available.' });
+      return;
+    }
+    const matchId = "dwoFy4YJJVzLWwQqFow1";
+
+    setIsSingleMatchLoading(true);
+    setSingleMatch(null);
+    setSingleMatchError(null);
+
+    try {
+      const matchDocRef = doc(firestore, 'matches', matchId);
+      const docSnap = await getDoc(matchDocRef);
+
+      if (docSnap.exists()) {
+        const fetchedMatch = {
+            id: docSnap.id,
+            ...docSnap.data(),
+            date: (docSnap.data().date as Timestamp).toDate(),
+        } as Match;
+        setSingleMatch(fetchedMatch);
+        toast({
+          title: 'Success!',
+          description: `Successfully fetched single match: ${fetchedMatch.name}`
+        });
+      } else {
+        setSingleMatchError(`A match with ID ${matchId} was not found.`);
+        toast({ title: 'Query Succeeded', description: 'The query ran successfully but the match document was not found.' });
+      }
+    } catch (e: any) {
+      console.error("Error fetching single match:", e);
+      setSingleMatchError(e.message);
+      toast({
+        variant: 'destructive',
+        title: 'Single Match Query Failed',
+        description: e.message,
+      });
+    } finally {
+      setIsSingleMatchLoading(false);
     }
   };
 
@@ -222,6 +270,41 @@ export default function TestAccessPage() {
                         </ul>
                     ) : (
                         <p className="text-sm text-muted-foreground pt-2">No matches fetched yet. Run the query.</p>
+                    )}
+                </div>
+           </div>
+           
+           <div className="space-y-2 rounded-md border p-4">
+                <h3 className="font-semibold mb-2">Step 4: Query for a Single Match Document</h3>
+                <p className="text-sm text-muted-foreground pb-4">
+                    This tests direct document access. Click to fetch the specific match you created.
+                </p>
+                <Button onClick={handleGetSingleMatch} disabled={isSingleMatchLoading}>
+                    {isSingleMatchLoading ? 'Fetching Match...' : 'Run Single Match Query'}
+                </Button>
+
+                {singleMatchError && (
+                    <Alert variant="destructive" className="mt-4">
+                        <Terminal className="h-4 w-4" />
+                        <AlertTitle>Firestore Error (Single Match)</AlertTitle>
+                        <AlertDescription>
+                            {singleMatchError}
+                        </AlertDescription>
+                    </Alert>
+                )}
+
+                <div className="pt-4">
+                    <h4 className="font-semibold">Results:</h4>
+                    {isSingleMatchLoading ? (
+                        <div className="space-y-2 pt-2">
+                            <Skeleton className="h-6 w-full" />
+                        </div>
+                    ) : singleMatch ? (
+                        <ul className="list-disc pl-5 pt-2 text-sm">
+                           <li>{singleMatch.name} at {singleMatch.location}</li>
+                        </ul>
+                    ) : (
+                        <p className="text-sm text-muted-foreground pt-2">No match fetched yet. Run the query.</p>
                     )}
                 </div>
            </div>
