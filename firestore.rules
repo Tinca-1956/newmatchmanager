@@ -24,10 +24,10 @@ service cloud.firestore {
       return isMemberOf(clubId) && request.auth.token.role == 'Club Admin';
     }
 
-    // Matches can be read by any member of that club or a site admin
+    // Matches can be read by any member of that club or by a site admin
     // Matches can be created/updated/deleted by a Site Admin or a Club Admin of that club
     match /matches/{matchId} {
-      allow read: if request.auth != null && (isSiteAdmin() || isMemberOf(resource.data.clubId));
+      allow read: if request.auth != null && (isMemberOf(resource.data.clubId) || isSiteAdmin());
       allow write: if request.auth != null && (isSiteAdmin() || isClubAdminOf(request.resource.data.clubId));
     }
     
@@ -50,12 +50,12 @@ service cloud.firestore {
     }
     
     match /series/{seriesId} {
-       allow read: if request.auth != null && (isSiteAdmin() || isMemberOf(resource.data.clubId));
+       allow read: if request.auth != null && (isMemberOf(resource.data.clubId) || isSiteAdmin());
        allow write: if request.auth != null && (isSiteAdmin() || isClubAdminOf(request.resource.data.clubId));
     }
     
     match /results/{resultId} {
-        allow read: if request.auth != null && (isSiteAdmin() || isMemberOf(resource.data.clubId));
+        allow read: if request.auth != null && (isMemberOf(resource.data.clubId) || isSiteAdmin());
         allow write: if request.auth != null && (isSiteAdmin() || isClubAdminOf(request.resource.data.clubId));
     }
   }
