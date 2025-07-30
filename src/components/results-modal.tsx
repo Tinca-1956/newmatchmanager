@@ -31,6 +31,7 @@ import 'jspdf-autotable';
 import { Download } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
 
 
 interface ResultsModalProps {
@@ -46,6 +47,7 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
   const [club, setClub] = useState<Club | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [sortBy, setSortBy] = useState<'Overall' | 'Section' | 'Peg'>('Overall');
+  const { toast } = useToast();
 
 
   useEffect(() => {
@@ -145,19 +147,33 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
     // Add logo if available
     if (club?.imageUrl) {
         try {
-            const response = await fetch(club.imageUrl);
-            const blob = await response.blob();
-            const reader = new FileReader();
+            // Use a canvas to convert the image to a data URL, avoiding CORS issues.
+            const image = new Image();
+            image.crossOrigin = "Anonymous"; // Important for CORS
+            image.src = club.imageUrl;
             await new Promise<void>((resolve, reject) => {
-                reader.onload = () => {
-                    doc.addImage(reader.result as string, 'PNG', 14, 15, 20, 20);
+                image.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = image.width;
+                    canvas.height = image.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx?.drawImage(image, 0, 0);
+                    const dataUrl = canvas.toDataURL('image/png');
+                    doc.addImage(dataUrl, 'PNG', 14, 15, 20, 20);
                     resolve();
                 };
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
+                image.onerror = (err) => {
+                    console.error("Error loading image for PDF:", err);
+                    reject(new Error("Failed to load image"));
+                };
             });
         } catch (error) {
-            console.error("Error adding logo to PDF:", error);
+            console.error("Error processing logo for PDF:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Logo Error',
+                description: 'Could not add the club logo to the PDF. The PDF will be created without it.'
+            });
         }
     }
     
