@@ -2,32 +2,20 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Function to check if the requesting user is a Site or Club Admin.
-    // It reads the user's role from their document in the 'users' collection in Firestore.
-    function isClubOrSiteAdmin(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role in ['Site Admin', 'Club Admin'];
+  
+    // Function to check if the user is an admin (Site or Club)
+    function isAdmin() {
+      let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return userRole == 'Site Admin' || userRole == 'Club Admin';
     }
 
-    // Rules for files within the 'matches' folder.
-    // The path matches any file inside any folder named after a matchId.
+    // Rules for match images
     match /matches/{matchId}/{allPaths=**} {
-      // Allow anyone to read images. This is for displaying them in the app.
+      // Allow reads by anyone (images are public)
       allow read;
-
-      // Allow creating, updating, and deleting images only if the user is authenticated
-      // and their role is either 'Site Admin' or 'Club Admin'.
-      allow write: if request.auth != null && isClubOrSiteAdmin(request.auth.uid);
-    }
-
-    // IMPORTANT:
-    // This rule is required to allow the `isClubOrSiteAdmin` function above to work.
-    // Storage rules need explicit permission to read from Firestore. This rule allows
-    // any authenticated user to read any document in the 'users' collection *for the purpose of rule evaluation only*.
-    // It does not grant users direct read access to other users' data from the client app.
-    match /databases/{database}/documents {
-       match /users/{userId} {
-        allow get: if request.auth != null;
-      }
+      
+      // Allow writes (create, update, delete) only by admins
+      allow write: if request.auth != null && isAdmin();
     }
   }
 }
