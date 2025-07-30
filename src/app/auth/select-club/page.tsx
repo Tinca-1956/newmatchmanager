@@ -17,7 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
-import { collection, onSnapshot, doc, setDoc, addDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, addDoc, getDoc } from 'firebase/firestore';
 import type { Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlusCircle } from 'lucide-react';
@@ -34,21 +34,16 @@ export default function SelectClubPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
 
-  // First Club Creation State
   const [isCreatingFirstClub, setIsCreatingFirstClub] = useState(false);
   const [newClubName, setNewClubName] = useState('');
-
+  
+  // Hardcoded Site Admin email
   const isSiteAdmin = user?.email === 'stuart.thomas.winton@gmail.com';
 
-
+  // Effect to fetch the list of clubs
   useEffect(() => {
-    if (authLoading) return;
     if (!firestore) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Firestore is not initialized.',
-      });
+      toast({ variant: 'destructive', title: 'Error', description: 'Firestore is not initialized.' });
       setIsLoading(false);
       return;
     }
@@ -62,33 +57,29 @@ export default function SelectClubPage() {
           ...doc.data()
         } as Club));
         setClubs(clubsData);
+        if(clubsData.length === 0 && isSiteAdmin) {
+            setIsCreatingFirstClub(true);
+        }
         setIsLoading(false);
       },
       (error) => {
         console.error("Error fetching clubs: ", error);
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'Could not fetch clubs from the database.',
-        });
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch clubs from the database.' });
         setIsLoading(false);
       }
     );
 
     return () => unsubscribe();
-  }, [toast, authLoading]);
+  }, [toast, isSiteAdmin]);
 
   const handleSelectClub = (clubId: string) => {
     setSelectedClubId(clubId);
   }
 
+  // This function handles the final step: creating the user document in Firestore.
   const handleConfirmSelection = async () => {
      if (!selectedClubId || !user || !firestore) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Please select a club and ensure you are logged in.',
-      });
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select a club and ensure you are logged in.' });
       return;
     }
 
@@ -96,26 +87,22 @@ export default function SelectClubPage() {
     try {
       const userDocRef = doc(firestore, 'users', user.uid);
       const nameParts = (user.displayName || '').split(' ');
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
-
-      // Check if the user is the site admin and set role accordingly
-      const userRole = isSiteAdmin ? 'Site Admin' : 'Angler';
-      const memberStatus = isSiteAdmin ? 'Member' : 'Pending';
-
-
-      await setDoc(userDocRef, {
+      
+      const userProfileData = {
         primaryClubId: selectedClubId,
-        firstName: firstName,
-        lastName: lastName,
+        firstName: nameParts[0] || '',
+        lastName: nameParts.slice(1).join(' ') || '',
         email: user.email,
-        role: userRole,
-        memberStatus: memberStatus,
-      }, { merge: true });
+        role: isSiteAdmin ? 'Site Admin' : 'Angler',
+        memberStatus: isSiteAdmin ? 'Member' : 'Pending',
+      };
+
+      // Set the document. This will trigger the cloud function to set custom claims.
+      await setDoc(userDocRef, userProfileData, { merge: true });
 
       toast({
         title: 'Success!',
-        description: 'Your primary club has been set.',
+        description: 'Your primary club has been set. You will be redirected.',
       });
       
       router.push('/main/dashboard');
@@ -132,6 +119,7 @@ export default function SelectClubPage() {
     }
   }
   
+  // This function handles creating the very first club if none exist.
   const handleCreateFirstClub = async () => {
     if (!newClubName.trim()) {
       toast({ variant: 'destructive', title: 'Error', description: 'Please enter a name for the club.' });
@@ -145,42 +133,21 @@ export default function SelectClubPage() {
     
     setIsSaving(true);
     try {
-      // Step 1: Create the user document for the Site Admin first
-      const userDocRef = doc(firestore, 'users', user.uid);
-      const nameParts = (user.displayName || 'Site Admin').split(' ');
-      const firstName = nameParts[0] || 'Site';
-      const lastName = nameParts.slice(1).join(' ') || 'Admin';
-
-      // This will be overwritten by the club ID once created, but we set it to something temporary
-      await setDoc(userDocRef, {
-        primaryClubId: 'creating...',
-        firstName,
-        lastName,
-        email: user.email,
-        role: 'Site Admin',
-        memberStatus: 'Member',
-      });
-      console.log("Site Admin user document created or merged successfully.");
-      
-      // Step 2: Create the new club
+      // Step 1: Create the new club
       const newClubData = {
         name: newClubName,
         description: 'The first club, created by the Site Admin.',
-        imageUrl: 'https://placehold.co/100x100.png',
+        imageUrl: `https://placehold.co/100x100.png`,
       };
       const newClubDocRef = await addDoc(collection(firestore, 'clubs'), newClubData);
       
-      // Step 3: Update the user document with the new club ID
-      await setDoc(userDocRef, { primaryClubId: newClubDocRef.id }, { merge: true });
-
-      toast({ title: 'Success', description: `Club "${newClubName}" has been created and set as your primary.` });
-
-      // The onSnapshot listener will automatically update the clubs list.
+      // The onSnapshot listener will automatically update the clubs list,
+      // which will cause this creation UI to disappear.
+      // We can now select this new club and proceed.
+      setSelectedClubId(newClubDocRef.id);
       setIsCreatingFirstClub(false);
       setNewClubName('');
-      
-      // We can now push to the dashboard.
-      router.push('/main/dashboard');
+      toast({ title: 'Success', description: `Club "${newClubName}" has been created. Please confirm your selection.` });
 
     } catch (error) {
       console.error('Error creating first club:', error);
@@ -190,7 +157,8 @@ export default function SelectClubPage() {
     }
   }
 
-  const renderClubList = () => {
+  // Renders the main content of the page
+  const renderContent = () => {
     if (isLoading || authLoading) {
       return Array.from({ length: 4 }).map((_, i) => (
          <div key={i} className="flex items-center justify-between rounded-lg border p-4">
@@ -206,12 +174,12 @@ export default function SelectClubPage() {
       ));
     }
     
-    // Admin view when no clubs exist
-    if (clubs.length === 0 && isSiteAdmin) {
+    // If no clubs exist AND the user is the site admin, show the creation UI.
+    if (isCreatingFirstClub && isSiteAdmin) {
       return (
         <div className="text-center p-6 border-2 border-dashed rounded-lg">
           <h3 className="text-lg font-semibold">No Clubs Found</h3>
-          <p className="text-muted-foreground mt-2 mb-4">As the Site Admin, you can create the first club here.</p>
+          <p className="text-muted-foreground mt-2 mb-4">As the Site Admin, you must create the first club to continue.</p>
           <div className="flex flex-col max-w-sm mx-auto gap-4">
             <div className="space-y-2 text-left">
               <Label htmlFor="new-club-name">New Club Name</Label>
@@ -231,7 +199,7 @@ export default function SelectClubPage() {
       );
     }
     
-    // Regular view when clubs exist
+    // Otherwise, show the list of clubs for selection.
     return clubs.map((club) => (
       <div
         key={club.id}
@@ -256,7 +224,7 @@ export default function SelectClubPage() {
           {selectedClubId === club.id ? 'Selected' : 'Select'}
         </Button>
       </div>
-    ))
+    ));
   }
 
   return (
@@ -271,7 +239,7 @@ export default function SelectClubPage() {
       <CardContent>
         <ScrollArea className="h-72">
           <div className="space-y-4 pr-6">
-            {renderClubList()}
+            {renderContent()}
           </div>
         </ScrollArea>
       </CardContent>
@@ -279,7 +247,7 @@ export default function SelectClubPage() {
          <p className="text-xs text-muted-foreground">
           If you don't see your club, contact a club administrator.
         </p>
-        <Button onClick={handleConfirmSelection} disabled={!selectedClubId || isSaving || clubs.length === 0}>
+        <Button onClick={handleConfirmSelection} disabled={!selectedClubId || isSaving || isCreatingFirstClub}>
           {isSaving ? 'Saving...' : 'Confirm Selection'}
         </Button>
       </CardFooter>

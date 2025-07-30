@@ -19,10 +19,7 @@ export const setUserRole = functions.firestore
   .onWrite((change, context) => {
     const userId = context.params.userId;
     
-    // Data after the event. If the document was deleted, it's undefined.
     const afterData = change.after.data();
-    
-    // Data before the event. If the document was created, it's undefined.
     const beforeData = change.before.data();
 
     // If the document is deleted, do nothing.
