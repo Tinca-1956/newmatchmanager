@@ -56,6 +56,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CheckAnglersModal } from '@/components/check-anglers-modal';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 interface SeriesWithMatchCount extends Series {
     matchCount: number;
@@ -72,6 +73,8 @@ type ResultWithSectionRank = Result & { sectionPosition?: number };
 export default function SeriesPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
+
 
   const [seriesList, setSeriesList] = useState<SeriesWithMatchCount[]>([]);
   const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
@@ -392,7 +395,7 @@ export default function SeriesPage() {
     };
 
 
-  const canEdit = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
+  const canEdit = isSiteAdmin || isClubAdmin;
 
   const renderSeriesList = () => {
     if (isLoading) {
@@ -493,7 +496,7 @@ export default function SeriesPage() {
           <p className="text-muted-foreground">Manage your match series here.</p>
         </div>
         <div className="flex items-center gap-4">
-            {currentUserProfile?.role === 'Site Admin' && (
+            {isSiteAdmin && (
                 <div className="flex items-center gap-2">
                     <Label htmlFor="club-filter" className="text-nowrap">Clubs</Label>
                     <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={allClubs.length === 0}>
@@ -511,7 +514,7 @@ export default function SeriesPage() {
                 </div>
             )}
             {canEdit && (
-                <Button onClick={() => setIsCreateDialogOpen(true)} disabled={!selectedClubId}>
+                <Button onClick={() => setIsCreateDialogOpen(true)} disabled={!selectedClubId || adminLoading}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Create Series
                 </Button>
