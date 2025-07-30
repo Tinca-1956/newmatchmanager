@@ -1,71 +1,55 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper Functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isUser(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function getRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-    }
-
-    function isOneOfRoles(roles) {
-      return isSignedIn() && getRole() in roles;
+    
+    // --- Helper Functions ---
+    // Use token claims for list/query operations as they don't require a 'get'
+    function isSiteAdmin() {
+      return request.auth.token.role == 'Site Admin';
     }
     
-    function isSiteAdmin() {
-        return isSignedIn() && getRole() == 'Site Admin';
+    function isClubAdmin() {
+      return request.auth.token.role == 'Club Admin';
+    }
+    
+    // Use a direct 'get' for single-document reads where performance is less critical
+    function isUserSiteAdmin(userId) {
+        return get(/databases/$(database)/documents/users/$(userId)).data.role == 'Site Admin';
     }
 
-    // Rules for 'users' collection
+    // --- Collection Rules ---
     match /users/{userId} {
-      allow read: if isSiteAdmin() || isUser(userId);
-      allow write: if isSiteAdmin() || isUser(userId);
+      allow read: if request.auth.uid == userId || isUserSiteAdmin(request.auth.uid);
+      allow write: if request.auth.uid == userId || isUserSiteAdmin(request.auth.uid);
       allow list: if isSiteAdmin();
     }
-
-    // Rules for 'clubs' collection
+    
     match /clubs/{clubId} {
-      allow read: if isSignedIn();
+      allow read: if request.auth != null;
       allow write: if isSiteAdmin();
-      allow list: if isSignedIn();
     }
-    
-    // Rules for 'series' collection
+
     match /series/{seriesId} {
-        allow read: if isSignedIn();
-        allow create, update: if isOneOfRoles(['Site Admin', 'Club Admin']);
-        allow delete: if isSiteAdmin();
-        allow list: if isSignedIn();
+      allow read: if request.auth != null;
+      allow write: if isSiteAdmin() || isClubAdmin();
     }
     
-    // Rules for 'results' collection
-    match /results/{resultId} {
-        allow read: if isSignedIn();
-        allow create, update: if isOneOfRoles(['Site Admin', 'Club Admin', 'Marshal']);
-        allow delete: if isSiteAdmin();
-    }
-
-    // Rules for 'matches' collection
     match /matches/{matchId} {
-      // Allow any signed-in user to get a single match document.
-      allow get: if isSignedIn();
-
-      // Allow users to list matches if they are a Site Admin, OR if the query they are making
-      // is for their own specific clubId.
-      allow list: if isSiteAdmin() || (
-        isSignedIn() && request.query.where.clubId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId
-      );
+      allow get: if request.auth != null;
+      allow read, write: if isSiteAdmin() || isClubAdmin();
       
-      // Allow create, update, delete for Admins
-      allow create, update, delete: if isOneOfRoles(['Site Admin', 'Club Admin']);
+      // THIS IS THE CRITICAL FIX:
+      // Allow a user to list matches if:
+      // 1. They are a Site Admin (can list any club's matches)
+      // 2. The clubId in their query matches their primaryClubId claim.
+      allow list: if isSiteAdmin() || request.query.where[0][2] == request.auth.token.primaryClubId;
+    }
+    
+    match /results/{resultId} {
+        allow read: if request.auth != null;
+        allow write: if isSiteAdmin() || isClubAdmin();
     }
   }
 }
