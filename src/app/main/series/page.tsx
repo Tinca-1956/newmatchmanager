@@ -597,6 +597,11 @@ export default function SeriesPage() {
                         <DialogTitle>Edit Series</DialogTitle>
                         <DialogDescription>
                             Update details for {selectedSeries.name}.
+                             {selectedSeries.isCompleted ? (
+                                <p className="font-bold pt-2">SERIES COMPLETE</p>
+                            ) : (
+                                <p className="font-bold pt-2">SERIES IN PROGRESS</p>
+                            )}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
