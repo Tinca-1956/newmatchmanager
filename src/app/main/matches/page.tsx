@@ -38,7 +38,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, onSnapshot, doc, query, where, getDocs, getDoc, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, onSnapshot, doc, query, where, getDocs, getDoc, orderBy, Timestamp, updateDoc } from 'firebase/firestore';
 import type { Match, User, Club, MatchStatus } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -59,16 +59,14 @@ import { CreateMatchModal } from '@/components/create-match-modal';
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
   
-  if (!(match.date instanceof Date)) {
-    // If it's still a Timestamp, convert it. If it's invalid, return original status.
-    if (match.date && typeof (match.date as any).toDate === 'function') {
-      match.date = (match.date as Timestamp).toDate();
-    } else {
-      return match.status;
-    }
+  let matchDate: Date;
+  if (match.date instanceof Timestamp) {
+    matchDate = match.date.toDate();
+  } else if (match.date instanceof Date) {
+    matchDate = match.date;
+  } else {
+    return match.status;
   }
-
-  const matchDate = new Date(match.date);
 
   if (!match.drawTime || !match.endTime || !match.drawTime.includes(':') || !match.endTime.includes(':')) {
     return match.status;
@@ -136,7 +134,6 @@ function MatchesPageContent() {
     if (adminLoading || !user || !firestore) return;
 
     const fetchInitialData = async () => {
-        setIsLoading(true);
         const userDocRef = doc(firestore, 'users', user.uid);
         const userDoc = await getDoc(userDocRef);
 
@@ -149,15 +146,12 @@ function MatchesPageContent() {
                 const clubsSnapshot = await getDocs(clubsQuery);
                 const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
                 setClubs(clubsData);
-                // If there's a match filter, we need to find the match's club first
+                
                 if (matchIdFilter) {
                     const matchDocRef = doc(firestore, 'matches', matchIdFilter);
                     const matchDoc = await getDoc(matchDocRef);
                     if (matchDoc.exists()) {
                         setSelectedClubId(matchDoc.data().clubId);
-                    } else if (clubsData.length > 0) {
-                        // Fallback if match not found but clubs exist
-                        setSelectedClubId(userData.primaryClubId || clubsData[0].id);
                     }
                 } else if (userData.primaryClubId) {
                     setSelectedClubId(userData.primaryClubId);
@@ -168,7 +162,6 @@ function MatchesPageContent() {
                 setSelectedClubId(userData.primaryClubId || '');
             }
         }
-        // setIsLoading will be set to false in the matches effect
     };
 
     fetchInitialData();
@@ -186,15 +179,11 @@ function MatchesPageContent() {
     let matchesQuery;
 
     if (matchIdFilter) {
-      // If a specific match ID is provided, we fetch only that match.
-      // We still need the clubId to be correct as a sanity check.
       matchesQuery = query(
         collection(firestore, 'matches'),
-        where('clubId', '==', selectedClubId),
         where('__name__', '==', matchIdFilter)
       );
     } else {
-      // Otherwise, fetch all matches for the selected club.
       matchesQuery = query(
         collection(firestore, 'matches'),
         where('clubId', '==', selectedClubId),
@@ -203,11 +192,18 @@ function MatchesPageContent() {
     }
 
     const unsubscribeMatches = onSnapshot(matchesQuery, (snapshot) => {
-      const matchesData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        date: (doc.data().date as Timestamp).toDate(),
-      } as Match));
+      const matchesData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        let date = data.date;
+        if (date instanceof Timestamp) {
+            date = date.toDate();
+        }
+        return {
+            id: doc.id,
+            ...data,
+            date,
+        } as Match
+      });
 
       setMatches(matchesData);
       setIsLoading(false);
@@ -223,15 +219,28 @@ function MatchesPageContent() {
   }, [selectedClubId, toast, matchIdFilter]);
 
   const displayedMatches = useMemo(() => {
-    return matches.map(match => ({
-      ...match,
-      calculatedStatus: getCalculatedStatus(match),
-    }));
+    return matches.map(match => {
+      const newStatus = getCalculatedStatus(match);
+      if (newStatus !== match.status) {
+        // Optional: Update status in Firestore if it's changed.
+        // This can be done in a separate effect or here if carefully managed.
+        // For now, we just use the calculated status for display.
+        if (firestore) {
+          updateDoc(doc(firestore, 'matches', match.id), { status: newStatus });
+        }
+      }
+      return {
+        ...match,
+        calculatedStatus: newStatus,
+      };
+    });
   }, [matches]);
   
   const handleClubSelectionChange = (clubId: string) => {
     // When club changes, clear the matchId filter from URL
-    router.push('/main/matches');
+    if (matchIdFilter) {
+        router.push('/main/matches');
+    }
     setSelectedClubId(clubId);
   };
 
@@ -391,7 +400,7 @@ function MatchesPageContent() {
     }
     if (displayedMatches.length === 0) {
       return (
-        <div className="text-center text-muted-foreground py-12">
+        <div className="text-center text-muted-foreground py-12 col-span-full">
            {matchIdFilter ? "This match could not be found." : "No matches found for this club."}
         </div>
       );
@@ -545,7 +554,7 @@ function MatchesPageContent() {
                 <CardHeader>
                     <CardTitle>{matchIdFilter ? "Filtered Match" : "Upcoming & Recent Matches"}</CardTitle>
                     <CardDescription>
-                        {matchIdFilter ? "Showing a specific match. Clear the filter by selecting a club." : "A list of all matches for your club."}
+                        {matchIdFilter ? "Showing a specific match. Clear the filter by navigating away and back." : "A list of all matches for your club."}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
