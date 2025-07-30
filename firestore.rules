@@ -3,44 +3,57 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isSiteAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    function isClubAdmin(clubId) {
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return userDoc.role == 'Club Admin' && userDoc.primaryClubId == clubId;
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
+
+    function getRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
+    function isSiteAdmin() {
+      return getRole() == 'Site Admin';
+    }
+
+    function isClubAdmin() {
+      return getRole() == 'Club Admin';
+    }
+    
+    function isMarshal() {
+      return getRole() == 'Marshal';
+    }
+
+    // --- Start of rules ---
 
     match /users/{userId} {
-      // Allow users to read/update their own profile
-      // Allow other authenticated users to GET a user's profile (needed for storage rules)
-      allow get: if request.auth != null;
-      allow list: if isSiteAdmin();
-      allow read, update: if request.auth.uid == userId || isSiteAdmin();
-      allow create: if request.auth != null;
+      allow get: if isOwner(userId);
+      allow list: if isSiteAdmin() || isClubAdmin();
+      allow write: if isOwner(userId) || isSiteAdmin() || isClubAdmin();
     }
 
     match /clubs/{clubId} {
-      allow read: if request.auth != null;
-      allow create, update: if isSiteAdmin();
+      allow read: if isSignedIn();
+      allow write: if isSiteAdmin();
     }
-    
+
     match /series/{seriesId} {
-      allow read: if request.auth != null;
-      allow create, update: if isSiteAdmin() || isClubAdmin(get(/databases/$(database)/documents/series/$(seriesId)).data.clubId);
+        allow read: if isSignedIn();
+        allow write: if isSiteAdmin() || isClubAdmin();
     }
 
     match /matches/{matchId} {
-      allow read: if request.auth != null;
-      // Allow create/update if user is a site admin or a club admin for the match's club
-      allow create, update: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
+      allow read: if isSignedIn();
+      allow write: if isSiteAdmin() || isClubAdmin() || isMarshal();
     }
 
     match /results/{resultId} {
-      allow read: if request.auth != null;
-      // Allow create/update if user is site/club admin or a designated marshal
-      allow create, update, delete: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
+       allow read: if isSignedIn();
+       allow write: if isSiteAdmin() || isClubAdmin() || isMarshal();
     }
   }
 }

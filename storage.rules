@@ -2,20 +2,18 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-  
-    // Function to check if the user is an admin (Site or Club)
-    function isAdmin() {
-      let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-      return userRole == 'Site Admin' || userRole == 'Club Admin';
+    
+    // Helper function to check the user's custom claim
+    function hasAdminRole() {
+      return request.auth.token.role == 'Site Admin' || request.auth.token.role == 'Club Admin';
     }
 
-    // Rules for match images
     match /matches/{matchId}/{allPaths=**} {
-      // Allow reads by anyone (images are public)
-      allow read;
+      // Anyone can read match images
+      allow read: if true;
       
-      // Allow writes (create, update, delete) only by admins
-      allow write: if request.auth != null && isAdmin();
+      // Only users with an 'Site Admin' or 'Club Admin' role in their auth token can write (upload/delete)
+      allow write: if request.auth != null && hasAdminRole();
     }
   }
 }
