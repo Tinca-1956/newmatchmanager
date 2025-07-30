@@ -157,8 +157,7 @@ function MatchesPageContent() {
     setIsLoading(true);
     const matchesQuery = query(
       collection(firestore, 'matches'),
-      where('clubId', '==', selectedClubId),
-      orderBy('date', 'desc')
+      where('clubId', '==', selectedClubId)
     );
     
     const unsubscribe = onSnapshot(matchesQuery, (snapshot) => {
@@ -174,6 +173,9 @@ function MatchesPageContent() {
           date,
         } as Match;
       });
+
+      // Sort on the client-side
+      matchesData.sort((a, b) => (b.date as Date).getTime() - (a.date as Date).getTime());
 
       if (matchIdFilter) {
         setMatches(matchesData.filter(m => m.id === matchIdFilter));
@@ -259,7 +261,7 @@ function MatchesPageContent() {
               )}
             </div>
           </TableCell>
-          <TableCell>{format(match.date, 'dd/MM/yyyy')}</TableCell>
+          <TableCell>{format(match.date as Date, 'dd/MM/yyyy')}</TableCell>
           <TableCell>{match.capacity}</TableCell>
           <TableCell>{match.registeredCount}</TableCell>
           <TableCell><Badge variant="outline">{status}</Badge></TableCell>
@@ -390,7 +392,7 @@ function MatchesPageContent() {
                 <CardContent className="space-y-3 text-sm">
                     <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">Date:</span>
-                        <span className="font-medium">{format(match.date, 'eee, dd MMM yyyy')}</span>
+                        <span className="font-medium">{format(match.date as Date, 'eee, dd MMM yyyy')}</span>
                     </div>
                     <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">Location:</span>
@@ -597,3 +599,4 @@ export default function MatchesPage() {
         </Suspense>
     )
 }
+
