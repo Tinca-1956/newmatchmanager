@@ -99,7 +99,7 @@ function MatchesPageContent() {
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
-  const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
+  const [selectedClubId, setSelectedClubId] = useState<string>('');
   
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -128,104 +128,103 @@ function MatchesPageContent() {
     handleManageImages,
   } = useMatchActions();
 
-  // Effect to get the user's primary club or all clubs for admin
+  // Combined effect to set up initial state and subscribe to matches
   useEffect(() => {
-    if (adminLoading || !user || !firestore) return;
+      if (adminLoading || !firestore || !user) {
+          return;
+      }
 
-    const fetchInitialData = async () => {
-        if (isSiteAdmin) {
-            const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
-            const clubsSnapshot = await getDocs(clubsQuery);
-            const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
-            setClubs(clubsData);
-            
-            if (matchIdFilter) {
-                const matchDocRef = doc(firestore, 'matches', matchIdFilter);
-                const matchDoc = await getDoc(matchDocRef);
-                if (matchDoc.exists()) {
-                    setSelectedClubId(matchDoc.data().clubId);
-                }
-            } else if (userProfile?.primaryClubId) {
-                setSelectedClubId(userProfile.primaryClubId);
-            } else if (clubsData.length > 0) {
-                setSelectedClubId(clubsData[0].id);
-            }
-        } else if (userProfile) {
-            setSelectedClubId(userProfile.primaryClubId || null);
-        }
-    };
+      let unsubscribeFromMatches = () => {};
 
-    fetchInitialData();
-  }, [user, userProfile, isSiteAdmin, adminLoading, matchIdFilter]);
-  
-  // Effect to fetch matches for the selected club
-  useEffect(() => {
-    if (!selectedClubId || !firestore) {
-        setIsLoading(false);
-        setMatches([]);
-        return;
-    }
+      const setupAndFetch = async () => {
+          setIsLoading(true);
 
-    setIsLoading(true);
-    let matchesQuery;
+          let clubIdToFetch: string | undefined;
 
-    if (matchIdFilter) {
-      matchesQuery = query(
-        collection(firestore, 'matches'),
-        where('__name__', '==', matchIdFilter)
-      );
-    } else {
-      matchesQuery = query(
-        collection(firestore, 'matches'),
-        where('clubId', '==', selectedClubId),
-        orderBy('date', 'desc')
-      );
-    }
+          // Step 1: Determine the clubId
+          if (isSiteAdmin) {
+              const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
+              const clubsSnapshot = await getDocs(clubsQuery);
+              const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+              setClubs(clubsData);
+              
+              if (selectedClubId) {
+                  clubIdToFetch = selectedClubId;
+              } else if (userProfile?.primaryClubId) {
+                  clubIdToFetch = userProfile.primaryClubId;
+                  setSelectedClubId(userProfile.primaryClubId);
+              } else if (clubsData.length > 0) {
+                  clubIdToFetch = clubsData[0].id;
+                  setSelectedClubId(clubsData[0].id);
+              }
+          } else if (userProfile?.primaryClubId) {
+              clubIdToFetch = userProfile.primaryClubId;
+              setSelectedClubId(userProfile.primaryClubId);
+          }
+          
+          // Step 2: If a clubId is determined, fetch its matches
+          if (clubIdToFetch) {
+              let matchesQuery;
+              if (matchIdFilter) {
+                  matchesQuery = query(
+                      collection(firestore, 'matches'),
+                      where('__name__', '==', matchIdFilter)
+                  );
+              } else {
+                  matchesQuery = query(
+                      collection(firestore, 'matches'),
+                      where('clubId', '==', clubIdToFetch),
+                      orderBy('date', 'desc')
+                  );
+              }
 
-    const unsubscribeMatches = onSnapshot(matchesQuery, (snapshot) => {
-      const matchesData = snapshot.docs.map(doc => {
-        const data = doc.data();
-        let date = data.date;
-        if (date instanceof Timestamp) {
-            date = date.toDate();
-        }
-        return {
-            id: doc.id,
-            ...data,
-            date,
-        } as Match
-      });
+              unsubscribeFromMatches = onSnapshot(matchesQuery, (snapshot) => {
+                  const matchesData = snapshot.docs.map(doc => {
+                      const data = doc.data();
+                      let date = data.date;
+                      if (date instanceof Timestamp) {
+                          date = date.toDate();
+                      }
+                      return {
+                          id: doc.id,
+                          ...data,
+                          date,
+                      } as Match;
+                  });
+                  setMatches(matchesData);
+                  setIsLoading(false);
+              }, (error) => {
+                  console.error("Error fetching matches: ", error);
+                  toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches.' });
+                  setIsLoading(false);
+              });
+          } else {
+              setMatches([]);
+              setIsLoading(false);
+          }
+      };
 
-      setMatches(matchesData);
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Error fetching matches: ", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches.' });
-      setIsLoading(false);
-    });
+      setupAndFetch();
 
-    return () => {
-        unsubscribeMatches();
-    };
-  }, [selectedClubId, toast, matchIdFilter]);
+      return () => {
+          unsubscribeFromMatches();
+      };
+  }, [user, userProfile, isSiteAdmin, adminLoading, selectedClubId, matchIdFilter, toast]);
 
   const displayedMatches = useMemo(() => {
     return matches.map(match => {
       const newStatus = getCalculatedStatus(match);
-      if (newStatus !== match.status && !matchIdFilter) { // Avoid writes on filtered view
-        if (firestore) {
-          updateDoc(doc(firestore, 'matches', match.id), { status: newStatus }).catch(e => console.error("Failed to auto-update status:", e));
-        }
+      if (newStatus !== match.status && firestore) {
+        updateDoc(doc(firestore, 'matches', match.id), { status: newStatus }).catch(e => console.error("Failed to auto-update status:", e));
       }
       return {
         ...match,
         calculatedStatus: newStatus,
       };
     });
-  }, [matches, matchIdFilter]);
+  }, [matches]);
   
   const handleClubSelectionChange = (clubId: string) => {
-    // When club changes, clear the matchId filter from URL
     if (matchIdFilter) {
         router.push('/main/matches');
     }
@@ -617,5 +616,3 @@ export default function MatchesPage() {
         </Suspense>
     )
 }
-
-    
