@@ -18,7 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trophy, HelpCircle, Trash2 } from 'lucide-react';
+import { PlusCircle, Edit, Trophy, HelpCircle, Trash2, ArrowRight } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -57,6 +57,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CheckAnglersModal } from '@/components/check-anglers-modal';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 interface SeriesWithMatchCount extends Series {
     matchCount: number;
@@ -74,6 +76,7 @@ export default function SeriesPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
+  const router = useRouter();
 
 
   const [seriesList, setSeriesList] = useState<SeriesWithMatchCount[]>([]);
@@ -403,7 +406,7 @@ export default function SeriesPage() {
          <TableRow key={i}>
             <TableCell><Skeleton className="h-4 w-[250px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[50px]" /></TableCell>
-            {canEdit && <TableCell className="text-right"><Skeleton className="h-10 w-[120px]" /></TableCell>}
+            <TableCell className="text-right"><Skeleton className="h-10 w-[160px]" /></TableCell>
           </TableRow>
       ));
     }
@@ -411,7 +414,7 @@ export default function SeriesPage() {
     if (seriesList.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={canEdit ? 3 : 2} className="h-24 text-center">
+          <TableCell colSpan={3} className="h-24 text-center">
             No series found for this club. Create the first one!
           </TableCell>
         </TableRow>
@@ -422,68 +425,74 @@ export default function SeriesPage() {
        <TableRow key={series.id}>
           <TableCell className="font-medium">{series.name}</TableCell>
           <TableCell>{series.matchCount}</TableCell>
-          {canEdit && (
-            <TableCell className="text-right space-x-2">
-              <TooltipProvider>
-                 <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button variant="outline" size="icon" onClick={() => handleOpenCheckAnglersModal(series)} disabled={series.matchCount === 0}>
-                            <HelpCircle className="h-4 w-4" />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="left">
-                        <p>Check anglers</p>
-                    </TooltipContent>
-                </Tooltip>
+          <TableCell className="text-right space-x-2">
+            <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button variant="outline" size="icon" onClick={() => handleOpenStandingsModal(series)} disabled={series.matchCount === 0}>
-                            <Trophy className="h-4 w-4" />
+                        <Button asChild variant="outline" size="icon">
+                             <Link href={`/main/matches?seriesId=${series.id}`}>
+                                <ArrowRight className="h-4 w-4" />
+                            </Link>
                         </Button>
                     </TooltipTrigger>
-                    <TooltipContent side="left">
-                        <p>View league standings</p>
-                    </TooltipContent>
+                    <TooltipContent side="left"><p>View Matches</p></TooltipContent>
                 </Tooltip>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button variant="outline" size="icon" onClick={() => handleEditClick(series)}>
-                            <Edit className="h-4 w-4" />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="left">
-                        <p>Edit series</p>
-                    </TooltipContent>
-                </Tooltip>
-                <AlertDialog>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="destructive" size="icon">
-                                    <Trash2 className="h-4 w-4" />
+                {canEdit && (
+                    <>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="outline" size="icon" onClick={() => handleOpenCheckAnglersModal(series)} disabled={series.matchCount === 0}>
+                                    <HelpCircle className="h-4 w-4" />
                                 </Button>
-                            </AlertDialogTrigger>
-                        </TooltipTrigger>
-                        <TooltipContent side="left"><p>Delete series</p></TooltipContent>
-                    </Tooltip>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This action cannot be undone. This will permanently delete the <span className="font-bold">{series.name}</span> series, and all of its associated matches and results.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteSeries(series.id)} className="bg-destructive hover:bg-destructive/90">
-                                Delete
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-              </TooltipProvider>
-            </TableCell>
-          )}
+                            </TooltipTrigger>
+                            <TooltipContent side="left"><p>Check anglers</p></TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="outline" size="icon" onClick={() => handleOpenStandingsModal(series)} disabled={series.matchCount === 0}>
+                                    <Trophy className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="left"><p>View league standings</p></TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="outline" size="icon" onClick={() => handleEditClick(series)}>
+                                    <Edit className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="left"><p>Edit series</p></TooltipContent>
+                        </Tooltip>
+                        <AlertDialog>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="destructive" size="icon">
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent side="left"><p>Delete series</p></TooltipContent>
+                            </Tooltip>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This action cannot be undone. This will permanently delete the <span className="font-bold">{series.name}</span> series, and all of its associated matches and results.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteSeries(series.id)} className="bg-destructive hover:bg-destructive/90">
+                                        Delete
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </>
+                )}
+            </TooltipProvider>
+          </TableCell>
         </TableRow>
     ));
   }
@@ -533,7 +542,7 @@ export default function SeriesPage() {
               <TableRow>
                 <TableHead>Series Name</TableHead>
                 <TableHead>Match Count</TableHead>
-                {canEdit && <TableHead className="text-right">Actions</TableHead>}
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
