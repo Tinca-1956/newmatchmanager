@@ -37,6 +37,7 @@ export interface Series {
   id: string;
   clubId: string;
   name: string;
+  isCompleted?: boolean;
 }
 
 export interface Match {

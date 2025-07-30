@@ -59,6 +59,7 @@ import { CheckAnglersModal } from '@/components/check-anglers-modal';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface SeriesWithMatchCount extends Series {
     matchCount: number;
@@ -209,7 +210,8 @@ export default function SeriesPage() {
     try {
       await addDoc(collection(firestore, 'series'), {
         name: newSeriesName,
-        clubId: selectedClubId
+        clubId: selectedClubId,
+        isCompleted: false, // Default value
       });
       toast({ title: 'Success!', description: `Series "${newSeriesName}" created.` });
       setNewSeriesName('');
@@ -223,7 +225,7 @@ export default function SeriesPage() {
   };
 
   const handleEditClick = (series: Series) => {
-    setSelectedSeries(series);
+    setSelectedSeries({ ...series, isCompleted: series.isCompleted || false });
     setIsEditDialogOpen(true);
   };
   
@@ -354,6 +356,7 @@ export default function SeriesPage() {
         const seriesDocRef = doc(firestore, 'series', selectedSeries.id);
         await updateDoc(seriesDocRef, {
             name: selectedSeries.name,
+            isCompleted: selectedSeries.isCompleted,
         });
         toast({ title: 'Success!', description: `Series "${selectedSeries.name}" updated.` });
         setIsEditDialogOpen(false);
@@ -606,7 +609,21 @@ export default function SeriesPage() {
                                 required
                             />
                         </div>
-                         <p className="text-sm text-muted-foreground pt-4">Match counts are now calculated automatically. You can no longer edit them here.</p>
+                        <div className="flex items-center space-x-2 pt-4">
+                            <Checkbox
+                                id="isCompleted"
+                                checked={selectedSeries.isCompleted}
+                                onCheckedChange={(checked) => {
+                                    setSelectedSeries({ ...selectedSeries, isCompleted: !!checked });
+                                }}
+                            />
+                            <Label
+                                htmlFor="isCompleted"
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                                Series Completed
+                            </Label>
+                        </div>
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="ghost" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
