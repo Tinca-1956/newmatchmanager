@@ -47,6 +47,22 @@ interface MatchDetails {
 
 const MAX_IMAGE_WIDTH = 1920; // Resize images to a max width of 1920px
 
+function getFirebaseErrorMessage(error: any): string {
+    if (typeof error === 'object' && error !== null && 'code' in error) {
+        switch (error.code) {
+            case 'storage/unauthorized':
+                return 'Permission denied. Please check your storage security rules.';
+            case 'storage/object-not-found':
+                return 'File not found. It may have been deleted.';
+            case 'storage/canceled':
+                return 'Upload was canceled.';
+            default:
+                return error.message || 'An unknown storage error occurred.';
+        }
+    }
+    return 'An unexpected error occurred.';
+}
+
 export default function ManageImagesPage() {
   const router = useRouter();
   const params = useParams();
@@ -166,7 +182,8 @@ export default function ManageImagesPage() {
     setUploadProgress(0);
 
     const matchDocRef = doc(firestore, 'matches', matchId);
-
+    let successfulUploads = 0;
+    
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
         try {
@@ -178,20 +195,20 @@ export default function ManageImagesPage() {
                 uploadTask.on('state_changed',
                     (snapshot) => {
                         const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        const overallProgress = (i / files.length) * 100 + progress / files.length;
+                        const overallProgress = ((i + (snapshot.bytesTransferred / snapshot.totalBytes)) / files.length) * 100;
                         setUploadProgress(overallProgress);
                     },
                     (error) => {
                         console.error('Upload failed:', error);
-                        reject(error);
+                        reject(error); // This is critical for catching permission errors
                     },
                     async () => {
                         try {
                             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                            // THIS IS THE FIX: Update Firestore immediately after getting the URL
                             await updateDoc(matchDocRef, {
                                 mediaUrls: arrayUnion(downloadURL),
                             });
+                            successfulUploads++;
                             resolve();
                         } catch(firestoreError) {
                             console.error("Firestore update failed:", firestoreError);
@@ -200,16 +217,22 @@ export default function ManageImagesPage() {
                     }
                 );
             });
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Upload Failed', description: `Could not upload ${file.name}. Please try again.` });
-            continue; // continue to next file
+        } catch (error: any) {
+            console.error(`Error with file ${file.name}:`, error)
+            toast({ 
+                variant: 'destructive', 
+                title: `Upload Failed: ${file.name}`, 
+                description: getFirebaseErrorMessage(error) 
+            });
+            // Stop processing further files if one fails
+            break;
         }
     }
     
-    // The onSnapshot listener will handle the UI update automatically.
-    // The toast message is now a success indicator for the entire process.
-    toast({ title: 'Upload Complete', description: `${files.length} image(s) uploaded successfully.` });
     setIsUploading(false);
+    if(successfulUploads > 0) {
+        toast({ title: 'Upload Complete', description: `${successfulUploads} of ${files.length} image(s) uploaded successfully.` });
+    }
     
     if (fileInputRef.current) {
         fileInputRef.current.value = "";
