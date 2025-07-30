@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -33,7 +34,6 @@ const navItems = [
   { href: '/main/members', icon: Users, label: 'Members', adminOnly: true },
   { href: '/main/series', icon: Trophy, label: 'Series' },
   { href: '/main/matches', icon: Swords, label: 'Matches' },
-  { href: '/main/events', icon: CalendarDays, label: 'Events' },
   { href: '/main/results', icon: Medal, label: 'Results' },
   { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users', adminOnly: true, siteAdminOnly: true },
   { href: '/main/admin/seed', icon: Beaker, label: 'Seed Data', adminOnly: true, siteAdminOnly: true },
