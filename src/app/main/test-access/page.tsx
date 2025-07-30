@@ -6,12 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import type { User } from '@/lib/types';
+import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import type { User, Match } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
+import { format } from 'date-fns';
 
 export default function TestAccessPage() {
   const { userProfile, loading: authLoading } = useAuth();
@@ -20,6 +21,10 @@ export default function TestAccessPage() {
   const [anglers, setAnglers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [isMatchLoading, setIsMatchLoading] = useState(false);
+  const [matchError, setMatchError] = useState<string | null>(null);
 
   const handleGetAnglers = async () => {
     if (!firestore || !userProfile?.primaryClubId) {
@@ -57,6 +62,55 @@ export default function TestAccessPage() {
       setIsLoading(false);
     }
   };
+  
+  const handleGetMatches = async () => {
+    if (!firestore || !userProfile?.primaryClubId) {
+      toast({ variant: 'destructive', title: 'Error', description: 'User profile or primary club not loaded.' });
+      return;
+    }
+
+    setIsMatchLoading(true);
+    setMatches([]);
+    setMatchError(null);
+
+    try {
+      // This query is similar to the one on the matches page
+      const matchesQuery = query(collection(firestore, 'matches'), where('clubId', '==', userProfile.primaryClubId));
+      const querySnapshot = await getDocs(matchesQuery);
+
+      if (querySnapshot.empty) {
+          toast({ title: 'Match Query Succeeded', description: 'The query ran successfully but found no match documents.' });
+      } else {
+        const fetchedMatches = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            let date = data.date;
+            if (date instanceof Timestamp) {
+                date = date.toDate();
+            }
+            return {
+                id: doc.id,
+                ...data,
+                date,
+            } as Match
+        });
+        setMatches(fetchedMatches);
+        toast({
+          title: 'Success!',
+          description: `Found ${fetchedMatches.length} match(es) in your primary club.`
+        });
+      }
+    } catch (e: any) {
+      console.error("Error fetching matches:", e);
+      setMatchError(e.message);
+      toast({
+        variant: 'destructive',
+        title: 'Match Query Failed',
+        description: e.message,
+      });
+    } finally {
+      setIsMatchLoading(false);
+    }
+  };
 
   const renderCurrentUserInfo = () => {
       if (authLoading) {
@@ -89,7 +143,7 @@ export default function TestAccessPage() {
         <CardHeader>
           <CardTitle>Core Permission Test</CardTitle>
           <CardDescription>
-            This test checks two things: 1. Can the app read your own user document? 2. Can the app query for other users in your primary club?
+            This page runs specific queries to diagnose permission issues.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -101,16 +155,16 @@ export default function TestAccessPage() {
            <div className="space-y-2 rounded-md border p-4">
                 <h3 className="font-semibold mb-2">Step 2: Query for Users in Your Club</h3>
                 <p className="text-sm text-muted-foreground pb-4">
-                    Click the button to run a query for all users with the same Primary Club ID as you. If this succeeds, the core permission issue is resolved.
+                    Click to test fetching users in your primary club.
                 </p>
                 <Button onClick={handleGetAnglers} disabled={isLoading || authLoading || !userProfile}>
-                    {isLoading ? 'Fetching...' : 'Run Test Query'}
+                    {isLoading ? 'Fetching Users...' : 'Run User Test Query'}
                 </Button>
 
                 {error && (
                     <Alert variant="destructive" className="mt-4">
                         <Terminal className="h-4 w-4" />
-                        <AlertTitle>Firestore Error</AlertTitle>
+                        <AlertTitle>Firestore Error (Users)</AlertTitle>
                         <AlertDescription>
                             {error}
                         </AlertDescription>
@@ -122,16 +176,52 @@ export default function TestAccessPage() {
                     {isLoading ? (
                         <div className="space-y-2 pt-2">
                             <Skeleton className="h-6 w-full" />
-                            <Skeleton className="h-6 w-2/3" />
                         </div>
                     ) : anglers.length > 0 ? (
-                        <ul className="list-disc pl-5 pt-2">
+                        <ul className="list-disc pl-5 pt-2 text-sm">
                             {anglers.map(angler => (
                                 <li key={angler.id}>{angler.firstName} {angler.lastName} ({angler.email})</li>
                             ))}
                         </ul>
                     ) : (
                         <p className="text-sm text-muted-foreground pt-2">No users fetched yet. Run the query.</p>
+                    )}
+                </div>
+           </div>
+
+            <div className="space-y-2 rounded-md border p-4">
+                <h3 className="font-semibold mb-2">Step 3: Query for Matches in Your Club</h3>
+                <p className="text-sm text-muted-foreground pb-4">
+                    This is the critical test. Click to run the same query the Matches page uses.
+                </p>
+                <Button onClick={handleGetMatches} disabled={isMatchLoading || authLoading || !userProfile}>
+                    {isMatchLoading ? 'Fetching Matches...' : 'Run Match Test Query'}
+                </Button>
+
+                {matchError && (
+                    <Alert variant="destructive" className="mt-4">
+                        <Terminal className="h-4 w-4" />
+                        <AlertTitle>Firestore Error (Matches)</AlertTitle>
+                        <AlertDescription>
+                            {matchError}
+                        </AlertDescription>
+                    </Alert>
+                )}
+
+                <div className="pt-4">
+                    <h4 className="font-semibold">Results:</h4>
+                    {isMatchLoading ? (
+                        <div className="space-y-2 pt-2">
+                            <Skeleton className="h-6 w-full" />
+                        </div>
+                    ) : matches.length > 0 ? (
+                        <ul className="list-disc pl-5 pt-2 text-sm">
+                            {matches.map(match => (
+                                <li key={match.id}>{match.name} on {format(match.date as Date, 'PPP')}</li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p className="text-sm text-muted-foreground pt-2">No matches fetched yet. Run the query.</p>
                     )}
                 </div>
            </div>
