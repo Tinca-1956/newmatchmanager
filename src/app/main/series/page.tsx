@@ -649,6 +649,11 @@ export default function SeriesPage() {
                         <DialogTitle>League Standings: {selectedSeriesForAction.name}</DialogTitle>
                         <DialogDescription>
                              Overall standings based on the sum of section positions from all completed matches in this series.
+                             {selectedSeriesForAction.isCompleted ? (
+                                <p className="font-bold pt-2">SERIES COMPLETE</p>
+                            ) : (
+                                <p className="font-bold pt-2">SERIES IN PROGRESS</p>
+                            )}
                             <p className="text-xs text-muted-foreground pt-2">
                                 The total points represent each anglers total points for all matches in the series. Where anglers did not attend a match in the series they are awarded maximum points. The match secretary will finalise the league standings after the final match has been completed
                             </p>
