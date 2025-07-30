@@ -17,9 +17,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
-import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, addDoc } from 'firebase/firestore';
 import type { Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PlusCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default function SelectClubPage() {
   const { user, loading: authLoading } = useAuth();
@@ -30,6 +33,12 @@ export default function SelectClubPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
+
+  // First Club Creation State
+  const [isCreatingFirstClub, setIsCreatingFirstClub] = useState(false);
+  const [newClubName, setNewClubName] = useState('');
+
+  const isSiteAdmin = user?.email === 'stuart.thomas.winton@gmail.com';
 
   useEffect(() => {
     if (authLoading) return;
@@ -122,6 +131,31 @@ export default function SelectClubPage() {
     }
   }
   
+  const handleCreateFirstClub = async () => {
+    if (!newClubName.trim()) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please enter a name for the club.' });
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const newClub = {
+        name: newClubName,
+        description: 'The first club, created by the Site Admin.',
+        imageUrl: 'https://placehold.co/100x100.png',
+      };
+      await addDoc(collection(firestore, 'clubs'), newClub);
+      toast({ title: 'Success', description: `Club "${newClubName}" has been created.` });
+      // The onSnapshot listener will automatically update the clubs list.
+      setIsCreatingFirstClub(false);
+      setNewClubName('');
+    } catch (error) {
+      console.error('Error creating first club:', error);
+      toast({ variant: 'destructive', title: 'Creation Failed', description: 'Could not create the club.' });
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   const renderClubList = () => {
     if (isLoading || authLoading) {
       return Array.from({ length: 4 }).map((_, i) => (
@@ -138,6 +172,32 @@ export default function SelectClubPage() {
       ));
     }
     
+    // Admin view when no clubs exist
+    if (clubs.length === 0 && isSiteAdmin) {
+      return (
+        <div className="text-center p-6 border-2 border-dashed rounded-lg">
+          <h3 className="text-lg font-semibold">No Clubs Found</h3>
+          <p className="text-muted-foreground mt-2 mb-4">As the Site Admin, you can create the first club here.</p>
+          <div className="flex flex-col max-w-sm mx-auto gap-4">
+            <div className="space-y-2 text-left">
+              <Label htmlFor="new-club-name">New Club Name</Label>
+              <Input
+                id="new-club-name"
+                value={newClubName}
+                onChange={(e) => setNewClubName(e.target.value)}
+                placeholder="e.g., Premier Angling Club"
+              />
+            </div>
+            <Button onClick={handleCreateFirstClub} disabled={isSaving}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              {isSaving ? 'Creating...' : 'Create First Club'}
+            </Button>
+          </div>
+        </div>
+      );
+    }
+    
+    // Regular view when clubs exist
     return clubs.map((club) => (
       <div
         key={club.id}
@@ -185,7 +245,7 @@ export default function SelectClubPage() {
          <p className="text-xs text-muted-foreground">
           If you don't see your club, contact a club administrator.
         </p>
-        <Button onClick={handleConfirmSelection} disabled={!selectedClubId || isSaving}>
+        <Button onClick={handleConfirmSelection} disabled={!selectedClubId || isSaving || clubs.length === 0}>
           {isSaving ? 'Saving...' : 'Confirm Selection'}
         </Button>
       </CardFooter>
