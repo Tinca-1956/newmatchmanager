@@ -39,10 +39,10 @@ export default function EventsPage() {
     }
 
     setIsLoading(true);
+    // Query without ordering to simplify security rules
     const matchesQuery = query(
       collection(firestore, 'matches'),
-      where('clubId', '==', userProfile.primaryClubId),
-      orderBy('date', 'desc')
+      where('clubId', '==', userProfile.primaryClubId)
     );
 
     const unsubscribe = onSnapshot(matchesQuery, (snapshot) => {
@@ -54,6 +54,10 @@ export default function EventsPage() {
           date: (data.date as Timestamp).toDate(),
         } as Match;
       });
+      
+      // Sort the matches on the client-side
+      matchesData.sort((a, b) => b.date.getTime() - a.date.getTime());
+
       setMatches(matchesData);
       setIsLoading(false);
     }, (error) => {
