@@ -34,6 +34,7 @@ if (typeof window !== 'undefined') {
     
     // Initialize with a minimal config for emulators to work.
     const emulatorConfig = {
+      apiKey: 'emulator-api-key',
       projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'newmatchmanager'
     };
     app = getApps().length === 0 ? initializeApp(emulatorConfig) : getApp();
