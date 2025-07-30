@@ -28,21 +28,24 @@ Your Firebase project is also a Google Cloud project. We need its unique ID.
 
 ---
 
-### Step 3: Grant Permissions to Your Account
+### Step 3: Find Your User and Grant "Owner" Role
 
-1.  At the top of the IAM page, click the **+ GRANT ACCESS** button.
+You will see a list of "Principals" (users, emails, and service accounts). You need to find your email address in this list and give it the `Owner` role.
 
-    ![Grant Access Button](https://storage.googleapis.com/static.aiforge.studio/docs/grant-access-button.png)
+1.  **Find your email address** in the "Principal" column.
+2.  On the far right side of the row with your email, click the **pencil icon (Edit principal)**.
 
-2.  A new panel will appear on the right. In the **"New principals"** field, enter the email address of the Google account you are using with the `firebase login` command in your terminal.
+    ![Edit Principal](https://storage.googleapis.com/static.aiforge.studio/docs/edit-principal.png)
 
-    ![Add Principal](https://storage.googleapis.com/static.aiforge.studio/docs/add-principal.png)
-
-3.  In the **"Assign roles"** section, click the dropdown. Search for and select the **`Firebase Admin`** role. If you do not see `Firebase Admin`, you can select **`Basic`** and then **`Owner`**. The Owner role will also grant the necessary permissions.
+3.  A panel will appear on the right showing your account's "Current roles".
+4.  Click the **+ ADD ANOTHER ROLE** button.
+5.  In the **"Select a role"** dropdown that appears, search for and select **`Basic`** and then **`Owner`**. The Owner role will grant the necessary permissions.
 
     ![Select Role](https://storage.googleapis.com/static.aiforge.studio/docs/select-role.png)
 
-4.  Click the **SAVE** button.
+6.  Click the **SAVE** button at the bottom.
+
+***Note:*** If you tried to use the "+ GRANT ACCESS" button before and saw a "Principal already exists" error, this is the correct procedure to fix it. That error simply means your user is already in the list and just needs to have its role edited.
 
 ---
 
@@ -57,5 +60,3 @@ It can sometimes take a minute or two for permissions to update.
     ```
 
 This time, the command will succeed. After it does, the permission error in your application will be gone.
-
-I am confident that this is the final solution. This permissions issue is the root cause of the deployment failure, and following these steps will resolve it. I am deeply sorry for how long and painful this process has been.
