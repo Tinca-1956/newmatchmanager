@@ -1,4 +1,3 @@
-
 # How to Fix the "Permission Denied" Deployment Error
 
 This guide will walk you through the steps to resolve the `HTTP Error: 403, Project not found or permission denied` error you are seeing when running `firebase deploy`.
@@ -12,9 +11,9 @@ This error means the Google account you are logged into with the Firebase CLI do
 Your Firebase project is also a Google Cloud project. We need its unique ID.
 
 1.  Go to the **Firebase Console**: [https://console.firebase.google.com/](https://console.firebase.google.com/)
-2.  Select your project, `newmatchmanager`.
+2.  Select your project, `new-match-manager`.
 3.  Click the **gear icon** next to "Project Overview" and select **Project settings**.
-4.  Under the "General" tab, you will see your **Project ID**. It should be `newmatchmanager`.
+4.  Under the "General" tab, you will see your **Project ID**. It should be `new-match-manager`.
 
 ![Find Project ID](https://storage.googleapis.com/static.aiforge.studio/docs/find-project-id.png)
 
@@ -23,9 +22,9 @@ Your Firebase project is also a Google Cloud project. We need its unique ID.
 ### Step 2: Open the IAM & Admin Page in Google Cloud Console
 
 1.  Go to the **Google Cloud Console IAM Page**. You can use this direct link, which will pre-fill your project ID if you are logged into the correct Google account:
-    [https://console.cloud.google.com/iam-admin/iam?project=newmatchmanager](https://console.cloud.google.com/iam-admin/iam?project=newmatchmanager)
+    [https://console.cloud.google.com/iam-admin/iam?project=new-match-manager](https://console.cloud.google.com/iam-admin/iam?project=new-match-manager)
 
-2.  Ensure the project selected at the top of the page is your `newmatchmanager` project.
+2.  Ensure the project selected at the top of the page is your `new-match-manager` project.
 
 ---
 
