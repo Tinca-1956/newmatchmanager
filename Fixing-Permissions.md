@@ -1,4 +1,4 @@
-# How to Fix the "Permission Denied" Deployment Error
+# How to Fix the "Permission Denied" DeploymentError
 
 This guide will walk you through the steps to resolve the `HTTP Error: 403, Project not found or permission denied` error you are seeing when running `firebase deploy`.
 
@@ -38,7 +38,7 @@ Your Firebase project is also a Google Cloud project. We need its unique ID.
 
     ![Add Principal](https://storage.googleapis.com/static.aiforge.studio/docs/add-principal.png)
 
-3.  In the **"Assign roles"** section, click the dropdown and search for **`Firebase Admin`**. Select it.
+3.  In the **"Assign roles"** section, click the dropdown. Search for and select the **`Firebase Admin`** role. If you do not see `Firebase Admin`, you can select **`Basic`** and then **`Owner`**. The Owner role will also grant the necessary permissions.
 
     ![Select Role](https://storage.googleapis.com/static.aiforge.studio/docs/select-role.png)
 
