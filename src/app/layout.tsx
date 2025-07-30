@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   title: 'Match Manager',
   description: 'Manage your fishing matches with ease.',
   icons: {
-    icon: '/favicon.png', // Standard favicon
+    icon: '/favicon.png?v=1', // Add version query to bust cache
     apple: '/apple-touch-icon.png', // For Apple devices
   },
   openGraph: {
