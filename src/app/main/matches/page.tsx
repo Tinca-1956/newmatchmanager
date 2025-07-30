@@ -98,7 +98,7 @@ function MatchesPageContent() {
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
-  const [selectedClubId, setSelectedClubId] = useState<string>('');
+  const [selectedClubId, setSelectedClubId] = useState<string>('mIiOmWTeNj41gryxUHyV');
   
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -127,46 +127,30 @@ function MatchesPageContent() {
     handleManageImages,
   } = useMatchActions();
 
-  // Unified effect to manage clubs and selectedClubId
+  // Effect to fetch clubs for Site Admin
   useEffect(() => {
-    if (adminLoading || !firestore) return;
-
-    if (isSiteAdmin) {
+    if (isSiteAdmin && firestore) {
       const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
       const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
         const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
         setClubs(clubsData);
-        if (!selectedClubId) {
-          // Set initial selection based on user's primary club or the first club in the list
-          const initialClubId = userProfile?.primaryClubId || clubsData[0]?.id || '';
-          setSelectedClubId(initialClubId);
-        }
       });
       return () => unsubscribe();
-    } else {
-      // For non-admins, just use their primary club
-      if (userProfile?.primaryClubId) {
-        setSelectedClubId(userProfile.primaryClubId);
-      }
     }
-  }, [isSiteAdmin, adminLoading, userProfile, firestore, selectedClubId]);
+  }, [isSiteAdmin, firestore]);
 
-  // Unified effect to fetch matches based on selectedClubId
+
+  // Main data fetching effect
   useEffect(() => {
-    // This guard clause is critical. Do not fetch matches until a club is selected.
-    if (!selectedClubId || !firestore) {
-      if (!adminLoading) {
-        setIsLoading(false);
-        setMatches([]);
-      }
-      return;
-    }
-    
-    setIsLoading(true);
+    if (!firestore) return;
 
+    // Use hardcoded club ID for this test
+    const clubIdForQuery = "mIiOmWTeNj41gryxUHyV";
+
+    setIsLoading(true);
     const matchesQuery = query(
       collection(firestore, 'matches'),
-      where('clubId', '==', selectedClubId),
+      where('clubId', '==', clubIdForQuery),
       orderBy('date', 'desc')
     );
     
@@ -199,7 +183,7 @@ function MatchesPageContent() {
     });
 
     return () => unsubscribe();
-  }, [selectedClubId, matchIdFilter, toast, firestore, adminLoading]);
+  }, [matchIdFilter, toast, firestore]);
 
 
   const displayedMatches = useMemo(() => {
