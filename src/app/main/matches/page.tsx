@@ -89,7 +89,7 @@ const getCalculatedStatus = (match: Match): MatchStatus => {
 };
 
 function MatchesPageContent() {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const { toast } = useToast();
   const { isSiteAdmin, isClubAdmin, userRole, loading: adminLoading } = useAdminAuth();
   const isMobile = useIsMobile();
@@ -99,12 +99,11 @@ function MatchesPageContent() {
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
-  const [selectedClubId, setSelectedClubId] = useState<string>('');
+  const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [userProfile, setUserProfile] = useState<User | null>(null);
-
+  
   const {
     isResultsModalOpen,
     isAnglerListModalOpen,
@@ -134,38 +133,30 @@ function MatchesPageContent() {
     if (adminLoading || !user || !firestore) return;
 
     const fetchInitialData = async () => {
-        const userDocRef = doc(firestore, 'users', user.uid);
-        const userDoc = await getDoc(userDocRef);
-
-        if (userDoc.exists()) {
-            const userData = userDoc.data() as User;
-            setUserProfile(userData);
+        if (isSiteAdmin) {
+            const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
+            const clubsSnapshot = await getDocs(clubsQuery);
+            const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+            setClubs(clubsData);
             
-            if (isSiteAdmin) {
-                const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
-                const clubsSnapshot = await getDocs(clubsQuery);
-                const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
-                setClubs(clubsData);
-                
-                if (matchIdFilter) {
-                    const matchDocRef = doc(firestore, 'matches', matchIdFilter);
-                    const matchDoc = await getDoc(matchDocRef);
-                    if (matchDoc.exists()) {
-                        setSelectedClubId(matchDoc.data().clubId);
-                    }
-                } else if (userData.primaryClubId) {
-                    setSelectedClubId(userData.primaryClubId);
-                } else if (clubsData.length > 0) {
-                    setSelectedClubId(clubsData[0].id);
+            if (matchIdFilter) {
+                const matchDocRef = doc(firestore, 'matches', matchIdFilter);
+                const matchDoc = await getDoc(matchDocRef);
+                if (matchDoc.exists()) {
+                    setSelectedClubId(matchDoc.data().clubId);
                 }
-            } else {
-                setSelectedClubId(userData.primaryClubId || '');
+            } else if (userProfile?.primaryClubId) {
+                setSelectedClubId(userProfile.primaryClubId);
+            } else if (clubsData.length > 0) {
+                setSelectedClubId(clubsData[0].id);
             }
+        } else if (userProfile) {
+            setSelectedClubId(userProfile.primaryClubId || null);
         }
     };
 
     fetchInitialData();
-  }, [user, isSiteAdmin, adminLoading, matchIdFilter]);
+  }, [user, userProfile, isSiteAdmin, adminLoading, matchIdFilter]);
   
   // Effect to fetch matches for the selected club
   useEffect(() => {
@@ -221,12 +212,9 @@ function MatchesPageContent() {
   const displayedMatches = useMemo(() => {
     return matches.map(match => {
       const newStatus = getCalculatedStatus(match);
-      if (newStatus !== match.status) {
-        // Optional: Update status in Firestore if it's changed.
-        // This can be done in a separate effect or here if carefully managed.
-        // For now, we just use the calculated status for display.
+      if (newStatus !== match.status && !matchIdFilter) { // Avoid writes on filtered view
         if (firestore) {
-          updateDoc(doc(firestore, 'matches', match.id), { status: newStatus });
+          updateDoc(doc(firestore, 'matches', match.id), { status: newStatus }).catch(e => console.error("Failed to auto-update status:", e));
         }
       }
       return {
@@ -234,7 +222,7 @@ function MatchesPageContent() {
         calculatedStatus: newStatus,
       };
     });
-  }, [matches]);
+  }, [matches, matchIdFilter]);
   
   const handleClubSelectionChange = (clubId: string) => {
     // When club changes, clear the matchId filter from URL
@@ -522,7 +510,7 @@ function MatchesPageContent() {
               {isSiteAdmin && (
                   <div className="flex items-center gap-2">
                       <Label htmlFor="club-filter" className="text-nowrap">Club</Label>
-                      <Select value={selectedClubId} onValueChange={handleClubSelectionChange} disabled={clubs.length === 0}>
+                      <Select value={selectedClubId || ''} onValueChange={handleClubSelectionChange} disabled={clubs.length === 0}>
                           <SelectTrigger id="club-filter" className="w-[180px]">
                               <SelectValue placeholder="Select a club..." />
                           </SelectTrigger>
@@ -629,3 +617,5 @@ export default function MatchesPage() {
         </Suspense>
     )
 }
+
+    
