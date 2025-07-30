@@ -76,7 +76,7 @@ if (typeof window !== 'undefined') {
     }
   } catch (e) {
       initializationError = e instanceof Error ? e.message : String(e);
-      console.error("Firebase initialization failed:", initializationError);
+      console.error("Firebase initialization failed:", e);
   }
 }
 
