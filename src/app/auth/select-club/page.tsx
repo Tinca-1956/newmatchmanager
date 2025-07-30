@@ -17,7 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
-import { collection, onSnapshot, doc, setDoc, addDoc, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, addDoc } from 'firebase/firestore';
 import type { Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlusCircle } from 'lucide-react';
@@ -39,43 +39,6 @@ export default function SelectClubPage() {
   const [newClubName, setNewClubName] = useState('');
 
   const isSiteAdmin = user?.email === 'stuart.thomas.winton@gmail.com';
-
-  // Proactively create Site Admin user document if it doesn't exist.
-  useEffect(() => {
-    const ensureAdminUserExists = async () => {
-      if (isSiteAdmin && user && firestore) {
-        const userDocRef = doc(firestore, 'users', user.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (!userDoc.exists()) {
-          console.log("Site Admin document not found, creating it now.");
-          const nameParts = (user.displayName || 'Site Admin').split(' ');
-          const firstName = nameParts[0] || 'Site';
-          const lastName = nameParts.slice(1).join(' ') || 'Admin';
-          try {
-            await setDoc(userDocRef, {
-                primaryClubId: '', // No club selected yet
-                firstName,
-                lastName,
-                email: user.email,
-                role: 'Site Admin',
-                memberStatus: 'Member',
-            });
-             console.log("Site Admin user document created successfully.");
-          } catch(error) {
-              console.error("Failed to create Site Admin user document:", error);
-               toast({
-                variant: 'destructive',
-                title: 'Admin Setup Failed',
-                description: 'Could not create your admin user profile. Please try again.',
-              });
-          }
-        }
-      }
-    };
-    if (!authLoading) {
-       ensureAdminUserExists();
-    }
-  }, [user, authLoading, isSiteAdmin, toast]);
 
 
   useEffect(() => {
@@ -115,7 +78,7 @@ export default function SelectClubPage() {
     return () => unsubscribe();
   }, [toast, authLoading]);
 
-  const handleSelectClub = async (clubId: string) => {
+  const handleSelectClub = (clubId: string) => {
     setSelectedClubId(clubId);
   }
 
@@ -137,8 +100,8 @@ export default function SelectClubPage() {
       const lastName = nameParts.slice(1).join(' ') || '';
 
       // Check if the user is the site admin and set role accordingly
-      const userRole = user.email === 'stuart.thomas.winton@gmail.com' ? 'Site Admin' : 'Angler';
-      const memberStatus = user.email === 'stuart.thomas.winton@gmail.com' ? 'Member' : 'Pending';
+      const userRole = isSiteAdmin ? 'Site Admin' : 'Angler';
+      const memberStatus = isSiteAdmin ? 'Member' : 'Pending';
 
 
       await setDoc(userDocRef, {
@@ -174,21 +137,54 @@ export default function SelectClubPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Please enter a name for the club.' });
       return;
     }
+
+    if (!isSiteAdmin || !user || !firestore) {
+        toast({ variant: 'destructive', title: 'Permissions Error', description: 'You must be the Site Admin to create the first club.' });
+        return;
+    }
+    
     setIsSaving(true);
     try {
-      const newClub = {
+      // Step 1: Create the user document for the Site Admin first
+      const userDocRef = doc(firestore, 'users', user.uid);
+      const nameParts = (user.displayName || 'Site Admin').split(' ');
+      const firstName = nameParts[0] || 'Site';
+      const lastName = nameParts.slice(1).join(' ') || 'Admin';
+
+      // This will be overwritten by the club ID once created, but we set it to something temporary
+      await setDoc(userDocRef, {
+        primaryClubId: 'creating...',
+        firstName,
+        lastName,
+        email: user.email,
+        role: 'Site Admin',
+        memberStatus: 'Member',
+      });
+      console.log("Site Admin user document created or merged successfully.");
+      
+      // Step 2: Create the new club
+      const newClubData = {
         name: newClubName,
         description: 'The first club, created by the Site Admin.',
         imageUrl: 'https://placehold.co/100x100.png',
       };
-      await addDoc(collection(firestore, 'clubs'), newClub);
-      toast({ title: 'Success', description: `Club "${newClubName}" has been created.` });
+      const newClubDocRef = await addDoc(collection(firestore, 'clubs'), newClubData);
+      
+      // Step 3: Update the user document with the new club ID
+      await setDoc(userDocRef, { primaryClubId: newClubDocRef.id }, { merge: true });
+
+      toast({ title: 'Success', description: `Club "${newClubName}" has been created and set as your primary.` });
+
       // The onSnapshot listener will automatically update the clubs list.
       setIsCreatingFirstClub(false);
       setNewClubName('');
+      
+      // We can now push to the dashboard.
+      router.push('/main/dashboard');
+
     } catch (error) {
       console.error('Error creating first club:', error);
-      toast({ variant: 'destructive', title: 'Creation Failed', description: 'Could not create the club. Check Firestore rules.' });
+      toast({ variant: 'destructive', title: 'Creation Failed', description: 'Could not create the club. Check Firestore rules and logs.' });
     } finally {
       setIsSaving(false);
     }
