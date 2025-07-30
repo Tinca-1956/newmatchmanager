@@ -70,7 +70,6 @@ export default function AppHeader() {
 
     return (
         <div className="flex items-center gap-2 cursor-default">
-            <Shield className="h-5 w-5 text-sidebar-foreground/70" />
             <span className="font-bold text-lg">{primaryClub?.name || 'No Primary Club'}</span>
         </div>
     )

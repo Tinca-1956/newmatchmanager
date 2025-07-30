@@ -19,7 +19,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Upload } from 'lucide-react';
+import { PlusCircle, Edit, Upload, Shield } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -108,10 +108,7 @@ export default function ClubsPage() {
     }
     
     setIsSaving(true);
-    const clubData = {
-      ...selectedClub,
-      imageUrl: selectedClub.imageUrl || 'https://placehold.co/100x100.png',
-    };
+    const clubData = { ...selectedClub };
 
     try {
         if (dialogMode === 'edit' && 'id' in selectedClub && selectedClub.id) {
@@ -186,7 +183,13 @@ export default function ClubsPage() {
     return clubs.map(club => (
       <TableRow key={club.id}>
         <TableCell>
-          <Image src={club.imageUrl} alt={club.name} width={40} height={40} className="rounded-full" />
+            {club.imageUrl ? (
+                <Image src={club.imageUrl} alt={club.name} width={40} height={40} className="rounded-full" />
+            ) : (
+                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                    <Shield className="h-6 w-6 text-muted-foreground" />
+                </div>
+            )}
         </TableCell>
         <TableCell className="font-medium">{club.name}</TableCell>
         <TableCell>{club.description}</TableCell>
