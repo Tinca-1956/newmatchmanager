@@ -9,6 +9,9 @@ let auth: Auth | null = null;
 let firestore: Firestore | null = null;
 let storage: FirebaseStorage | null = null;
 
+// A flag to ensure emulator connection only happens once.
+let emulatorsConnected = false;
+
 const firebaseConfig: FirebaseOptions = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
     authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -31,13 +34,14 @@ if (typeof window !== 'undefined') {
     storage = getStorage(app);
 
     // This is the correct way to conditionally connect to emulators.
-    // It depends on an environment variable.
-    if (process.env.NEXT_PUBLIC_USE_EMULATORS === 'true') {
-        console.log("Connecting to Firebase emulators");
+    // It depends on an environment variable and ensures it only runs once.
+    if (process.env.NEXT_PUBLIC_USE_EMULATORS === 'true' && !emulatorsConnected) {
+        console.log("Connecting to Firebase emulators...");
         try {
             connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
             connectFirestoreEmulator(firestore, 'localhost', 8080);
             connectStorageEmulator(storage, 'localhost', 9199);
+            emulatorsConnected = true; // Set the flag to prevent reconnecting
         } catch(e) {
             console.error("Error connecting to emulators. This can happen on hot reloads. It's often safe to ignore.", e);
         }
