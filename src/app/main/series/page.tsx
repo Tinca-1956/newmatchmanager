@@ -18,7 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trophy, HelpCircle } from 'lucide-react';
+import { PlusCircle, Edit, Trophy, HelpCircle, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -27,6 +27,17 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -39,7 +50,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDocs, orderBy, deleteDoc, writeBatch } from 'firebase/firestore';
 import type { Series, User, Club, Match, Result } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -349,6 +360,38 @@ export default function SeriesPage() {
     }
   };
   
+    const handleDeleteSeries = async (seriesId: string) => {
+        if (!firestore) return;
+        setIsSaving(true);
+        try {
+            const batch = writeBatch(firestore);
+
+            // 1. Find and delete all results in the series
+            const resultsQuery = query(collection(firestore, 'results'), where('seriesId', '==', seriesId));
+            const resultsSnapshot = await getDocs(resultsQuery);
+            resultsSnapshot.docs.forEach(d => batch.delete(d.ref));
+
+            // 2. Find and delete all matches in the series
+            const matchesQuery = query(collection(firestore, 'matches'), where('seriesId', '==', seriesId));
+            const matchesSnapshot = await getDocs(matchesQuery);
+            matchesSnapshot.docs.forEach(d => batch.delete(d.ref));
+            
+            // 3. Delete the series document itself
+            const seriesDocRef = doc(firestore, 'series', seriesId);
+            batch.delete(seriesDocRef);
+
+            await batch.commit();
+
+            toast({ title: 'Success!', description: `Series and all its associated matches/results have been deleted.` });
+        } catch (error) {
+            console.error('Error deleting series:', error);
+            toast({ variant: 'destructive', title: 'Delete Failed', description: 'Could not delete the series and its data.' });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+
   const canEdit = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
 
   const renderSeriesList = () => {
@@ -409,6 +452,32 @@ export default function SeriesPage() {
                         <p>Edit series</p>
                     </TooltipContent>
                 </Tooltip>
+                <AlertDialog>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="icon">
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </AlertDialogTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent side="left"><p>Delete series</p></TooltipContent>
+                    </Tooltip>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete the <span className="font-bold">{series.name}</span> series, and all of its associated matches and results.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteSeries(series.id)} className="bg-destructive hover:bg-destructive/90">
+                                Delete
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
               </TooltipProvider>
             </TableCell>
           )}
