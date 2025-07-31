@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import { format } from 'date-fns';
+import { sendTestEmail } from '@/lib/send-email';
 
 export default function TestAccessPage() {
   const { userProfile, loading: authLoading } = useAuth();
@@ -29,6 +30,8 @@ export default function TestAccessPage() {
   const [singleMatch, setSingleMatch] = useState<Match | null>(null);
   const [isSingleMatchLoading, setIsSingleMatchLoading] = useState(false);
   const [singleMatchError, setSingleMatchError] = useState<string | null>(null);
+
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
 
   const handleGetAnglers = async () => {
@@ -159,6 +162,29 @@ export default function TestAccessPage() {
       setIsSingleMatchLoading(false);
     }
   };
+
+  const handleSendTestEmail = async () => {
+    if (!userProfile) {
+        toast({ variant: 'destructive', title: 'Error', description: 'User profile not loaded.' });
+        return;
+    }
+    setIsSendingEmail(true);
+    try {
+        await sendTestEmail(userProfile.email, userProfile.firstName);
+        toast({
+            title: 'Email Sent!',
+            description: `A test email has been sent to ${userProfile.email}.`,
+        });
+    } catch (error) {
+        toast({
+            variant: 'destructive',
+            title: 'Email Failed',
+            description: 'Could not send the test email. Check your Resend API key and server logs.',
+        });
+    } finally {
+        setIsSendingEmail(false);
+    }
+  }
 
   const renderCurrentUserInfo = () => {
       if (authLoading) {
@@ -308,6 +334,16 @@ export default function TestAccessPage() {
                     )}
                 </div>
            </div>
+
+           <div className="space-y-2 rounded-md border p-4">
+                <h3 className="font-semibold mb-2">Step 5: Send a Test Email</h3>
+                <p className="text-sm text-muted-foreground pb-4">
+                    Click this button to send a test email to yourself to verify the Resend integration.
+                </p>
+                <Button onClick={handleSendTestEmail} disabled={isSendingEmail || authLoading || !userProfile}>
+                    {isSendingEmail ? 'Sending...' : 'Send Test Email'}
+                </Button>
+            </div>
         </CardContent>
       </Card>
     </div>

@@ -2,14 +2,6 @@
 'use server';
 
 import { Resend } from 'resend';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardFooter,
-} from '@/components/ui/card';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -17,7 +9,7 @@ const fromEmail = process.env.FROM_EMAIL || 'onboarding@resend.dev';
 
 // NOTE: This is a basic text-based email template.
 // For more advanced emails, you would create React components for the email body.
-const createEmailBody = (name: string, verificationLink: string): string => {
+const createVerificationEmailBody = (name: string, verificationLink: string): string => {
   return `
     Hello ${name},
 
@@ -33,13 +25,27 @@ const createEmailBody = (name: string, verificationLink: string): string => {
   `;
 };
 
+const createTestEmailBody = (name: string): string => {
+  return `
+    Hello ${name},
+
+    This is a test email from the Match Manager application.
+    
+    If you received this, your Resend integration is working correctly!
+
+    Thanks,
+    The Match Manager Team
+  `;
+};
+
+
 export const sendVerificationEmail = async (email: string, name: string, verificationLink: string) => {
   try {
     const { data, error } = await resend.emails.send({
       from: `Match Manager <${fromEmail}>`,
       to: [email],
       subject: 'Verify Your Email Address for Match Manager',
-      text: createEmailBody(name, verificationLink),
+      text: createVerificationEmailBody(name, verificationLink),
       // If you want to use a React component for your email:
       // react: EmailTemplate({ firstName: name, verificationLink }),
     });
@@ -54,4 +60,24 @@ export const sendVerificationEmail = async (email: string, name: string, verific
     console.error('Error in sendVerificationEmail:', error);
     throw error;
   }
+};
+
+export const sendTestEmail = async (email: string, name: string) => {
+    try {
+        const { data, error } = await resend.emails.send({
+            from: `Match Manager <${fromEmail}>`,
+            to: [email],
+            subject: 'Match Manager Test Email',
+            text: createTestEmailBody(name),
+        });
+
+        if (error) {
+            console.error('Resend error:', error);
+            throw new Error('Failed to send test email.');
+        }
+        return data;
+    } catch (error) {
+        console.error('Error in sendTestEmail:', error);
+        throw error;
+    }
 };
