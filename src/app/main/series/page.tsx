@@ -18,7 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trophy, HelpCircle, Trash2, ArrowRight } from 'lucide-react';
+import { PlusCircle, Edit, Trophy, HelpCircle, Trash2, ArrowRight, Download } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -60,6 +60,8 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Checkbox } from '@/components/ui/checkbox';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 interface SeriesWithMatchCount extends Series {
     matchCount: number;
@@ -399,6 +401,42 @@ export default function SeriesPage() {
             setIsSaving(false);
         }
     };
+    
+  const handleExportStandingsPdf = () => {
+        if (!selectedSeriesForAction || leagueStandings.length === 0) {
+            toast({
+                variant: 'destructive',
+                title: 'No Data',
+                description: 'There are no standings to export.',
+            });
+            return;
+        }
+
+        const doc = new jsPDF({ unit: 'mm' });
+        
+        doc.setFontSize(18);
+        doc.text(`League Standings: ${selectedSeriesForAction.name}`, 14, 22);
+        doc.setFontSize(12);
+        doc.text(clubName, 14, 30);
+
+        (doc as any).autoTable({
+            startY: 40,
+            head: [['Rank', 'Angler Name', 'Total Points']],
+            body: leagueStandings.map(angler => [
+                angler.rank,
+                angler.userName,
+                angler.totalRank,
+            ]),
+            theme: 'striped',
+            headStyles: { fillColor: [34, 49, 63] },
+        });
+
+        const finalY = (doc as any).lastAutoTable.finalY || 50;
+        doc.setFontSize(10);
+        doc.text("Results by MATCHMANAGER.ME", 14, finalY + 10);
+
+        doc.save(`standings-${selectedSeriesForAction.name.replace(/\s+/g, '-')}.pdf`);
+    };
 
 
   const canEdit = isSiteAdmin || isClubAdmin;
@@ -665,7 +703,7 @@ export default function SeriesPage() {
                                 <TableRow>
                                     <TableHead>Rank</TableHead>
                                     <TableHead>Angler Name</TableHead>
-                                    <TableHead>Total Section Rank</TableHead>
+                                    <TableHead>Total Points</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -697,8 +735,12 @@ export default function SeriesPage() {
                             </TableBody>
                         </Table>
                     </div>
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setIsStandingsModalOpen(false)}>Close</Button>
+                    <DialogFooter className="sm:justify-between">
+                         <Button variant="outline" onClick={handleExportStandingsPdf} disabled={isStandingsLoading || leagueStandings.length === 0}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Export to PDF
+                        </Button>
+                        <Button type="button" variant="default" onClick={() => setIsStandingsModalOpen(false)}>Close</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
