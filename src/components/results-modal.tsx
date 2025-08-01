@@ -181,6 +181,7 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
     const finalY = (doc as any).lastAutoTable.finalY;
     doc.setFontSize(10);
     doc.text("NOTE: Anglers highlighted are those that are in overall paid places.", 14, finalY + 10);
+    doc.text("Results by MATCHMANAGER.ME", 14, finalY + 15);
 
     doc.save(`results-${match.name.replace(/\s+/g, '-')}.pdf`);
   };
