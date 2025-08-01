@@ -201,7 +201,11 @@ export function DisplayAnglerListModal({ isOpen, onClose, match }: DisplayAngler
             </ScrollArea>
         </div>
 
-        <DialogFooter className="pt-4">
+        <DialogFooter className="pt-4 sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            Results by MATCHMANAGER.ME
+          </p>
+          <div className="flex gap-2">
             <Button variant="outline" onClick={handleDownloadPdf} disabled={anglerDetails.length === 0}>
                 <Download className="mr-2 h-4 w-4" />
                 Download as PDF
@@ -209,6 +213,7 @@ export function DisplayAnglerListModal({ isOpen, onClose, match }: DisplayAngler
             <Button variant="default" onClick={onClose}>
                 Close
             </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
