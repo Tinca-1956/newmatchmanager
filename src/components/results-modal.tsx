@@ -285,17 +285,20 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
             </ScrollArea>
         </div>
 
-        <DialogFooter className="pt-4 items-center">
-            <p className="text-sm text-muted-foreground mr-auto">
-                NOTE: Anglers highlighted are those in overall paid places.
-            </p>
-          <Button variant="outline" onClick={handleDownloadPdf} disabled={sortedResults.length === 0}>
-            <Download className="mr-2 h-4 w-4" />
-            Download as PDF
-          </Button>
-          <Button variant="default" onClick={onClose}>
-            Close
-          </Button>
+        <DialogFooter className="pt-4 sm:justify-between">
+            <div className="text-sm text-muted-foreground">
+                <p>Results by MATCHMANAGER.ME</p>
+                <p>NOTE: Anglers highlighted are those in overall paid places.</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleDownloadPdf} disabled={sortedResults.length === 0}>
+                <Download className="mr-2 h-4 w-4" />
+                Download as PDF
+              </Button>
+              <Button variant="default" onClick={onClose}>
+                Close
+              </Button>
+            </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
