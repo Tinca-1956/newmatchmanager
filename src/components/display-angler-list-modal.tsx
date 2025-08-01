@@ -135,6 +135,10 @@ export function DisplayAnglerListModal({ isOpen, onClose, match }: DisplayAngler
         }
     });
 
+    const finalY = (doc as any).lastAutoTable.finalY;
+    doc.setFontSize(10);
+    doc.text("Results by MATCHMANAGER.ME", 14, finalY + 10);
+
     doc.save(`angler-list-${match.name.replace(/\s+/g, '-')}.pdf`);
   };
 
