@@ -39,6 +39,8 @@ import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import html2canvas from 'html2canvas';
+
 
 type ResultWithSectionRank = ResultType & { sectionRank?: number };
 
@@ -275,57 +277,61 @@ export default function ResultsPage() {
         return resultsCopy;
     }, [resultsForMatch, sortBy]);
 
-    const handleCreatePdf = () => {
+    const handleCreatePdf = async () => {
         if (sortedResults.length === 0) {
-            toast({
-                variant: 'destructive',
-                title: 'No Data',
-                description: 'There are no results to export.',
-            });
+            toast({ variant: 'destructive', title: 'No Data', description: 'There are no results to export.' });
             return;
         }
 
-        const doc = new jsPDF({ unit: 'mm' });
         const club = allClubs.find(c => c.id === selectedClubId);
         const series = seriesForClub.find(s => s.id === selectedSeriesId);
         const match = matchesForSeries.find(m => m.id === selectedMatchId);
-        const paidPlaces = match?.paidPlaces || 0;
+        if (!club || !series || !match) return;
 
-        doc.setFontSize(18);
-        doc.text(`Results for ${match?.name || 'Match'}`, 14, 22);
-        doc.setFontSize(12);
-        doc.text(`${series?.name || 'Series'} - ${club?.name || 'Club'}`, 14, 30);
+        const reportElement = document.getElementById('pdf-report');
+        if (!reportElement) {
+             toast({ variant: 'destructive', title: 'Error', description: 'Could not find the report element to export.' });
+             return;
+        }
 
-        (doc as any).autoTable({
-            startY: 40,
-            head: [['Pos', 'Angler', 'Peg', 'Section', 'Sec Rank', 'Weight (Kg)', 'Payout', 'Status']],
-            body: sortedResults.map(r => [
-                r.position || '-',
-                r.userName,
-                r.peg || '-',
-                r.section || '-',
-                r.sectionRank || '-',
-                r.weight.toFixed(3),
-                r.payout ? `¤${r.payout.toFixed(2)}` : '-',
-                r.status || 'OK',
-            ]),
-            theme: 'striped',
-            headStyles: { fillColor: [34, 49, 63] },
-            didParseCell: function(data: any) {
-                const row = data.row;
-                const position = row.cells[0].raw;
-                if (typeof position === 'number' && position > 0 && position <= paidPlaces) {
-                    data.cell.styles.fillColor = '#dcfce7'; // green-100
+        const canvas = await html2canvas(reportElement, {
+            scale: 2, // Increase scale for better quality
+            useCORS: true, // Important for external images
+            onclone: (document) => {
+                // This is a workaround for a html2canvas bug where it doesn't render images on the first try
+                // See: https://github.com/niklasvh/html2canvas/issues/2873
+                const images = document.getElementsByTagName('img');
+                for (let i = 0; i < images.length; i++) {
+                    const img = images[i];
+                    img.crossOrigin = 'anonymous'; // Ensure CORS is set on the cloned image
                 }
             }
         });
         
-        const finalY = (doc as any).lastAutoTable.finalY;
-        doc.setFontSize(10);
-        doc.text("NOTE: Anglers highlighted are those that are in overall paid places.", 14, finalY + 10);
-        doc.text("Results by MATCHMANAGER.ME", 14, finalY + 15);
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        const ratio = canvasWidth / canvasHeight;
+        const imgWidth = pdfWidth - 20; // with some margin
+        const imgHeight = imgWidth / ratio;
 
-        doc.save(`results-${match?.name.replace(/\s+/g, '-') || 'export'}.pdf`);
+        let heightLeft = imgHeight;
+        let position = 10; // Top margin
+
+        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+        heightLeft -= (pdfHeight - 20);
+
+        while (heightLeft > 0) {
+            position = heightLeft - imgHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+            heightLeft -= (pdfHeight - 20);
+        }
+
+        pdf.save(`results-${match.name.replace(/\s+/g, '-') || 'export'}.pdf`);
     };
 
     const renderResultsList = () => {
@@ -377,8 +383,63 @@ export default function ResultsPage() {
         });
     };
 
+    const club = allClubs.find(c => c.id === selectedClubId);
+    const series = seriesForClub.find(s => s.id === selectedSeriesId);
+    const match = matchesForSeries.find(m => m.id === selectedMatchId);
+    const paidPlaces = match?.paidPlaces || 0;
+
     return (
         <div className="flex flex-col gap-8">
+            {/* Hidden div for PDF generation */}
+            <div id="pdf-report" className="absolute -left-[9999px] top-auto w-[800px] p-4 bg-white text-black">
+                {club && series && match && (
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-start">
+                             <div>
+                                <h1 className="text-2xl font-bold">Results: {match.name}</h1>
+                                <p className="text-lg">{series.name}</p>
+                                <p className="text-md text-gray-600">{club.name} - {format(match.date, 'PPP')}</p>
+                            </div>
+                            {club.imageUrl && (
+                                <img src={club.imageUrl} alt={club.name} className="w-24 h-24 object-contain" crossOrigin="anonymous"/>
+                            )}
+                        </div>
+                        <table className="w-full text-sm border-collapse border border-gray-400">
+                           <thead>
+                                <tr className="bg-gray-200">
+                                    <th className="border border-gray-300 p-2 text-left">Pos</th>
+                                    <th className="border border-gray-300 p-2 text-left">Angler</th>
+                                    <th className="border border-gray-300 p-2 text-left">Peg</th>
+                                    <th className="border border-gray-300 p-2 text-left">Section</th>
+                                    <th className="border border-gray-300 p-2 text-left">Sec Rank</th>
+                                    <th className="border border-gray-300 p-2 text-left">Weight (Kg)</th>
+                                    <th className="border border-gray-300 p-2 text-left">Payout</th>
+                                    <th className="border border-gray-300 p-2 text-left">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {sortedResults.map(result => {
+                                    const isPaid = result.position !== null && paidPlaces > 0 && result.position <= paidPlaces;
+                                    return (
+                                        <tr key={result.userId} className={isPaid ? 'bg-green-100' : ''}>
+                                            <td className="border border-gray-300 p-2">{result.position || '-'}</td>
+                                            <td className="border border-gray-300 p-2 font-semibold">{result.userName}</td>
+                                            <td className="border border-gray-300 p-2">{result.peg || '-'}</td>
+                                            <td className="border border-gray-300 p-2">{result.section || '-'}</td>
+                                            <td className="border border-gray-300 p-2">{result.sectionRank || '-'}</td>
+                                            <td className="border border-gray-300 p-2">{result.weight.toFixed(3)}</td>
+                                            <td className="border border-gray-300 p-2">{result.payout ? `¤${result.payout.toFixed(2)}` : '-'}</td>
+                                            <td className="border border-gray-300 p-2">{result.status || 'OK'}</td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                        <p className="text-xs pt-4">Results by MATCHMANAGER.ME</p>
+                    </div>
+                )}
+            </div>
+
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Results</h1>
                 <p className="text-muted-foreground">View match results here.</p>
