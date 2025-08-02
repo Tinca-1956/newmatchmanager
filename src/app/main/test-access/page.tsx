@@ -7,13 +7,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
 import { collection, query, where, getDocs, Timestamp, doc, getDoc } from 'firebase/firestore';
-import type { User, Match } from '@/lib/types';
+import type { User, Match, Club } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import { format } from 'date-fns';
 import { sendTestEmail } from '@/lib/send-email';
+import { getBase64ImageFromUrl } from '@/lib/image-helpers';
+import Image from 'next/image';
 
 export default function TestAccessPage() {
   const { userProfile, loading: authLoading } = useAuth();
@@ -32,6 +34,10 @@ export default function TestAccessPage() {
   const [singleMatchError, setSingleMatchError] = useState<string | null>(null);
 
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  
+  const [isFetchingLogo, setIsFetchingLogo] = useState(false);
+  const [logoBase64, setLogoBase64] = useState<string | null>(null);
+  const [logoError, setLogoError] = useState<string | null>(null);
 
 
   const handleGetAnglers = async () => {
@@ -185,6 +191,39 @@ export default function TestAccessPage() {
         setIsSendingEmail(false);
     }
   }
+
+  const handleFetchLogo = async () => {
+    if (!firestore || !userProfile?.primaryClubId) {
+        toast({ variant: 'destructive', title: 'Error', description: 'User profile or primary club not loaded.' });
+        return;
+    }
+    setIsFetchingLogo(true);
+    setLogoBase64(null);
+    setLogoError(null);
+
+    try {
+        const clubDocRef = doc(firestore, 'clubs', userProfile.primaryClubId);
+        const clubDoc = await getDoc(clubDocRef);
+
+        if (!clubDoc.exists() || !clubDoc.data().imageUrl) {
+            setLogoError('Primary club has no logo URL set.');
+            toast({ variant: 'destructive', title: 'No Logo Found', description: 'The primary club does not have a logo URL.' });
+            setIsFetchingLogo(false);
+            return;
+        }
+
+        const clubData = clubDoc.data() as Club;
+        const base64 = await getBase64ImageFromUrl(clubData.imageUrl);
+        setLogoBase64(base64);
+        toast({ title: 'Success!', description: 'Logo fetched and converted successfully.' });
+
+    } catch (e: any) {
+        setLogoError(e.message);
+        toast({ variant: 'destructive', title: 'Logo Fetch Failed', description: e.message });
+    } finally {
+        setIsFetchingLogo(false);
+    }
+  };
 
   const renderCurrentUserInfo = () => {
       if (authLoading) {
@@ -344,6 +383,41 @@ export default function TestAccessPage() {
                     {isSendingEmail ? 'Sending...' : 'Send Test Email'}
                 </Button>
             </div>
+            
+            <div className="space-y-2 rounded-md border p-4">
+                <h3 className="font-semibold mb-2">Step 6: Test Fetch Club Logo</h3>
+                <p className="text-sm text-muted-foreground pb-4">
+                    Tests fetching the primary club logo and converting it to Base64 for PDF embedding.
+                </p>
+                <Button onClick={handleFetchLogo} disabled={isFetchingLogo || authLoading || !userProfile}>
+                    {isFetchingLogo ? 'Fetching Logo...' : 'Test Fetch Club Logo'}
+                </Button>
+
+                {logoError && (
+                    <Alert variant="destructive" className="mt-4">
+                        <Terminal className="h-4 w-4" />
+                        <AlertTitle>Logo Fetch Error</AlertTitle>
+                        <AlertDescription>
+                            {logoError}
+                        </AlertDescription>
+                    </Alert>
+                )}
+
+                <div className="pt-4">
+                    <h4 className="font-semibold">Results:</h4>
+                    {isFetchingLogo ? (
+                        <Skeleton className="h-24 w-24" />
+                    ) : logoBase64 ? (
+                        <div className="mt-2">
+                            <p className="text-sm text-green-600">Success! Logo is displayed below:</p>
+                            <Image src={logoBase64} alt="Fetched Club Logo" width={100} height={100} className="mt-2 border rounded-md" />
+                        </div>
+                    ) : (
+                        <p className="text-sm text-muted-foreground pt-2">No logo fetched yet. Run the test.</p>
+                    )}
+                </div>
+           </div>
+
         </CardContent>
       </Card>
     </div>
