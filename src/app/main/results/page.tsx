@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
+  CardFooter,
 } from '@/components/ui/card';
 import {
     Table,
@@ -34,6 +35,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
+import { Button } from '@/components/ui/button';
+import { Download } from 'lucide-react';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+
 
 type ResultWithSectionRank = ResultType & { sectionRank?: number };
 
@@ -270,6 +276,54 @@ export default function ResultsPage() {
         return resultsCopy;
     }, [resultsForMatch, sortBy]);
 
+    const handleDownloadPdf = () => {
+        if (sortedResults.length === 0 || !selectedMatchId) return;
+        
+        const selectedMatch = matchesForSeries.find(m => m.id === selectedMatchId);
+        if (!selectedMatch) return;
+
+        const doc = new jsPDF({ unit: 'mm' });
+        const paidPlaces = selectedMatch.paidPlaces || 0;
+        
+        const title = `Full Results: ${selectedMatch.name}`;
+        const subtitle = `${selectedMatch.seriesName} - ${format(selectedMatch.date as Date, 'PPP')}`;
+
+        doc.setFontSize(18);
+        doc.text(title, 14, 22);
+        doc.setFontSize(12);
+        doc.text(subtitle, 14, 30);
+        
+        (doc as any).autoTable({
+            startY: 40,
+            head: [['Overall', 'Name', 'Kg', 'Peg', 'Section', 'Sec Rank', 'Payout', 'Status']],
+            body: sortedResults.map(r => [
+                r.position,
+                r.userName,
+                r.weight.toFixed(3),
+                r.peg || '',
+                r.section || '',
+                r.sectionRank || '',
+                r.payout ? `¤${r.payout.toFixed(2)}` : '-',
+                r.status || 'OK'
+            ]),
+            theme: 'striped',
+            headStyles: { fillColor: [34, 49, 63] },
+            didParseCell: function(data: any) {
+                const row = data.row;
+                const position = row.cells[0].raw;
+                if (typeof position === 'number' && position > 0 && position <= paidPlaces) {
+                    data.cell.styles.fillColor = '#dcfce7'; // green-100
+                }
+            }
+        });
+
+        const finalY = (doc as any).lastAutoTable.finalY;
+        doc.setFontSize(10);
+        doc.text("Results by MATCHMANAGER.ME", 14, finalY + 10);
+
+        doc.save(`results-${selectedMatch.name.replace(/\s+/g, '-')}.pdf`);
+    };
+
     const renderResultsList = () => {
         const selectedMatch = matchesForSeries.find(m => m.id === selectedMatchId);
         const paidPlaces = selectedMatch?.paidPlaces || 0;
@@ -439,6 +493,15 @@ export default function ResultsPage() {
                         </TableBody>
                     </Table>
                 </CardContent>
+                <CardFooter className="flex justify-end border-t pt-6">
+                    <Button
+                        onClick={handleDownloadPdf}
+                        disabled={sortedResults.length === 0}
+                    >
+                        <Download className="mr-2 h-4 w-4" />
+                        Download PDF
+                    </Button>
+                </CardFooter>
             </Card>
         </div>
     );
