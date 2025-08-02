@@ -273,7 +273,7 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
                             <TableCell>{result.peg || '-'}</TableCell>
                             <TableCell>{result.section || '-'}</TableCell>
                             <TableCell>{result.sectionRank || '-'}</TableCell>
-                            <TableCell>{result.payout ? `¤${r.payout.toFixed(2)}` : '-'}</TableCell>
+                            <TableCell>{result.payout ? `¤${result.payout.toFixed(2)}` : '-'}</TableCell>
                             <TableCell>
                                 <Badge variant={result.status === 'OK' ? 'outline' : 'secondary'}>{result.status}</Badge>
                             </TableCell>
