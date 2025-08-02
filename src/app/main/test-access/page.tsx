@@ -14,6 +14,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import { format } from 'date-fns';
 import { sendTestEmail } from '@/lib/send-email';
+import NextImage from 'next/image';
 
 export default function TestAccessPage() {
   const { userProfile, loading: authLoading } = useAuth();
@@ -32,7 +33,42 @@ export default function TestAccessPage() {
   const [singleMatchError, setSingleMatchError] = useState<string | null>(null);
 
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+
+  const [isLogoLoading, setIsLogoLoading] = useState(false);
+  const [logoSrc, setLogoSrc] = useState<string | null>(null);
+  const [logoError, setLogoError] = useState<string | null>(null);
   
+  const handleFetchLogoViaFunction = async () => {
+    if (!userProfile?.primaryClubId) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Primary club not set.' });
+      return;
+    }
+    setIsLogoLoading(true);
+    setLogoSrc(null);
+    setLogoError(null);
+
+    // This URL will point to your local emulator when running `firebase emulators:start`
+    // and to the live function after deployment.
+    const functionUrl = process.env.NEXT_PUBLIC_USE_EMULATORS === 'true'
+      ? `http://127.0.0.1:5001/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/us-central1/getClubLogo`
+      : `https://us-central1-${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.cloudfunctions.net/getClubLogo`;
+
+    try {
+      const response = await fetch(`${functionUrl}?clubId=${userProfile.primaryClubId}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Cloud Function failed: ${response.status} ${errorText}`);
+      }
+      const { dataUri } = await response.json();
+      setLogoSrc(dataUri);
+      toast({ title: 'Success!', description: 'Logo fetched from Cloud Function.' });
+    } catch (e: any) {
+      setLogoError(e.message);
+      toast({ variant: 'destructive', title: 'Function Error', description: e.message });
+    } finally {
+      setIsLogoLoading(false);
+    }
+  };
 
   const handleGetAnglers = async () => {
     if (!firestore || !userProfile?.primaryClubId) {
@@ -228,7 +264,38 @@ export default function TestAccessPage() {
           </div>
 
            <div className="space-y-2 rounded-md border p-4">
-                <h3 className="font-semibold mb-2">Step 2: Query for Users in Your Club</h3>
+                <h3 className="font-semibold mb-2">Step 2: Test Logo Fetch via Cloud Function</h3>
+                <p className="text-sm text-muted-foreground pb-4">
+                    This button calls the new `getClubLogo` function. It should fetch your club's logo and display it below.
+                </p>
+                <Button onClick={handleFetchLogoViaFunction} disabled={isLogoLoading || authLoading || !userProfile}>
+                    {isLogoLoading ? 'Fetching Logo...' : 'Run Logo Function Test'}
+                </Button>
+
+                {logoError && (
+                    <Alert variant="destructive" className="mt-4">
+                        <Terminal className="h-4 w-4" />
+                        <AlertTitle>Cloud Function Error</AlertTitle>
+                        <AlertDescription>{logoError}</AlertDescription>
+                    </Alert>
+                )}
+
+                <div className="pt-4">
+                    <h4 className="font-semibold">Result:</h4>
+                    <div className="mt-2">
+                    {isLogoLoading ? (
+                        <Skeleton className="h-24 w-24" />
+                    ) : logoSrc ? (
+                        <NextImage src={logoSrc} alt="Fetched Club Logo" width={96} height={96} className="rounded-md border" />
+                    ) : (
+                        <p className="text-sm text-muted-foreground">No logo fetched yet. Run the query.</p>
+                    )}
+                    </div>
+                </div>
+           </div>
+
+           <div className="space-y-2 rounded-md border p-4">
+                <h3 className="font-semibold mb-2">Step 3: Query for Users in Your Club</h3>
                 <p className="text-sm text-muted-foreground pb-4">
                     Click to test fetching users in your primary club.
                 </p>
@@ -265,7 +332,7 @@ export default function TestAccessPage() {
            </div>
 
             <div className="space-y-2 rounded-md border p-4">
-                <h3 className="font-semibold mb-2">Step 3: Query for Matches in Your Club</h3>
+                <h3 className="font-semibold mb-2">Step 4: Query for Matches in Your Club</h3>
                 <p className="text-sm text-muted-foreground pb-4">
                     This is the critical test. Click to run the same query the Matches page uses.
                 </p>
@@ -302,7 +369,7 @@ export default function TestAccessPage() {
            </div>
            
            <div className="space-y-2 rounded-md border p-4">
-                <h3 className="font-semibold mb-2">Step 4: Query for a Single Match Document</h3>
+                <h3 className="font-semibold mb-2">Step 5: Query for a Single Match Document</h3>
                 <p className="text-sm text-muted-foreground pb-4">
                     This tests direct document access. Click to fetch the specific match you created.
                 </p>
@@ -337,7 +404,7 @@ export default function TestAccessPage() {
            </div>
 
            <div className="space-y-2 rounded-md border p-4">
-                <h3 className="font-semibold mb-2">Step 5: Send a Test Email</h3>
+                <h3 className="font-semibold mb-2">Step 6: Send a Test Email</h3>
                 <p className="text-sm text-muted-foreground pb-4">
                     Click this button to send a test email to yourself to verify the Resend integration.
                 </p>
