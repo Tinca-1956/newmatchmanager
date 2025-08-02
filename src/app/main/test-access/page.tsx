@@ -161,6 +161,7 @@ export default function TestAccessPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Firestore not available.' });
       return;
     }
+    // A hardcoded ID for a match that is known to exist for testing purposes.
     const matchId = "dwoFy4YJJVzLWwQqFow1";
 
     setIsSingleMatchLoading(true);
@@ -266,7 +267,7 @@ export default function TestAccessPage() {
            <div className="space-y-2 rounded-md border p-4">
                 <h3 className="font-semibold mb-2">Step 2: Test Logo Fetch via Cloud Function</h3>
                 <p className="text-sm text-muted-foreground pb-4">
-                    This button calls the new `getClubLogo` function. It should fetch your club's logo and display it below.
+                    This button calls the `getClubLogo` function. It should fetch your club's logo and display it below.
                 </p>
                 <Button onClick={handleFetchLogoViaFunction} disabled={isLogoLoading || authLoading || !userProfile}>
                     {isLogoLoading ? 'Fetching Logo...' : 'Run Logo Function Test'}
@@ -371,7 +372,7 @@ export default function TestAccessPage() {
            <div className="space-y-2 rounded-md border p-4">
                 <h3 className="font-semibold mb-2">Step 5: Query for a Single Match Document</h3>
                 <p className="text-sm text-muted-foreground pb-4">
-                    This tests direct document access. Click to fetch the specific match you created.
+                    This tests direct document access. Click to fetch a specific match.
                 </p>
                 <Button onClick={handleGetSingleMatch} disabled={isSingleMatchLoading}>
                     {isSingleMatchLoading ? 'Fetching Match...' : 'Run Single Match Query'}

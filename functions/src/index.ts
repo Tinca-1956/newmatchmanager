@@ -52,3 +52,5 @@ export const setUserRole = functions.firestore
         
         return null;
     });
+
+export * from './image-proxy';
