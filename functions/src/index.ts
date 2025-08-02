@@ -5,9 +5,6 @@ import {initializeApp, getApps} from "firebase-admin/app";
 import {getAuth} from "firebase-admin/auth";
 import type { User } from "./types";
 
-// Export new function
-export { getClubLogo } from "./image-proxy";
-
 // Initialize the Admin SDK only if it hasn't been already
 if (getApps().length === 0) {
   initializeApp();

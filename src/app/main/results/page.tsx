@@ -8,7 +8,6 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-  CardFooter,
 } from '@/components/ui/card';
 import {
     Table,
@@ -35,11 +34,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
-import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-
 
 type ResultWithSectionRank = ResultType & { sectionRank?: number };
 
@@ -62,7 +56,6 @@ export default function ResultsPage() {
     const [isLoadingSeries, setIsLoadingSeries] = useState(false);
     const [isLoadingMatches, setIsLoadingMatches] = useState(false);
     const [isLoadingResults, setIsLoadingResults] = useState(false);
-    const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
     // Step 1: Fetch clubs for the dropdown (or user's primary club)
     useEffect(() => {
@@ -277,93 +270,6 @@ export default function ResultsPage() {
         return resultsCopy;
     }, [resultsForMatch, sortBy]);
 
-    const handleCreatePdf = async () => {
-        if (sortedResults.length === 0) {
-            toast({ variant: 'destructive', title: 'No Data', description: 'There are no results to export.' });
-            return;
-        }
-
-        const club = allClubs.find(c => c.id === selectedClubId);
-        const series = seriesForClub.find(s => s.id === selectedSeriesId);
-        const match = matchesForSeries.find(m => m.id === selectedMatchId);
-        if (!club || !series || !match) return;
-        
-        setIsGeneratingPdf(true);
-
-        // Fetch the logo via the Cloud Function
-        let logoDataUri: string | null = null;
-        if (club.imageUrl) {
-             const functionUrl = process.env.NEXT_PUBLIC_USE_EMULATORS === 'true'
-                ? `http://127.0.0.1:5001/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/us-central1/getClubLogo`
-                : `https://us-central1-${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.cloudfunctions.net/getClubLogo`;
-
-            try {
-                const response = await fetch(`${functionUrl}?clubId=${club.id}`);
-                if (!response.ok) {
-                    throw new Error(`Cloud Function failed: ${response.status} ${await response.text()}`);
-                }
-                const { dataUri } = await response.json();
-                logoDataUri = dataUri;
-            } catch (e: any) {
-                console.error("Failed to fetch logo via function:", e);
-                toast({ variant: 'destructive', title: 'Logo Fetch Failed', description: 'Could not get the club logo for the PDF. Check function logs.' });
-            }
-        }
-
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const paidPlaces = match.paidPlaces || 0;
-        
-        // Add header
-        pdf.setFontSize(18);
-        pdf.text(`Results: ${match.name}`, 14, 22);
-        pdf.setFontSize(12);
-        pdf.text(`${series.name} - ${club.name}`, 14, 30);
-        pdf.setFontSize(10);
-        pdf.text(format(match.date, 'PPP'), 14, 36);
-
-        // Add logo if available
-        if (logoDataUri) {
-            const imgProps = pdf.getImageProperties(logoDataUri);
-            const imgWidth = 25;
-            const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
-            pdf.addImage(logoDataUri, 'PNG', pdf.internal.pageSize.getWidth() - imgWidth - 14, 18, imgWidth, imgHeight);
-        }
-
-        (pdf as any).autoTable({
-            startY: 45,
-            head: [['Pos', 'Angler', 'Peg', 'Section', 'Sec Rank', 'Weight (Kg)', 'Payout', 'Status']],
-            body: sortedResults.map(result => [
-                result.position || '-',
-                result.userName,
-                result.peg || '-',
-                result.section || '-',
-                result.sectionRank || '-',
-                result.weight.toFixed(3),
-                result.payout ? `¤${result.payout.toFixed(2)}` : '-',
-                result.status || 'OK'
-            ]),
-            theme: 'striped',
-            headStyles: { fillColor: [34, 49, 63] }, // Dark header
-            didDrawCell: (data: any) => {
-              if (data.section === 'body' && data.column.index === 0) {
-                 const position = data.row.raw[0];
-                 if (typeof position === 'number' && position > 0 && position <= paidPlaces) {
-                    pdf.setFillColor(220, 252, 231); // green-100
-                    pdf.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
-                 }
-              }
-            }
-        });
-
-        const finalY = (pdf as any).lastAutoTable.finalY || 50;
-        pdf.setFontSize(8);
-        pdf.text("NOTE: Anglers with a green background are in overall paid places.", 14, finalY + 10);
-        pdf.text("Results by MATCHMANAGER.ME", 14, finalY + 15);
-
-        pdf.save(`results-${match.name.replace(/\s+/g, '-') || 'export'}.pdf`);
-        setIsGeneratingPdf(false);
-    };
-
     const renderResultsList = () => {
         const selectedMatch = matchesForSeries.find(m => m.id === selectedMatchId);
         const paidPlaces = selectedMatch?.paidPlaces || 0;
@@ -412,10 +318,6 @@ export default function ResultsPage() {
             );
         });
     };
-
-    const club = allClubs.find(c => c.id === selectedClubId);
-    const series = seriesForClub.find(s => s.id === selectedSeriesId);
-    const match = matchesForSeries.find(m => m.id === selectedMatchId);
 
     return (
         <div className="flex flex-col gap-8">
@@ -517,13 +419,6 @@ export default function ResultsPage() {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="flex flex-col gap-1.5">
-                             <Label>&nbsp;</Label> {/* Spacer for alignment */}
-                            <Button onClick={handleCreatePdf} disabled={sortedResults.length === 0 || isGeneratingPdf}>
-                                <Download className="mr-2 h-4 w-4" />
-                                {isGeneratingPdf ? 'Generating...' : 'Create PDF'}
-                            </Button>
-                        </div>
                     </div>
 
                     <Table>
@@ -544,16 +439,6 @@ export default function ResultsPage() {
                         </TableBody>
                     </Table>
                 </CardContent>
-                {sortedResults.length > 0 && (
-                    <CardFooter className="flex-col items-start">
-                        <p className="text-sm text-muted-foreground">
-                            NOTE: Anglers highlighted are those that are in overall paid places.
-                        </p>
-                        <p className="text-sm text-muted-foreground pt-2">
-                            Results by MATCHMANAGER.ME
-                        </p>
-                    </CardFooter>
-                )}
             </Card>
         </div>
     );
