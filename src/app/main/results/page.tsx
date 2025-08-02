@@ -504,9 +504,12 @@ export default function ResultsPage() {
                     </Table>
                 </CardContent>
                 {sortedResults.length > 0 && (
-                    <CardFooter>
+                    <CardFooter className="flex-col items-start">
                         <p className="text-sm text-muted-foreground">
                             NOTE: Anglers highlighted are those that are in overall paid places.
+                        </p>
+                        <p className="text-sm text-muted-foreground pt-2">
+                            Results by MATCHMANAGER.ME
                         </p>
                     </CardFooter>
                 )}
