@@ -30,7 +30,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, getDocs, orderBy } from 'firebase/firestore';
 import type { User, Club, MembershipStatus, UserRole } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -98,7 +98,7 @@ export default function MembersPage() {
 
         try {
             if (isSiteAdmin) {
-                const clubsQuery = collection(firestore, 'clubs');
+                const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
                 const clubsSnapshot = await getDocs(clubsQuery);
                 const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
                 setClubs(clubsData);
@@ -122,7 +122,9 @@ export default function MembersPage() {
   
   useEffect(() => {
     if (!selectedClubId || !firestore) {
-      setIsLoading(false);
+      if (!adminLoading) { // Only stop loading if we aren't waiting for admin status
+        setIsLoading(false);
+      }
       setAllUsers([]);
       return;
     }
@@ -140,7 +142,7 @@ export default function MembersPage() {
     });
 
     return () => unsubscribe();
-  }, [selectedClubId, toast]);
+  }, [selectedClubId, toast, adminLoading]);
   
   const handleEditClick = (userToEdit: User) => {
     setSelectedUser({ ...userToEdit }); // Create a copy to edit
