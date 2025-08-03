@@ -280,21 +280,25 @@ export default function ResultsPage() {
         if (sortedResults.length === 0 || !selectedMatchId) return;
         
         const selectedMatch = matchesForSeries.find(m => m.id === selectedMatchId);
-        if (!selectedMatch) return;
+        const selectedClub = allClubs.find(c => c.id === selectedClubId);
+        if (!selectedMatch || !selectedClub) return;
 
         const doc = new jsPDF({ unit: 'mm' });
         const paidPlaces = selectedMatch.paidPlaces || 0;
         
-        const title = `Full Results: ${selectedMatch.name}`;
+        const clubTitle = selectedClub.name;
+        const matchTitle = `Full Results: ${selectedMatch.name}`;
         const subtitle = `${selectedMatch.seriesName} - ${format(selectedMatch.date as Date, 'PPP')}`;
 
-        doc.setFontSize(18);
-        doc.text(title, 14, 22);
+        doc.setFontSize(22);
+        doc.text(clubTitle, 14, 22);
+        doc.setFontSize(16);
+        doc.text(matchTitle, 14, 30);
         doc.setFontSize(12);
-        doc.text(subtitle, 14, 30);
+        doc.text(subtitle, 14, 38);
         
         (doc as any).autoTable({
-            startY: 40,
+            startY: 45,
             head: [['Overall', 'Name', 'Kg', 'Peg', 'Section', 'Sec Rank', 'Payout', 'Status']],
             body: sortedResults.map(r => [
                 r.position,
