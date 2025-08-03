@@ -31,7 +31,7 @@ const navItems = [
   { href: '/main/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/main/profile', icon: UserIcon, label: 'Profile' },
   { href: '/main/clubs', icon: Shield, label: 'Clubs' },
-  { href: '/main/members', icon: Users, label: 'Members', adminOnly: true, memberOnly: true },
+  { href: '/main/members', icon: Users, label: 'Members', adminOnly: true },
   { href: '/main/series', icon: Trophy, label: 'Series', memberOnly: true },
   { href: '/main/matches', icon: Swords, label: 'Matches', memberOnly: true },
   { href: '/main/results', icon: Medal, label: 'Results', memberOnly: true },
@@ -78,6 +78,7 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
       const isSiteAdmin = userProfile?.role === 'Site Admin';
       const isClubAdmin = userProfile?.role === 'Club Admin';
       const isMember = userProfile?.memberStatus === 'Member';
+      const isAngler = userProfile?.role === 'Angler';
 
       if (item.emulatorOnly && !isEmulatorMode) {
           return false;
@@ -91,11 +92,10 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
           return false;
       }
       
-      // If the item requires membership, the user must be a member or an admin.
-      if (item.memberOnly && !isMember && !isSiteAdmin && !isClubAdmin) {
+      if (item.memberOnly && !isMember) {
           return false;
       }
-
+      
       return true;
   }).sort((a, b) => {
       const adminOrder = ['/main/admin/edit-seed-users', '/main/users/deleted', '/main/admin/seed', '/main/emulator', '/main/test-access'];
