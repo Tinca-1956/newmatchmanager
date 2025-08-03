@@ -140,22 +140,24 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
   }, [results, sortBy]);
 
   const handleDownloadPdf = () => {
-    if (!match || sortedResults.length === 0) return;
+    if (!match || sortedResults.length === 0 || !club) return;
     
     const doc = new jsPDF({ unit: 'mm' });
     
+    const clubTitle = club.name;
     const title = `Full Results: ${match.name}`;
     const subtitle = `${match.seriesName} - ${format(match.date as Date, 'PPP')}`;
     const paidPlaces = match?.paidPlaces || 0;
 
-
-    doc.setFontSize(18);
-    doc.text(title, 14, 22);
+    doc.setFontSize(22);
+    doc.text(clubTitle, 14, 22);
+    doc.setFontSize(16);
+    doc.text(title, 14, 30);
     doc.setFontSize(12);
-    doc.text(subtitle, 14, 30);
+    doc.text(subtitle, 14, 38);
     
     (doc as any).autoTable({
-        startY: 40,
+        startY: 45,
         head: [['Overall', 'Name', 'Kg', 'Peg', 'Section', 'Sec Rank', 'Payout', 'Status']],
         body: sortedResults.map(r => [
             r.position,
