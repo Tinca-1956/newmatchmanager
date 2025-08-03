@@ -103,13 +103,17 @@ export function DisplayAnglerListModal({ isOpen, onClose, match }: DisplayAngler
   }, [isOpen, match, toast]);
   
   const handleDownloadPdf = () => {
-    if (!match || anglerDetails.length === 0) return;
+    if (!match || anglerDetails.length === 0 || !club) return;
     
     const doc = new jsPDF({ unit: 'mm' });
     
+    const clubTitle = club.name;
     const title = `Angler List: ${match.name}`;
+    
+    doc.setFontSize(22);
+    doc.text(clubTitle, 14, 22);
     doc.setFontSize(18);
-    doc.text(title, 14, 22);
+    doc.text(title, 14, 30);
     
     (doc as any).autoTable({
         startY: 40,
