@@ -34,7 +34,7 @@ import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, getDocs }
 import type { User, Club, MembershipStatus, UserRole } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { ListFilter, Search, Edit, UserX } from 'lucide-react';
+import { ListFilter, Search, Edit, UserX, Terminal } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -62,12 +62,15 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Label } from '@/components/ui/label';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
 
 export default function MembersPage() {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const { toast } = useToast();
+  const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
   
-  const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
   
@@ -86,48 +89,37 @@ export default function MembersPage() {
 
   // Fetch initial data based on user role
   useEffect(() => {
-    if (!user) return;
-
+    if (adminLoading) return;
+    
     const fetchInitialData = async () => {
-        setIsLoading(true);
         if (!firestore) {
             toast({ variant: 'destructive', title: 'Error', description: 'Firestore not available.' });
-            setIsLoading(false);
             return;
         }
 
         try {
-            const userDocRef = doc(firestore, 'users', user.uid);
-            const userDoc = await getDoc(userDocRef);
-            if (!userDoc.exists()) {
-                setIsLoading(false);
-                return;
-            }
-            const userData = {id: userDoc.id, ...userDoc.data()} as User;
-            setCurrentUserProfile(userData);
-            
-            const isSiteAdmin = userData.role === 'Site Admin';
-
             if (isSiteAdmin) {
                 const clubsQuery = collection(firestore, 'clubs');
                 const clubsSnapshot = await getDocs(clubsQuery);
                 const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
                 setClubs(clubsData);
-                setSelectedClubId(userData.primaryClubId || (clubsData.length > 0 ? clubsData[0].id : ''));
+                if (userProfile?.primaryClubId) {
+                    setSelectedClubId(userProfile.primaryClubId);
+                } else if (clubsData.length > 0) {
+                    setSelectedClubId(clubsData[0].id);
+                }
             } else {
-                setSelectedClubId(userData.primaryClubId || '');
+                setSelectedClubId(userProfile?.primaryClubId || '');
             }
         } catch (error) {
             console.error("Error fetching initial data: ", error);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not load initial data.' });
-        } finally {
-            // Loading state will be set to false in the next effect that fetches users
         }
     };
     
     fetchInitialData();
 
-  }, [user, toast]);
+  }, [userProfile, isSiteAdmin, adminLoading, toast]);
   
   useEffect(() => {
     if (!selectedClubId || !firestore) {
@@ -242,9 +234,7 @@ export default function MembersPage() {
   };
 
   const filteredMembers = allUsers.filter(member => {
-    const isSiteAdmin = currentUserProfile?.role === 'Site Admin';
-    // When site admin, filter by selected club. Otherwise, selectedClubId is already the user's club so no need to filter again.
-    const clubMatch = isSiteAdmin ? !selectedClubId || member.primaryClubId === selectedClubId : true;
+    const clubMatch = !selectedClubId || member.primaryClubId === selectedClubId;
     const fullName = `${member.firstName} ${member.lastName}`.toLowerCase();
     const matchesSearch = fullName.includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter.length === 0 || statusFilter.includes(member.memberStatus);
@@ -253,7 +243,7 @@ export default function MembersPage() {
     return clubMatch && matchesSearch && matchesStatus && matchesRole && notDeleted;
   });
 
-  const canEdit = currentUserProfile?.role === 'Site Admin' || currentUserProfile?.role === 'Club Admin';
+  const canEdit = isSiteAdmin || isClubAdmin;
   const canViewEmail = canEdit;
 
   const renderMemberList = () => {
@@ -312,7 +302,7 @@ export default function MembersPage() {
                 <SelectItem value="Angler">Angler</SelectItem>
                 <SelectItem value="Marshal">Marshal</SelectItem>
                 <SelectItem value="Club Admin">Club Admin</SelectItem>
-                {currentUserProfile?.role === 'Site Admin' && <SelectItem value="Site Admin">Site Admin</SelectItem>}
+                {isSiteAdmin && <SelectItem value="Site Admin">Site Admin</SelectItem>}
               </SelectContent>
             </Select>
           ) : (
@@ -353,6 +343,26 @@ export default function MembersPage() {
       </TableRow>
     ));
   };
+  
+  if (adminLoading) {
+    return <div className="space-y-4">
+      <Skeleton className="h-8 w-1/2" />
+      <Skeleton className="h-6 w-3/4" />
+      <Card><CardContent><Skeleton className="h-48 w-full" /></CardContent></Card>
+    </div>
+  }
+
+  if (userProfile?.memberStatus === 'Pending' && !isSiteAdmin && !isClubAdmin) {
+    return (
+        <Alert variant="destructive">
+            <Terminal className="h-4 w-4" />
+            <AlertTitle>Access Denied</AlertTitle>
+            <AlertDescription>
+                Your membership is currently pending approval. You do not have permission to view this page.
+            </AlertDescription>
+        </Alert>
+    );
+  }
 
 
   return (
@@ -370,7 +380,7 @@ export default function MembersPage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-4 mb-4">
-               {currentUserProfile?.role === 'Site Admin' && (
+               {isSiteAdmin && (
                 <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={clubs.length === 0}>
                     <SelectTrigger className="w-48">
                         <SelectValue placeholder="Select a club..." />
@@ -450,7 +460,7 @@ export default function MembersPage() {
                       >
                         Club Admin
                       </DropdownMenuCheckboxItem>
-                      {currentUserProfile?.role === 'Site Admin' && (
+                      {isSiteAdmin && (
                         <DropdownMenuCheckboxItem
                             checked={roleFilter.includes('Site Admin')}
                             onCheckedChange={() => toggleFilter('role', 'Site Admin')}

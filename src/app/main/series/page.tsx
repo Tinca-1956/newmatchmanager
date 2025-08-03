@@ -18,7 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trophy, HelpCircle, Trash2, ArrowRight, Download } from 'lucide-react';
+import { PlusCircle, Edit, Trophy, HelpCircle, Trash2, ArrowRight, Download, Terminal } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -62,6 +62,7 @@ import Link from 'next/link';
 import { Checkbox } from '@/components/ui/checkbox';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface SeriesWithMatchCount extends Series {
     matchCount: number;
@@ -76,14 +77,13 @@ interface AnglerStanding {
 type ResultWithSectionRank = Result & { sectionPosition?: number };
 
 export default function SeriesPage() {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const { toast } = useToast();
   const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
   const router = useRouter();
 
 
   const [seriesList, setSeriesList] = useState<SeriesWithMatchCount[]>([]);
-  const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
   const [clubName, setClubName] = useState<string>('');
   const [allClubs, setAllClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
@@ -103,51 +103,31 @@ export default function SeriesPage() {
 
   const [newSeriesName, setNewSeriesName] = useState('');
 
-  // Fetch current user profile
-  useEffect(() => {
-    if (!user || !firestore) {
-      setIsLoading(false);
-      return;
-    }
-
-    const userDocRef = doc(firestore, 'users', user.uid);
-    const unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
-        if (userDoc.exists()) {
-            const userProfile = { id: userDoc.id, ...userDoc.data() } as User;
-            setCurrentUserProfile(userProfile);
-            // For non-admins, set the selected club to their primary club
-            if (userProfile.role !== 'Site Admin' && userProfile.primaryClubId) {
-                setSelectedClubId(userProfile.primaryClubId);
-            }
-        } else {
-            setIsLoading(false);
-        }
-    });
-
-    return () => unsubscribeUser();
-  }, [user]);
-
   // Fetch all clubs if user is a site admin
   useEffect(() => {
-    if (currentUserProfile?.role === 'Site Admin' && firestore) {
+    if (isSiteAdmin && firestore) {
         const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
         const unsubscribeClubs = onSnapshot(clubsQuery, (snapshot) => {
             const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
             setAllClubs(clubsData);
-            if (!selectedClubId && clubsData.length > 0) {
+            if (!selectedClubId && userProfile?.primaryClubId) {
+                setSelectedClubId(userProfile.primaryClubId);
+            } else if (!selectedClubId && clubsData.length > 0) {
                 setSelectedClubId(clubsData[0].id); // Default to first club
             }
         });
         return () => unsubscribeClubs();
+    } else if (userProfile?.primaryClubId) {
+        setSelectedClubId(userProfile.primaryClubId);
     }
-  }, [currentUserProfile, selectedClubId]);
+  }, [isSiteAdmin, userProfile, selectedClubId]);
 
 
   // Fetch series and matches for the selected club
   useEffect(() => {
     if (!selectedClubId || !firestore) {
       setSeriesList([]);
-      setClubName(currentUserProfile?.role === 'Site Admin' ? 'Please select a club' : 'No Club Selected');
+      setClubName(isSiteAdmin ? 'Please select a club' : 'No Club Selected');
       if (selectedClubId) setIsLoading(false);
       return;
     }
@@ -199,7 +179,7 @@ export default function SeriesPage() {
         unsubscribeSeries();
     };
 
-  }, [selectedClubId, toast, currentUserProfile]);
+  }, [selectedClubId, toast, isSiteAdmin]);
   
   const handleCreateSeries = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -536,6 +516,26 @@ export default function SeriesPage() {
           </TableCell>
         </TableRow>
     ));
+  }
+  
+  if (adminLoading) {
+    return <div className="space-y-4">
+      <Skeleton className="h-8 w-1/2" />
+      <Skeleton className="h-6 w-3/4" />
+      <Card><CardContent><Skeleton className="h-48 w-full" /></CardContent></Card>
+    </div>
+  }
+
+  if (userProfile?.memberStatus === 'Pending' && !isSiteAdmin && !isClubAdmin) {
+    return (
+        <Alert variant="destructive">
+            <Terminal className="h-4 w-4" />
+            <AlertTitle>Access Denied</AlertTitle>
+            <AlertDescription>
+                Your membership is currently pending approval. You do not have permission to view this page.
+            </AlertDescription>
+        </Alert>
+    );
   }
 
   return (

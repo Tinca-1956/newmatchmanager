@@ -36,17 +36,18 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
+import { Download, Terminal } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 type ResultWithSectionRank = ResultType & { sectionRank?: number };
 
 export default function ResultsPage() {
-    const { user } = useAuth();
+    const { user, userProfile } = useAuth();
     const { toast } = useToast();
-    const { isSiteAdmin, loading: adminLoading } = useAdminAuth();
+    const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
 
     const [allClubs, setAllClubs] = useState<Club[]>([]);
     const [seriesForClub, setSeriesForClub] = useState<Series[]>([]);
@@ -73,20 +74,16 @@ export default function ResultsPage() {
         const fetchClubs = async () => {
             setIsLoadingClubs(true);
             try {
-                const userDocRef = doc(firestore, 'users', user.uid);
-                const userDoc = await getDoc(userDocRef);
-                const userData = userDoc.exists() ? userDoc.data() as User : null;
-
                 if (isSiteAdmin) {
                     const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
                     const clubsSnapshot = await getDocs(clubsQuery);
                     const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
                     setAllClubs(clubsData);
-                    if (userData?.primaryClubId) {
-                      setSelectedClubId(userData.primaryClubId);
+                    if (userProfile?.primaryClubId) {
+                      setSelectedClubId(userProfile.primaryClubId);
                     }
-                } else if (userData?.primaryClubId) {
-                    const clubDocRef = doc(firestore, 'clubs', userData.primaryClubId);
+                } else if (userProfile?.primaryClubId) {
+                    const clubDocRef = doc(firestore, 'clubs', userProfile.primaryClubId);
                     const clubDoc = await getDoc(clubDocRef);
                     if (clubDoc.exists()) {
                         const primaryClub = { id: clubDoc.id, ...clubDoc.data() } as Club;
@@ -104,7 +101,7 @@ export default function ResultsPage() {
         
         fetchClubs();
 
-    }, [user, isSiteAdmin, adminLoading, toast]);
+    }, [user, userProfile, isSiteAdmin, adminLoading, toast]);
 
     // Step 2: Handle Club Selection -> Fetch Series
     useEffect(() => {
@@ -376,6 +373,26 @@ export default function ResultsPage() {
             );
         });
     };
+    
+    if (adminLoading) {
+      return <div className="space-y-4">
+        <Skeleton className="h-8 w-1/2" />
+        <Skeleton className="h-6 w-3/4" />
+        <Card><CardContent><Skeleton className="h-48 w-full" /></CardContent></Card>
+      </div>
+    }
+
+    if (userProfile?.memberStatus === 'Pending' && !isSiteAdmin && !isClubAdmin) {
+      return (
+          <Alert variant="destructive">
+              <Terminal className="h-4 w-4" />
+              <AlertTitle>Access Denied</AlertTitle>
+              <AlertDescription>
+                  Your membership is currently pending approval. You do not have permission to view this page.
+              </AlertDescription>
+          </Alert>
+      );
+    }
 
     return (
         <div className="flex flex-col gap-8">

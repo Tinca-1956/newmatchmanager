@@ -31,10 +31,10 @@ const navItems = [
   { href: '/main/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/main/profile', icon: UserIcon, label: 'Profile' },
   { href: '/main/clubs', icon: Shield, label: 'Clubs' },
-  { href: '/main/members', icon: Users, label: 'Members', adminOnly: true },
-  { href: '/main/series', icon: Trophy, label: 'Series' },
-  { href: '/main/matches', icon: Swords, label: 'Matches' },
-  { href: '/main/results', icon: Medal, label: 'Results' },
+  { href: '/main/members', icon: Users, label: 'Members', adminOnly: true, memberOnly: true },
+  { href: '/main/series', icon: Trophy, label: 'Series', memberOnly: true },
+  { href: '/main/matches', icon: Swords, label: 'Matches', memberOnly: true },
+  { href: '/main/results', icon: Medal, label: 'Results', memberOnly: true },
   { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users', adminOnly: true, siteAdminOnly: true },
   { href: '/main/admin/seed', icon: Beaker, label: 'Seed Data', adminOnly: true, siteAdminOnly: true },
   { href: '/main/test-access', icon: TestTube, label: 'Test Access', adminOnly: true, siteAdminOnly: true },
@@ -48,8 +48,7 @@ interface AppSidebarContentProps {
 
 function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
   const pathname = usePathname();
-  const { user } = useAuth();
-  const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
+  const { user, userProfile } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isEmulatorMode, setIsEmulatorMode] = useState(false);
 
@@ -57,21 +56,13 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
     if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
       setIsEmulatorMode(true);
     }
-
-    if (!user || !firestore) {
+    // The loading state will be managed by the parent's auth check.
+    // If we have a userProfile, we can consider it loaded.
+    if(userProfile) {
       setIsLoading(false);
-      return;
     }
-    const userDocRef = doc(firestore, 'users', user.uid);
-    const unsubscribe = onSnapshot(userDocRef, (doc) => {
-      if (doc.exists()) {
-        setCurrentUserProfile({ id: doc.id, ...doc.data() } as User);
-      }
-      setIsLoading(false);
-    }, () => setIsLoading(false));
 
-    return () => unsubscribe();
-  }, [user]);
+  }, [userProfile]);
 
   if (isLoading) {
     return (
@@ -84,8 +75,9 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
   }
 
   const sortedNavItems = navItems.filter(item => {
-      const isSiteAdmin = currentUserProfile?.role === 'Site Admin';
-      const isClubAdmin = currentUserProfile?.role === 'Club Admin';
+      const isSiteAdmin = userProfile?.role === 'Site Admin';
+      const isClubAdmin = userProfile?.role === 'Club Admin';
+      const isMember = userProfile?.memberStatus === 'Member';
 
       if (item.emulatorOnly && !isEmulatorMode) {
           return false;
@@ -99,6 +91,11 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
           return false;
       }
       
+      // If the item requires membership, the user must be a member or an admin.
+      if (item.memberOnly && !isMember && !isSiteAdmin && !isClubAdmin) {
+          return false;
+      }
+
       return true;
   }).sort((a, b) => {
       const adminOrder = ['/main/admin/edit-seed-users', '/main/users/deleted', '/main/admin/seed', '/main/emulator', '/main/test-access'];
