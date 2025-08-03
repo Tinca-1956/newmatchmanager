@@ -16,8 +16,8 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore, auth } from '@/lib/firebase-client';
-import { doc, onSnapshot, updateDoc, getDoc, collection, query, where, getDocs, arrayRemove, increment, Timestamp } from 'firebase/firestore';
-import type { User, Club, Match } from '@/lib/types';
+import { doc, onSnapshot, updateDoc, getDoc, collection, query, where, getDocs, arrayRemove, increment, Timestamp, setDoc } from 'firebase/firestore';
+import type { User, Club, Match, Membership } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
@@ -194,6 +194,41 @@ export default function ProfilePage() {
       setIsSaving(false);
     }
   };
+  
+  const handleRequestAccess = async () => {
+    if (!user || !profile || !profile.secondaryClubId || !firestore) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select a secondary club first.' });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // The document ID will be a composite of userId and clubId to ensure uniqueness
+      const membershipDocId = `${user.uid}_${profile.secondaryClubId}`;
+      const membershipDocRef = doc(firestore, 'memberships', membershipDocId);
+
+      const membershipData: Omit<Membership, 'id'> = {
+        userId: user.uid,
+        clubId: profile.secondaryClubId,
+        status: 'Pending',
+        userName: `${profile.firstName} ${profile.lastName}`,
+        userEmail: profile.email
+      };
+
+      await setDoc(membershipDocRef, membershipData);
+
+      toast({
+        title: 'Request Sent',
+        description: `Your request to join the selected secondary club has been sent. A club admin will review it.`,
+      });
+
+    } catch (error) {
+      console.error('Error requesting access:', error);
+      toast({ variant: 'destructive', title: 'Request Failed', description: 'Could not send your membership request.' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const renderProfileForm = () => {
     if (isLoading) {
@@ -299,8 +334,18 @@ export default function ProfilePage() {
               </SelectContent>
             </Select>
              <p className="text-sm text-muted-foreground">
-              You can belong to a secondary club if needed.
+              Request to join another club here.
             </p>
+          </div>
+           <div className="pt-2">
+            <Button 
+                type="button" 
+                variant="secondary"
+                onClick={handleRequestAccess} 
+                disabled={!profile.secondaryClubId || isSaving}
+            >
+                {isSaving ? 'Sending Request...' : 'Request Access'}
+            </Button>
           </div>
         </CardContent>
         <CardFooter className="border-t px-6 py-4">
@@ -309,7 +354,7 @@ export default function ProfilePage() {
               Change Password
             </Button>
             <Button type="submit" disabled={isSaving}>
-              {isSaving ? 'Saving...' : 'Save Changes'}
+              {isSaving ? 'Saving...' : 'Save Profile Changes'}
             </Button>
           </div>
         </CardFooter>

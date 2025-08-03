@@ -12,9 +12,9 @@ export interface User {
   lastName: string;
   email: string;
   role: UserRole;
-  memberStatus: MembershipStatus;
+  memberStatus: MembershipStatus; // Status for the primary club
   primaryClubId?: string;
-  secondaryClubId?: string;
+  secondaryClubId?: string; // This might be deprecated in future
 }
 
 export interface Club {
@@ -28,9 +28,12 @@ export interface Club {
 }
 
 export interface Membership {
+  id: string; // The doc ID will be the clubId for simplicity
   userId: string;
   clubId: string;
   status: MembershipStatus;
+  userName: string;
+  userEmail: string;
 }
 
 export interface Series {
