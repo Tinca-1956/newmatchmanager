@@ -137,6 +137,7 @@ export default function ProfilePage() {
         firstName: profile.firstName,
         lastName: profile.lastName,
         primaryClubId: profile.primaryClubId,
+        secondaryClubId: profile.secondaryClubId || null,
       });
       toast({ title: 'Success!', description: 'Your profile has been updated.' });
     } catch (error) {
@@ -277,6 +278,28 @@ export default function ProfilePage() {
             </Select>
              <p className="text-sm text-muted-foreground">
               This is your main club for dashboard and default views.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="secondaryClub">Secondary Club</Label>
+            <Select
+              value={profile.secondaryClubId || ''}
+              onValueChange={(value) => setProfile({ ...profile, secondaryClubId: value === 'none' ? undefined : value })}
+            >
+              <SelectTrigger id="secondaryClub">
+                <SelectValue placeholder="Select a secondary club (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                {clubs.filter(c => c.id !== profile.primaryClubId).map((club) => (
+                  <SelectItem key={club.id} value={club.id}>
+                    {club.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+             <p className="text-sm text-muted-foreground">
+              You can belong to a secondary club if needed.
             </p>
           </div>
         </CardContent>
