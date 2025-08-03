@@ -18,7 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trophy, HelpCircle, Trash2, ArrowRight, Download, Terminal } from 'lucide-react';
+import { PlusCircle, Edit, Trophy, HelpCircle, Trash2, ArrowRight, Download } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -62,7 +62,6 @@ import Link from 'next/link';
 import { Checkbox } from '@/components/ui/checkbox';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface SeriesWithMatchCount extends Series {
     matchCount: number;
@@ -524,18 +523,6 @@ export default function SeriesPage() {
       <Skeleton className="h-6 w-3/4" />
       <Card><CardContent><Skeleton className="h-48 w-full" /></CardContent></Card>
     </div>
-  }
-
-  if (userProfile?.memberStatus === 'Pending' && !isSiteAdmin && !isClubAdmin) {
-    return (
-        <Alert variant="destructive">
-            <Terminal className="h-4 w-4" />
-            <AlertTitle>Access Denied</AlertTitle>
-            <AlertDescription>
-                Your membership is currently pending approval. You do not have permission to view this page.
-            </AlertDescription>
-        </Alert>
-    );
   }
 
   return (

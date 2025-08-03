@@ -36,10 +36,9 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { Button } from '@/components/ui/button';
-import { Download, Terminal } from 'lucide-react';
+import { Download } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 type ResultWithSectionRank = ResultType & { sectionRank?: number };
@@ -373,26 +372,6 @@ export default function ResultsPage() {
             );
         });
     };
-    
-    if (adminLoading) {
-      return <div className="space-y-4">
-        <Skeleton className="h-8 w-1/2" />
-        <Skeleton className="h-6 w-3/4" />
-        <Card><CardContent><Skeleton className="h-48 w-full" /></CardContent></Card>
-      </div>
-    }
-
-    if (userProfile?.memberStatus === 'Pending' && !isSiteAdmin && !isClubAdmin) {
-      return (
-          <Alert variant="destructive">
-              <Terminal className="h-4 w-4" />
-              <AlertTitle>Access Denied</AlertTitle>
-              <AlertDescription>
-                  Your membership is currently pending approval. You do not have permission to view this page.
-              </AlertDescription>
-          </Alert>
-      );
-    }
 
     return (
         <div className="flex flex-col gap-8">

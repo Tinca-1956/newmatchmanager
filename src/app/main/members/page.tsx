@@ -34,7 +34,7 @@ import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, getDocs }
 import type { User, Club, MembershipStatus, UserRole } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { ListFilter, Search, Edit, UserX, Terminal } from 'lucide-react';
+import { ListFilter, Search, Edit, UserX } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -63,7 +63,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from '@/components/ui/label';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 export default function MembersPage() {
@@ -343,27 +342,6 @@ export default function MembersPage() {
       </TableRow>
     ));
   };
-  
-  if (adminLoading) {
-    return <div className="space-y-4">
-      <Skeleton className="h-8 w-1/2" />
-      <Skeleton className="h-6 w-3/4" />
-      <Card><CardContent><Skeleton className="h-48 w-full" /></CardContent></Card>
-    </div>
-  }
-
-  if (userProfile?.memberStatus === 'Pending' && !isSiteAdmin && !isClubAdmin) {
-    return (
-        <Alert variant="destructive">
-            <Terminal className="h-4 w-4" />
-            <AlertTitle>Access Denied</AlertTitle>
-            <AlertDescription>
-                Your membership is currently pending approval. You do not have permission to view this page.
-            </AlertDescription>
-        </Alert>
-    );
-  }
-
 
   return (
     <>

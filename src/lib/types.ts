@@ -14,7 +14,7 @@ export interface User {
   role: UserRole;
   memberStatus: MembershipStatus; // Status for the primary club
   primaryClubId?: string;
-  secondaryClubId?: string; // This might be deprecated in future
+  secondaryClubId?: string;
 }
 
 export interface Club {
@@ -25,15 +25,6 @@ export interface Club {
   country?: string;
   state?: string;
   subscriptionExpiryDate?: Date | Timestamp;
-}
-
-export interface Membership {
-  id: string; // The doc ID will be the clubId for simplicity
-  userId: string;
-  clubId: string;
-  status: MembershipStatus;
-  userName: string;
-  userEmail: string;
 }
 
 export interface Series {

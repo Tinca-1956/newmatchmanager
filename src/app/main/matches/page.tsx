@@ -19,7 +19,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, UserPlus, FileText, Trophy, Scale, LogIn, Edit, UserMinus, MapPin, MoreVertical, Image as ImageIcon, Terminal } from 'lucide-react';
+import { PlusCircle, UserPlus, FileText, Trophy, Scale, LogIn, Edit, UserMinus, MapPin, MoreVertical, Image as ImageIcon } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -54,7 +54,6 @@ import Link from 'next/link';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CreateMatchModal } from '@/components/create-match-modal';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
@@ -490,26 +489,6 @@ function MatchesPageContent() {
     });
   }
 
-  if (adminLoading) {
-    return <div className="space-y-4">
-      <Skeleton className="h-8 w-1/2" />
-      <Skeleton className="h-6 w-3/4" />
-      <Card><CardContent><Skeleton className="h-48 w-full" /></CardContent></Card>
-    </div>
-  }
-  
-  if (userProfile?.memberStatus === 'Pending' && !isSiteAdmin && !isClubAdmin) {
-    return (
-        <Alert variant="destructive">
-            <Terminal className="h-4 w-4" />
-            <AlertTitle>Access Denied</AlertTitle>
-            <AlertDescription>
-                Your membership is currently pending approval. You do not have permission to view this page.
-            </AlertDescription>
-        </Alert>
-    );
-  }
-  
   return (
     <>
       <div className="flex flex-col gap-8">
