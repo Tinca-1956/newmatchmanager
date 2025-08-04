@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Timestamp, doc, writeBatch } from 'firebase/firestore';
 import type { Application, Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
@@ -38,6 +38,7 @@ export default function ApplicationsPage() {
   const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isProcessingId, setIsProcessingId] = useState<string | null>(null);
 
   // Effect to set the initial club for fetching applications
   useEffect(() => {
@@ -90,14 +91,49 @@ export default function ApplicationsPage() {
 
     return () => unsubscribe();
   }, [selectedClubId, toast, adminLoading]);
+  
+  const handleAccept = async (application: Application) => {
+    if (!firestore) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Firestore is not available.' });
+        return;
+    }
+    
+    setIsProcessingId(application.id);
+    
+    try {
+        const batch = writeBatch(firestore);
 
-  const handleAccept = (applicationId: string) => {
-    // This will be implemented in the next step
-    toast({
-      title: 'Pending Implementation',
-      description: `Accept functionality for application ${applicationId} is not yet implemented.`,
-    });
+        // 1. Update the user's document
+        const userDocRef = doc(firestore, 'users', application.userId);
+        batch.update(userDocRef, {
+            primaryClubId: application.clubId,
+            memberStatus: 'Member',
+            role: 'Angler'
+        });
+
+        // 2. Delete the application document
+        const appDocRef = doc(firestore, 'applications', application.id);
+        batch.delete(appDocRef);
+
+        await batch.commit();
+
+        toast({
+            title: 'Success!',
+            description: `${application.userName} has been added as a member.`
+        });
+
+    } catch (error) {
+        console.error("Error accepting application: ", error);
+        toast({
+            variant: 'destructive',
+            title: 'Action Failed',
+            description: 'Could not accept the application. Please check console for errors.'
+        });
+    } finally {
+        setIsProcessingId(null);
+    }
   };
+
 
   if (adminLoading) {
     return (
@@ -149,7 +185,9 @@ export default function ApplicationsPage() {
           {app.createdAt instanceof Timestamp ? format(app.createdAt.toDate(), 'PPP p') : 'N/A'}
         </TableCell>
         <TableCell className="text-right">
-          <Button onClick={() => handleAccept(app.id)}>Accept</Button>
+          <Button onClick={() => handleAccept(app)} disabled={isProcessingId === app.id}>
+            {isProcessingId === app.id ? 'Accepting...' : 'Accept'}
+          </Button>
         </TableCell>
       </TableRow>
     ));
