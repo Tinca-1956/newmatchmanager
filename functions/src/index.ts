@@ -4,6 +4,10 @@ import * as logger from "firebase-functions/logger";
 import {initializeApp, getApps} from "firebase-admin/app";
 import {getAuth} from "firebase-admin/auth";
 import type { User } from "./types";
+import * as cors from "cors";
+
+const corsHandler = cors({origin: true});
+
 
 // Initialize the Admin SDK only if it hasn't been already
 if (getApps().length === 0) {
@@ -52,3 +56,43 @@ export const setUserRole = functions.firestore
         
         return null;
     });
+
+
+/**
+ * A callable Cloud Function to check the email verification status of a user.
+ * This is required because client-side code cannot access this property for other users.
+ * The function is protected by checking if the caller is an authenticated admin.
+ */
+export const checkEmailVerification = functions.https.onCall(async (data, context) => {
+    // Ensure the user calling the function is authenticated
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+    }
+
+    // Ensure the authenticated user has an Admin role in their custom claims.
+    const callerClaims = context.auth.token;
+    const callerRole = callerClaims.role;
+    if (callerRole !== 'Site Admin' && callerRole !== 'Club Admin') {
+        throw new functions.https.HttpsError('permission-denied', 'You must be an admin to perform this action.');
+    }
+
+    const uids: string[] = data.uids;
+    if (!Array.isArray(uids) || uids.length === 0 || uids.length > 100) {
+        throw new functions.https.HttpsError('invalid-argument', 'Please provide an array of UIDs (up to 100).');
+    }
+
+    try {
+        const userRecords = await getAuth().getUsers(uids.map(uid => ({ uid })));
+        
+        const verificationStatus: { [uid: string]: boolean } = {};
+        userRecords.users.forEach(user => {
+            verificationStatus[user.uid] = user.emailVerified;
+        });
+
+        return verificationStatus;
+
+    } catch (error) {
+        logger.error("Error fetching user verification status:", error);
+        throw new functions.https.HttpsError('internal', 'Unable to retrieve user verification status.');
+    }
+});
