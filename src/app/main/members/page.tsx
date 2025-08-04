@@ -34,7 +34,7 @@ import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, getDocs, 
 import type { User, Club, MembershipStatus, UserRole } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { ListFilter, Search, Edit, UserX, CheckCircle, XCircle } from 'lucide-react';
+import { ListFilter, Search, Edit, UserX } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -63,18 +63,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from '@/components/ui/label';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-
-interface UserWithVerification extends User {
-    isEmailVerified?: boolean;
-}
 
 export default function MembersPage() {
   const { user, userProfile } = useAuth();
   const { toast } = useToast();
   const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
   
-  const [allUsers, setAllUsers] = useState<UserWithVerification[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
   
   const [selectedClubId, setSelectedClubId] = useState<string>('');
@@ -136,33 +131,8 @@ export default function MembersPage() {
     setIsLoading(true);
     const membersQuery = query(collection(firestore, 'users'), where('primaryClubId', '==', selectedClubId));
     const unsubscribe = onSnapshot(membersQuery, (snapshot) => {
-        const membersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserWithVerification));
+        const membersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
         setAllUsers(membersData);
-
-        // After fetching users, get their verification status
-        if (membersData.length > 0 && (isSiteAdmin || isClubAdmin)) {
-            const functions = getFunctions();
-            const checkEmailVerification = httpsCallable(functions, 'checkEmailVerification');
-            const uids = membersData.map(m => m.id);
-            
-            checkEmailVerification({ uids })
-                .then(result => {
-                    const statuses = result.data as { [uid: string]: boolean };
-                    setAllUsers(prevUsers => prevUsers.map(u => ({
-                        ...u,
-                        isEmailVerified: statuses[u.id]
-                    })));
-                })
-                .catch(error => {
-                    console.error("Error checking email verification:", error);
-                    toast({
-                        variant: 'destructive',
-                        title: 'Could not get verification status',
-                        description: 'Please check console for errors.',
-                    });
-                });
-        }
-
         setIsLoading(false);
     }, (error) => {
         console.error("Error fetching club members: ", error);
@@ -171,7 +141,7 @@ export default function MembersPage() {
     });
 
     return () => unsubscribe();
-  }, [selectedClubId, toast, adminLoading, isSiteAdmin, isClubAdmin]);
+  }, [selectedClubId, toast, adminLoading]);
   
   const handleEditClick = (userToEdit: User) => {
     setSelectedUser({ ...userToEdit }); // Create a copy to edit
@@ -296,20 +266,7 @@ export default function MembersPage() {
     return filteredMembers.map(member => (
       <TableRow key={member.id}>
         <TableCell className="font-medium">{`${member.firstName} ${member.lastName}`}</TableCell>
-        {canViewEmail && (
-            <TableCell>
-                 <div className="flex items-center gap-2">
-                    <span>{member.email}</span>
-                    {member.isEmailVerified === undefined ? (
-                         <Skeleton className="h-4 w-4 rounded-full" />
-                    ) : member.isEmailVerified ? (
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                    ) : (
-                        <XCircle className="h-4 w-4 text-destructive" />
-                    )}
-                 </div>
-            </TableCell>
-        )}
+        {canViewEmail && <TableCell>{member.email}</TableCell>}
         <TableCell>
           {canEdit ? (
             <Select
