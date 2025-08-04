@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Timestamp, doc, writeBatch } from 'firebase/firestore';
 import type { Application, Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
@@ -38,10 +38,12 @@ export default function ApplicationsPage() {
   const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState<string | null>(null);
 
   // Effect to set the initial club for fetching applications
   useEffect(() => {
     if (adminLoading) return;
+
     if (isSiteAdmin) {
       if (!firestore) return;
       const clubsQuery = query(collection(firestore, 'clubs'));
@@ -49,7 +51,8 @@ export default function ApplicationsPage() {
         const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
         setClubs(clubsData);
         if (clubsData.length > 0 && !selectedClubId) {
-          setSelectedClubId(clubsData[0].id);
+          // Default to user's primary club if available, otherwise first in list
+          setSelectedClubId(userProfile?.primaryClubId || clubsData[0].id);
         }
       }, (error) => {
         console.error("Error fetching clubs for site admin:", error);
@@ -91,13 +94,41 @@ export default function ApplicationsPage() {
     return () => unsubscribe();
   }, [selectedClubId, toast, adminLoading]);
   
-  const handleAccept = (applicationId: string) => {
-    // This function is not yet implemented
-    console.log("Accepting application:", applicationId);
-    toast({
-      title: 'Action Required',
-      description: 'Accept functionality is not yet implemented.',
-    });
+  const handleAccept = async (application: Application) => {
+    if (!firestore) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Database not available.' });
+        return;
+    }
+
+    setIsProcessing(application.id);
+    try {
+        const batch = writeBatch(firestore);
+
+        // 1. Update the user's profile
+        const userDocRef = doc(firestore, 'users', application.userId);
+        batch.update(userDocRef, {
+            primaryClubId: application.clubId,
+            memberStatus: 'Member',
+            role: 'Angler', // Set default role to Angler
+        });
+        
+        // 2. Delete the application document
+        const appDocRef = doc(firestore, 'applications', application.id);
+        batch.delete(appDocRef);
+
+        await batch.commit();
+
+        toast({
+            title: 'Success!',
+            description: `${application.userName} is now a member of ${application.clubName}.`,
+        });
+
+    } catch(error) {
+        console.error("Error accepting application:", error);
+        toast({ variant: 'destructive', title: 'Accept Failed', description: 'Could not process the application.' });
+    } finally {
+        setIsProcessing(null);
+    }
   };
 
   if (adminLoading) {
@@ -150,7 +181,9 @@ export default function ApplicationsPage() {
           {app.createdAt instanceof Timestamp ? format(app.createdAt.toDate(), 'PPP p') : 'N/A'}
         </TableCell>
         <TableCell className="text-right">
-          <Button onClick={() => handleAccept(app.id)}>Accept</Button>
+          <Button onClick={() => handleAccept(app)} disabled={isProcessing === app.id}>
+            {isProcessing === app.id ? 'Accepting...' : 'Accept'}
+            </Button>
         </TableCell>
       </TableRow>
     ));
