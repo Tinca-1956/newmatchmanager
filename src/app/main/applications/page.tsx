@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -21,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, onSnapshot, Timestamp, doc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
 import type { Application, Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
@@ -38,7 +37,6 @@ export default function ApplicationsPage() {
   const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
-  const [isProcessing, setIsProcessing] = useState<string | null>(null);
 
   // Effect to set the initial club for fetching applications
   useEffect(() => {
@@ -94,41 +92,11 @@ export default function ApplicationsPage() {
     return () => unsubscribe();
   }, [selectedClubId, toast, adminLoading]);
   
-  const handleAccept = async (application: Application) => {
-    if (!firestore) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Database not available.' });
-        return;
-    }
-
-    setIsProcessing(application.id);
-    try {
-        const batch = writeBatch(firestore);
-
-        // 1. Update the user's profile
-        const userDocRef = doc(firestore, 'users', application.userId);
-        batch.update(userDocRef, {
-            primaryClubId: application.clubId,
-            memberStatus: 'Member',
-            role: 'Angler', // Set default role to Angler
-        });
-        
-        // 2. Delete the application document
-        const appDocRef = doc(firestore, 'applications', application.id);
-        batch.delete(appDocRef);
-
-        await batch.commit();
-
-        toast({
-            title: 'Success!',
-            description: `${application.userName} is now a member of ${application.clubName}.`,
-        });
-
-    } catch(error) {
-        console.error("Error accepting application:", error);
-        toast({ variant: 'destructive', title: 'Accept Failed', description: 'Could not process the application.' });
-    } finally {
-        setIsProcessing(null);
-    }
+  const handleAccept = (application: Application) => {
+    toast({
+        title: 'Action Not Implemented',
+        description: 'Accepting applications is not yet implemented.',
+    });
   };
 
   if (adminLoading) {
@@ -181,8 +149,8 @@ export default function ApplicationsPage() {
           {app.createdAt instanceof Timestamp ? format(app.createdAt.toDate(), 'PPP p') : 'N/A'}
         </TableCell>
         <TableCell className="text-right">
-          <Button onClick={() => handleAccept(app)} disabled={isProcessing === app.id}>
-            {isProcessing === app.id ? 'Accepting...' : 'Accept'}
+          <Button onClick={() => handleAccept(app)}>
+            Accept
             </Button>
         </TableCell>
       </TableRow>
