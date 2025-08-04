@@ -1,86 +1,154 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // Helper Functions
     function isSiteAdmin() {
       return request.auth.token.role == 'Site Admin';
     }
 
-    function isClubAdmin() {
-      return request.auth.token.role == 'Club Admin';
-    }
-
     function isClubAdminOf(clubId) {
-      return isClubAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
+      return request.auth.token.role == 'Club Admin' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
     }
 
-    // Rules for the 'users' collection
-    match /users/{userId} {
-      // GET: Who can read a single user document?
-      // - Site Admins.
-      // - The user themselves.
-      // - Any user from the same primary club.
-      allow get: if isSiteAdmin() || 
-                    request.auth.uid == userId ||
-                    (request.auth.uid != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == resource.data.primaryClubId);
-
-      // LIST: Who can query the users collection?
-      // - Site Admins can list all users (e.g., for the members page with club filter).
-      // - Authenticated users can list users belonging to their own primary club.
-      allow list: if isSiteAdmin() ||
-                     (request.auth.uid != null && request.query.where.get("primaryClubId")[2] == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId);
-
-      // CREATE: A user can create their own profile document.
-      allow create: if request.auth.uid == userId;
-
-      // UPDATE:
-      // - A user can update their own profile.
-      // - A Site Admin can update any profile.
-      // - A Club Admin can update profiles of users in their own club.
-      allow update: if request.auth.uid == userId ||
-                       isSiteAdmin() ||
-                       (isClubAdminOf(resource.data.primaryClubId));
-                       
-      // DELETE:
-      // - A Site Admin can delete any user.
-      allow delete: if isSiteAdmin();
-    }
-
-    // Rules for the 'clubs' collection
-    match /clubs/{clubId} {
-      // Anyone authenticated can read club details.
-      allow read: if request.auth.uid != null;
-      // Only Site Admins can create, update, or delete clubs.
-      allow write: if isSiteAdmin();
-    }
-
-    // Rules for 'series', 'matches', 'results', 'applications'
-    match /{collection}/{docId} {
-      // READ: 
-      // - Site Admins can read anything.
-      // - Any user can read documents from their primary club.
-      allow read: if isSiteAdmin() || 
-                     (request.auth.uid != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == resource.data.clubId);
-
-      // WRITE (Create, Update, Delete):
-      // - Site Admins can write anything.
-      // - Club Admins can write to their own club's documents.
-      allow write: if isSiteAdmin() || isClubAdminOf(resource.data.clubId);
+    function isSignedIn() {
+      return request.auth != null;
     }
     
-     match /matches/{matchId} {
-      allow read: if isSiteAdmin() || 
-                     (request.auth.uid != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == resource.data.clubId);
+    //------------------------------------------------------------
+    //  /users/{userId}
+    //------------------------------------------------------------
+    match /users/{userId} {
+      // A user can read their own profile.
+      // A Site Admin can read any profile.
+      // A Club Admin/Member can read profiles of users in their own primary club.
+      allow get: if isSignedIn() && (
+        request.auth.uid == userId ||
+        isSiteAdmin() ||
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == resource.data.primaryClubId)
+      );
 
-      // Let Club Admins and Site Admins update matches.
-      // Allow any authenticated user to update the 'registeredAnglers' and 'registeredCount' fields (i.e., register for a match).
-      allow update: if isSiteAdmin() || isClubAdminOf(resource.data.clubId) ||
-                       (request.auth.uid != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['registeredAnglers', 'registeredCount']));
-                       
-      allow create, delete: if isSiteAdmin() || isClubAdminOf(request.resource.data.clubId);
+      // A user can be created if they are signed in.
+      allow create: if isSignedIn();
+
+      // A user can update their own profile.
+      // A Site Admin or a Club Admin can update any user profile within their scope.
+      allow update: if isSignedIn() && (
+        request.auth.uid == userId ||
+        isSiteAdmin() ||
+        isClubAdminOf(resource.data.primaryClubId)
+      );
+
+      // Only Site Admins can delete users.
+      allow delete: if isSiteAdmin();
+      
+      // Rules for listing/querying users.
+      match /users/{document=**} {
+        // A Site Admin can list/query all users.
+        // Others can only query users belonging to their own primary club.
+        allow list: if isSiteAdmin() || (
+          isSignedIn() && request.query.where.get('primaryClubId')[2][0] == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId
+        );
+      }
+    }
+
+    //------------------------------------------------------------
+    //  /clubs/{clubId}
+    //------------------------------------------------------------
+    match /clubs/{clubId} {
+      // Anyone signed in can read club information.
+      allow read: if isSignedIn();
+      // Only Site Admins can create, update or delete clubs.
+      allow write: if isSiteAdmin();
+    }
+    
+    //------------------------------------------------------------
+    //  /series/{seriesId}
+    //------------------------------------------------------------
+    match /series/{seriesId} {
+      // Anyone signed in can view a series.
+      allow read: if isSignedIn();
+
+      // Site Admins and Club Admins of the respective club can create/update a series.
+      allow write: if isSiteAdmin() || isClubAdminOf(request.resource.data.clubId);
+
+      // Rules for listing/querying series.
+      match /series/{document=**} {
+        // A Site Admin can list all series.
+        // Others can only list series for a specific club.
+        allow list: if isSiteAdmin() || (
+            isSignedIn() && request.query.where.get('clubId') != null
+        );
+      }
+    }
+    
+    //------------------------------------------------------------
+    //  /matches/{matchId}
+    //------------------------------------------------------------
+    match /matches/{matchId} {
+       // Anyone signed in can get a match.
+      allow get: if isSignedIn();
+
+      // Read, Create, Update: Site Admin or Club Admin of the club.
+      allow read, create, update: if isSiteAdmin() || isClubAdminOf(resource.data.clubId);
+
+      // Delete: Only Site Admins.
+      allow delete: if isSiteAdmin();
+
+      // Anglers can register by updating the registeredAnglers array.
+      allow update: if isSignedIn() && request.auth.uid in request.resource.data.registeredAnglers;
+      
+       // Rules for listing/querying matches.
+      match /matches/{document=**} {
+        // A Site Admin can list all matches.
+        // Others can list matches for a specific club or series.
+        allow list: if isSiteAdmin() || (
+            isSignedIn() && (
+                request.query.where.get('clubId') != null || 
+                request.query.where.get('seriesId') != null ||
+                request.query.where.get('registeredAnglers') != null
+            )
+        );
+      }
+    }
+    
+    //------------------------------------------------------------
+    //  /results/{resultId}
+    //------------------------------------------------------------
+    match /results/{resultId} {
+        // Site Admins and Club Admins can do anything.
+        allow read, write: if isSiteAdmin() || isClubAdminOf(resource.data.clubId);
+        
+        // Any signed-in user can read results.
+        allow get: if isSignedIn();
+
+        match /results/{document=**} {
+            // A Site Admin can list all results.
+            // Others can only list results for a specific match or series.
+            allow list: if isSiteAdmin() || (
+                isSignedIn() && (request.query.where.get('matchId') != null || request.query.where.get('seriesId') != null)
+            );
+        }
+    }
+    
+    //------------------------------------------------------------
+    //  /applications/{applicationId}
+    //------------------------------------------------------------
+    match /applications/{applicationId} {
+        // Anyone can create their own application.
+        allow create: if request.auth.uid == request.resource.data.userId;
+
+        // Site Admins or Club Admins of the target club can read/update/delete.
+        allow read, update, delete: if isSiteAdmin() || isClubAdminOf(resource.data.clubId);
+
+        match /applications/{document=**} {
+            // A Site Admin can list all applications.
+            // A Club Admin can list applications for their club.
+            allow list: if isSiteAdmin() || (
+                isClubAdminOf(request.query.where.get('clubId')[2][0])
+            );
+        }
     }
   }
 }
