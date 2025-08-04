@@ -43,6 +43,7 @@ export default function ApplicationsPage() {
   useEffect(() => {
     if (adminLoading) return;
     if (isSiteAdmin) {
+      if (!firestore) return;
       const clubsQuery = query(collection(firestore, 'clubs'));
       const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
         const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
@@ -50,18 +51,23 @@ export default function ApplicationsPage() {
         if (clubsData.length > 0 && !selectedClubId) {
           setSelectedClubId(clubsData[0].id);
         }
+      }, (error) => {
+        console.error("Error fetching clubs for site admin:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch clubs.' });
       });
       return () => unsubscribe();
     } else if (userProfile?.primaryClubId) {
       setSelectedClubId(userProfile.primaryClubId);
     }
-  }, [isSiteAdmin, userProfile, adminLoading, selectedClubId]);
+  }, [isSiteAdmin, userProfile, adminLoading, selectedClubId, toast]);
 
   // Effect to fetch applications for the selected club
   useEffect(() => {
     if (!selectedClubId || !firestore) {
-      setApplications([]);
-      setIsLoading(false);
+      if (!adminLoading) {
+        setApplications([]);
+        setIsLoading(false);
+      }
       return;
     }
     
@@ -83,7 +89,7 @@ export default function ApplicationsPage() {
     });
 
     return () => unsubscribe();
-  }, [selectedClubId, toast]);
+  }, [selectedClubId, toast, adminLoading]);
 
   const handleAccept = (applicationId: string) => {
     // This will be implemented in the next step
@@ -98,7 +104,7 @@ export default function ApplicationsPage() {
       <div className="space-y-4">
         <Skeleton className="h-10 w-1/2" />
         <Skeleton className="h-8 w-3/4" />
-        <Card><CardContent><Skeleton className="h-48 w-full" /></CardContent></Card>
+        <Card><CardHeader><Skeleton className="h-8 w-1/4" /><Skeleton className="h-6 w-1/2" /></CardHeader><CardContent><Skeleton className="h-48 w-full" /></CardContent></Card>
       </div>
     );
   }
@@ -140,7 +146,7 @@ export default function ApplicationsPage() {
         <TableCell className="font-medium">{app.userName}</TableCell>
         <TableCell>{app.userEmail}</TableCell>
         <TableCell>
-          {app.createdAt ? format(app.createdAt.toDate(), 'PPP p') : 'N/A'}
+          {app.createdAt instanceof Timestamp ? format(app.createdAt.toDate(), 'PPP p') : 'N/A'}
         </TableCell>
         <TableCell className="text-right">
           <Button onClick={() => handleAccept(app.id)}>Accept</Button>
@@ -158,7 +164,7 @@ export default function ApplicationsPage() {
       
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-wrap justify-between items-center gap-4">
             <div>
               <CardTitle>Pending Applications</CardTitle>
               <CardDescription>A list of all users waiting for club membership approval.</CardDescription>
