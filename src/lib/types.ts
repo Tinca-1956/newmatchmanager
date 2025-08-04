@@ -15,7 +15,7 @@ export interface User {
   role: UserRole;
   memberStatus: MembershipStatus; // Status for the primary club
   primaryClubId?: string;
-  secondaryClubId?: string;
+  // secondaryClubId is deprecated in favor of the applications/memberships model
 }
 
 export interface Club {
