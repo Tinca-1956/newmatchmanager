@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -20,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Timestamp, doc, writeBatch } from 'firebase/firestore';
 import type { Application, Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
@@ -37,6 +38,7 @@ export default function ApplicationsPage() {
   const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isAccepting, setIsAccepting] = useState<string | null>(null);
 
   // Effect to set the initial club for fetching applications
   useEffect(() => {
@@ -49,8 +51,12 @@ export default function ApplicationsPage() {
         const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
         setClubs(clubsData);
         if (clubsData.length > 0 && !selectedClubId) {
-          // Default to user's primary club if available, otherwise first in list
-          setSelectedClubId(userProfile?.primaryClubId || clubsData[0].id);
+          // Site admin can see all, default to first in list if no primary
+           if (userProfile?.primaryClubId && clubsData.some(c => c.id === userProfile.primaryClubId)) {
+                setSelectedClubId(userProfile.primaryClubId);
+            } else {
+                setSelectedClubId(clubsData[0].id);
+            }
         }
       }, (error) => {
         console.error("Error fetching clubs for site admin:", error);
@@ -92,12 +98,52 @@ export default function ApplicationsPage() {
     return () => unsubscribe();
   }, [selectedClubId, toast, adminLoading]);
   
-  const handleAccept = (application: Application) => {
-    toast({
-        title: 'Action Not Implemented',
-        description: 'Accepting applications is not yet implemented.',
-    });
+  const handleAccept = async (application: Application) => {
+    if (!firestore) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Firestore is not initialized.' });
+      return;
+    }
+    
+    setIsAccepting(application.id);
+    
+    try {
+        const batch = writeBatch(firestore);
+
+        // 1. Create a new document in the `memberships` collection
+        const newMembershipRef = doc(collection(firestore, 'memberships'));
+        batch.set(newMembershipRef, {
+            clubId: application.clubId,
+            userId: application.userId,
+            userName: application.userName,
+            userEmail: application.userEmail,
+            role: 'Angler',
+            status: 'Member',
+            joinedAt: Timestamp.now(),
+        });
+
+        // 2. Delete the original application document
+        const applicationRef = doc(firestore, 'applications', application.id);
+        batch.delete(applicationRef);
+
+        await batch.commit();
+        
+        toast({
+            title: 'Success!',
+            description: `${application.userName} has been accepted into the club.`,
+        });
+
+    } catch (error) {
+        console.error("Error accepting application:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Acceptance Failed',
+            description: 'There was an error processing the application. Please try again.',
+        });
+    } finally {
+        setIsAccepting(null);
+    }
   };
+
 
   if (adminLoading) {
     return (
@@ -149,8 +195,8 @@ export default function ApplicationsPage() {
           {app.createdAt instanceof Timestamp ? format(app.createdAt.toDate(), 'PPP p') : 'N/A'}
         </TableCell>
         <TableCell className="text-right">
-          <Button onClick={() => handleAccept(app)}>
-            Accept
+          <Button onClick={() => handleAccept(app)} disabled={isAccepting === app.id}>
+            {isAccepting === app.id ? 'Accepting...' : 'Accept'}
             </Button>
         </TableCell>
       </TableRow>
