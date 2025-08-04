@@ -572,7 +572,10 @@ export default function MembersPage() {
                     <DialogHeader>
                         <DialogTitle>Add Unverified Angler</DialogTitle>
                         <DialogDescription>
-                            Create a new angler record without an email address. They will not be able to log in.
+                          Create a new angler record. They will not be able to log in.
+                          <span className="block text-xs mt-2">
+                            Added by: {userProfile?.firstName} {userProfile?.lastName} ({userProfile?.role})
+                          </span>
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
