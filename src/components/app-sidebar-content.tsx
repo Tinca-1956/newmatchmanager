@@ -67,17 +67,29 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
 
   // Effect for listening to pending applications
   useEffect(() => {
-    if (!firestore || !userProfile?.primaryClubId || (userProfile.role !== 'Site Admin' && userProfile.role !== 'Club Admin')) {
+    const isAdmin = userProfile?.role === 'Site Admin' || userProfile?.role === 'Club Admin';
+    if (!firestore || !userProfile || !isAdmin) {
       setHasPendingApps(false);
       return;
     }
-    
-    const applicationsQuery = query(
-      collection(firestore, 'applications'),
-      where('clubId', '==', userProfile.primaryClubId),
-      where('status', '==', 'pending'),
-      limit(1) // We only need to know if at least one exists
-    );
+
+    let applicationsQuery;
+    if (userProfile.role === 'Site Admin') {
+      // Site Admins should see a dot if ANY application is pending
+      applicationsQuery = query(
+        collection(firestore, 'applications'),
+        where('status', '==', 'pending'),
+        limit(1)
+      );
+    } else {
+      // Club Admins only see applications for their primary club
+      applicationsQuery = query(
+        collection(firestore, 'applications'),
+        where('clubId', '==', userProfile.primaryClubId),
+        where('status', '==', 'pending'),
+        limit(1)
+      );
+    }
 
     const unsubscribe = onSnapshot(applicationsQuery, (snapshot) => {
       setHasPendingApps(!snapshot.empty);
