@@ -19,6 +19,7 @@ import {
   Beaker,
   TestTube,
   CalendarDays,
+  ClipboardCheck,
 } from 'lucide-react';
 import { SheetClose } from './ui/sheet';
 import { useAuth } from '@/hooks/use-auth';
@@ -34,6 +35,7 @@ const navItems = [
   { href: '/main/members', icon: Users, label: 'Members', adminOnly: true },
   { href: '/main/series', icon: Trophy, label: 'Series', adminOnly: true },
   { href: '/main/matches', icon: Swords, label: 'Matches', adminOnly: true },
+  { href: '/main/applications', icon: ClipboardCheck, label: 'Applications', adminOnly: true },
   { href: '/main/results', icon: Medal, label: 'Results', adminOnly: true },
   { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users', adminOnly: true, siteAdminOnly: true },
   { href: '/main/admin/seed', icon: Beaker, label: 'Seed Data', adminOnly: true, siteAdminOnly: true },
