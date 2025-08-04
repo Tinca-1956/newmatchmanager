@@ -1,65 +1,79 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper Functions
-    function isSiteAdmin() {
-      return request.auth.token.role == 'Site Admin';
-    }
-
-    function isClubAdmin() {
-      return request.auth.token.role == 'Club Admin';
-    }
-
-    function isMarshal() {
-        return request.auth.token.role == 'Marshal';
-    }
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
     
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
     
-    function userHasRole(allowedRoles) {
-        return request.auth.token.role in allowedRoles;
-    }
-
-    // Collection Rules
-    match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create: if isOwner(userId) || isSiteAdmin() || isClubAdmin();
-      allow update: if isOwner(userId) || isSiteAdmin() || isClubAdmin();
-      allow delete: if isSiteAdmin();
+    // Check role from the user's custom auth token
+    function isTokenBasedSiteAdmin() {
+      return request.auth.token.role == 'Site Admin';
     }
     
+    function isTokenBasedClubAdmin() {
+      return request.auth.token.role == 'Club Admin';
+    }
+
+    // Rules for 'users' collection
+    match /users/{userId} {
+      // Allow any authenticated user to read any other user's profile.
+      // This is necessary to populate lists of names, etc.
+      allow get: if request.auth != null;
+
+      // Allow authenticated users to query the users collection.
+      // The queries themselves must be secured on the client-side
+      // to only ask for what the user is allowed to see.
+      allow list: if request.auth != null;
+
+      // Allow a user to create their own document, or an admin to create one.
+      allow create: if isOwner(userId) || isTokenBasedSiteAdmin() || isTokenBasedClubAdmin();
+
+      // An admin can update any user. A user can only update their own document.
+      allow update: if isOwner(userId) || isTokenBasedSiteAdmin() || isTokenBasedClubAdmin();
+      
+      // Only a site admin can delete a user document.
+      allow delete: if isTokenBasedSiteAdmin();
+    }
+    
+    // Rules for 'clubs' collection
     match /clubs/{clubId} {
-        allow read: if isSignedIn();
-        allow list: if isSignedIn();
-        allow create, update, delete: if isSiteAdmin();
+      // Any authenticated user can read club details.
+      allow read: if request.auth != null;
+      allow list: if request.auth != null;
+      
+      // Only Site Admins can create, update or delete clubs.
+      allow write: if isTokenBasedSiteAdmin();
     }
-
+    
+    // Rules for 'series' collection
     match /series/{seriesId} {
-        allow read: if isSignedIn();
-        allow list: if isSignedIn();
-        allow create, update, delete: if isSiteAdmin() || isClubAdmin();
+      allow read: if request.auth != null;
+      allow list: if request.auth != null;
+      
+      // Only Admins can create/update/delete a series.
+      allow write: if isTokenBasedSiteAdmin() || isTokenBasedClubAdmin();
     }
 
+    // Rules for 'matches' collection
     match /matches/{matchId} {
-        allow read: if isSignedIn();
-        allow list: if isSignedIn();
-        allow create, update: if isSiteAdmin() || isClubAdmin();
-        allow delete: if isSiteAdmin() || isClubAdmin();
+      allow read: if request.auth != null;
+      allow list: if request.auth != null;
+
+      // Only Admins can create/update/delete a match.
+      allow write: if isTokenBasedSiteAdmin() || isTokenBasedClubAdmin();
     }
 
+    // Rules for 'results' collection
     match /results/{resultId} {
-        allow read: if isSignedIn();
-        allow list: if isSignedIn();
-        allow create, update, delete: if isSiteAdmin() || isClubAdmin() || isMarshal();
+      allow read: if request.auth != null;
+      allow list: if request.auth != null;
+      
+      // Any authenticated user can create a result (e.g., weigh-in app)
+      // but only admins can update/delete them.
+      allow create: if request.auth != null;
+      allow update, delete: if isTokenBasedSiteAdmin() || isTokenBasedClubAdmin();
     }
   }
 }
