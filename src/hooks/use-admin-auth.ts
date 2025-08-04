@@ -3,6 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from './use-auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { firestore } from '@/lib/firebase-client';
 import type { UserRole } from '@/lib/types';
 
 interface AdminAuth {
@@ -13,39 +15,24 @@ interface AdminAuth {
 }
 
 export const useAdminAuth = (): AdminAuth => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, userProfile, loading: authLoading } = useAuth();
   const [userRole, setUserRole] = useState<UserRole | null>(null);
-  const [claimsLoading, setClaimsLoading] = useState(true);
+  const [roleLoading, setRoleLoading] = useState(true);
 
   useEffect(() => {
     if (authLoading) {
       return;
     }
-    
-    if (!user) {
+    if (userProfile) {
+        setUserRole(userProfile.role);
+    } else {
         setUserRole(null);
-        setClaimsLoading(false);
-        return;
     }
-
-    setClaimsLoading(true);
-    // Force a token refresh to ensure the latest custom claims are loaded.
-    // This is crucial for newly signed-in admins.
-    user.getIdTokenResult(true).then(idTokenResult => {
-        const claims = idTokenResult.claims;
-        const role = claims.role as UserRole | undefined;
-        setUserRole(role || null);
-        setClaimsLoading(false);
-    }).catch(error => {
-        console.error("Error fetching user claims:", error);
-        setUserRole(null);
-        setClaimsLoading(false);
-    });
-
-  }, [user, authLoading]);
+    setRoleLoading(false);
+  }, [userProfile, authLoading]);
   
   const isSiteAdmin = userRole === 'Site Admin';
   const isClubAdmin = userRole === 'Club Admin';
 
-  return { isSiteAdmin, isClubAdmin, userRole, loading: authLoading || claimsLoading };
+  return { isSiteAdmin, isClubAdmin, userRole, loading: authLoading || roleLoading };
 };
