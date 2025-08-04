@@ -19,7 +19,6 @@ import {
   Beaker,
   TestTube,
   CalendarDays,
-  ClipboardCheck,
 } from 'lucide-react';
 import { SheetClose } from './ui/sheet';
 import { useAuth } from '@/hooks/use-auth';
@@ -35,7 +34,6 @@ const navItems = [
   { href: '/main/members', icon: Users, label: 'Members', adminOnly: true },
   { href: '/main/series', icon: Trophy, label: 'Series', adminOnly: true },
   { href: '/main/matches', icon: Swords, label: 'Matches', adminOnly: true },
-  { href: '/main/applications', icon: ClipboardCheck, label: 'Applications', adminOnly: true },
   { href: '/main/results', icon: Medal, label: 'Results', adminOnly: true },
   { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users', adminOnly: true, siteAdminOnly: true },
   { href: '/main/admin/seed', icon: Beaker, label: 'Seed Data', adminOnly: true, siteAdminOnly: true },
@@ -53,7 +51,6 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
   const { user, userProfile } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isEmulatorMode, setIsEmulatorMode] = useState(false);
-  const [hasPendingApps, setHasPendingApps] = useState(false);
 
   // Effect for checking emulator mode
   useEffect(() => {
@@ -63,43 +60,6 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
     if (userProfile) {
       setIsLoading(false);
     }
-  }, [userProfile]);
-
-  // Effect for listening to pending applications
-  useEffect(() => {
-    const isAdmin = userProfile?.role === 'Site Admin' || userProfile?.role === 'Club Admin';
-    if (!firestore || !userProfile || !isAdmin) {
-      setHasPendingApps(false);
-      return;
-    }
-
-    let applicationsQuery;
-    if (userProfile.role === 'Site Admin') {
-      // Site Admins should see a dot if ANY application is pending
-      applicationsQuery = query(
-        collection(firestore, 'applications'),
-        where('status', '==', 'pending'),
-        limit(1)
-      );
-    } else {
-      // Club Admins only see applications for their primary club
-      applicationsQuery = query(
-        collection(firestore, 'applications'),
-        where('clubId', '==', userProfile.primaryClubId),
-        where('status', '==', 'pending'),
-        limit(1)
-      );
-    }
-
-    const unsubscribe = onSnapshot(applicationsQuery, (snapshot) => {
-      setHasPendingApps(!snapshot.empty);
-    }, (error) => {
-        console.error("Error listening for pending applications:", error);
-        setHasPendingApps(false);
-    });
-    
-    return () => unsubscribe();
-
   }, [userProfile]);
 
   if (isLoading) {
@@ -159,9 +119,6 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
           >
             <item.icon className="h-4 w-4" />
             <span className="flex-1">{item.label}</span>
-             {item.href === '/main/applications' && hasPendingApps && (
-              <div className="h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse" />
-            )}
           </Link>
         );
 

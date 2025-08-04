@@ -17,7 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore, auth } from '@/lib/firebase-client';
 import { doc, onSnapshot, updateDoc, getDoc, collection, query, where, getDocs, arrayRemove, increment, Timestamp, addDoc } from 'firebase/firestore';
-import type { User, Club, Match, Application } from '@/lib/types';
+import type { User, Club, Match } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
@@ -148,48 +148,6 @@ export default function ProfilePage() {
       setIsSaving(false);
     }
   };
-
-  const handleAskForMembership = async () => {
-    if (!user || !profile || !firestore || !selectedClubToJoin) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Please select a club to join.' });
-      return;
-    }
-    
-    const club = clubs.find(c => c.id === selectedClubToJoin);
-    if (!club) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Selected club not found.' });
-        return;
-    }
-    
-    setIsSubmittingApplication(true);
-    try {
-      const applicationData = {
-        userId: user.uid,
-        userName: `${profile.firstName} ${profile.lastName}`,
-        userEmail: profile.email,
-        clubId: selectedClubToJoin,
-        clubName: club.name,
-        createdAt: Timestamp.now(),
-        status: 'pending',
-      };
-      
-      await addDoc(collection(firestore, 'applications'), applicationData);
-      
-      toast({
-        title: 'Application Sent!',
-        description: `Your request to join ${club.name} has been sent for admin approval.`
-      });
-      
-      setSelectedClubToJoin('');
-
-    } catch (error) {
-      console.error('Error creating application:', error);
-      toast({ variant: 'destructive', title: 'Application Failed', description: 'Could not send your membership request.' });
-    } finally {
-      setIsSubmittingApplication(false);
-    }
-  };
-
 
   const handleChangePassword = async () => {
     if (!user || !auth || !currentPassword || !newPassword) {
@@ -371,55 +329,6 @@ export default function ProfilePage() {
     ));
   };
   
-  const renderJoinClub = () => {
-    if (!profile) return null;
-
-    // A user can be a member of one club. This logic needs to be enhanced
-    // once multi-club membership is fully supported.
-    const availableClubs = clubs.filter(c => c.id !== profile.primaryClubId);
-
-    if (availableClubs.length === 0) return null;
-
-    return (
-       <Card>
-          <CardHeader>
-            <CardTitle>Join Another Club</CardTitle>
-            <CardDescription>
-              Select another club to send a membership application to their administrator.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-              <div className="space-y-2">
-                  <Label htmlFor="join-club-select">Available Clubs</Label>
-                   <Select
-                    value={selectedClubToJoin}
-                    onValueChange={setSelectedClubToJoin}
-                    >
-                    <SelectTrigger id="join-club-select">
-                        <SelectValue placeholder="Select a club to join..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {availableClubs.map((club) => (
-                        <SelectItem key={club.id} value={club.id}>
-                            {club.name}
-                        </SelectItem>
-                        ))}
-                    </SelectContent>
-                    </Select>
-              </div>
-          </CardContent>
-          <CardFooter>
-             <Button 
-                onClick={handleAskForMembership} 
-                disabled={!selectedClubToJoin || isSubmittingApplication}
-            >
-               {isSubmittingApplication ? 'Sending...' : 'Ask for Membership'}
-            </Button>
-          </CardFooter>
-        </Card>
-    )
-  }
-
   return (
     <>
       <div className="space-y-6">
@@ -438,8 +347,6 @@ export default function ProfilePage() {
           </CardHeader>
           {renderProfileForm()}
         </Card>
-        
-        {renderJoinClub()}
         
         <Card>
            <CardHeader>

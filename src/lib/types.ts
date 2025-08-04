@@ -5,7 +5,6 @@ export type UserRole = 'Site Admin' | 'Club Admin' | 'Marshal' | 'Angler';
 export type MembershipStatus = 'Pending' | 'Member' | 'Suspended' | 'Blocked' | 'Deleted';
 export type MatchStatus = 'Upcoming' | 'In Progress' | 'Completed' | 'Cancelled' | 'Weigh-in';
 export type WeighInStatus = 'NYW' | 'OK' | 'DNF' | 'DNW' | 'DSQ';
-export type ApplicationStatus = 'pending' | 'accepted' | 'rejected';
 
 export interface User {
   id: string;
@@ -69,15 +68,4 @@ export interface Result {
   section?: string;
   points?: number;
   payout?: number;
-}
-
-export interface Application {
-    id: string;
-    userId: string;
-    userName: string;
-    userEmail: string;
-    clubId: string;
-    clubName: string;
-    createdAt: Timestamp;
-    status: ApplicationStatus;
 }
