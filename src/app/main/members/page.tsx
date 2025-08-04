@@ -30,11 +30,11 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, getDocs, orderBy, addDoc } from 'firebase/firestore';
 import type { User, Club, MembershipStatus, UserRole } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { ListFilter, Search, Edit, UserX } from 'lucide-react';
+import { ListFilter, Search, Edit, UserX, PlusCircle } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -83,6 +83,10 @@ export default function MembersPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  const [isAddAnglerDialogOpen, setIsAddAnglerDialogOpen] = useState(false);
+  const [newAnglerFirstName, setNewAnglerFirstName] = useState('');
+  const [newAnglerLastName, setNewAnglerLastName] = useState('');
 
 
   // Fetch initial data based on user role
@@ -233,6 +237,36 @@ export default function MembersPage() {
     }
   };
 
+  const handleAddUnverifiedAngler = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAnglerFirstName.trim() || !newAnglerLastName.trim() || !firestore || !selectedClubId) {
+        toast({ variant: 'destructive', title: 'Error', description: 'First name and last name are required.' });
+        return;
+    }
+
+    setIsSaving(true);
+    try {
+        await addDoc(collection(firestore, 'users'), {
+            firstName: newAnglerFirstName,
+            lastName: newAnglerLastName,
+            email: '', // No email for unverified anglers
+            role: 'Angler',
+            memberStatus: 'Unverified',
+            primaryClubId: selectedClubId
+        });
+        toast({ title: 'Success', description: 'Unverified angler has been added.' });
+        setIsAddAnglerDialogOpen(false);
+        setNewAnglerFirstName('');
+        setNewAnglerLastName('');
+    } catch (error) {
+        console.error('Error adding unverified angler:', error);
+        toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not add the angler.' });
+    } finally {
+        setIsSaving(false);
+    }
+  };
+
+
   const filteredMembers = allUsers.filter(member => {
     const clubMatch = !selectedClubId || member.primaryClubId === selectedClubId;
     const fullName = `${member.firstName} ${member.lastName}`.toLowerCase();
@@ -266,7 +300,7 @@ export default function MembersPage() {
     return filteredMembers.map(member => (
       <TableRow key={member.id}>
         <TableCell className="font-medium">{`${member.firstName} ${member.lastName}`}</TableCell>
-        {canViewEmail && <TableCell>{member.email}</TableCell>}
+        {canViewEmail && <TableCell>{member.email || 'N/A'}</TableCell>}
         <TableCell>
           {canEdit ? (
             <Select
@@ -278,6 +312,7 @@ export default function MembersPage() {
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="Unverified">Unverified</SelectItem>
                 <SelectItem value="Pending">Pending</SelectItem>
                 <SelectItem value="Member">Member</SelectItem>
                 <SelectItem value="Suspended">Suspended</SelectItem>
@@ -358,7 +393,7 @@ export default function MembersPage() {
             <CardDescription>A list of all members in the selected club.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-4 mb-4">
+            <div className="flex flex-wrap items-center gap-4 mb-4">
                {isSiteAdmin && (
                 <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={clubs.length === 0}>
                     <SelectTrigger className="w-48">
@@ -383,73 +418,87 @@ export default function MembersPage() {
                       onChange={(e) => setSearchTerm(e.target.value)}
                   />
               </div>
-              {canEdit && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="ml-auto">
-                        <ListFilter className="mr-2 h-4 w-4" />
-                        Filter
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuCheckboxItem
-                        checked={statusFilter.includes('Pending')}
-                        onCheckedChange={() => toggleFilter('status', 'Pending')}
-                      >
-                        Pending
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem
-                        checked={statusFilter.includes('Member')}
-                        onCheckedChange={() => toggleFilter('status', 'Member')}
-                      >
-                        Member
-                      </DropdownMenuCheckboxItem>
-                       <DropdownMenuCheckboxItem
-                        checked={statusFilter.includes('Suspended')}
-                        onCheckedChange={() => toggleFilter('status', 'Suspended')}
-                      >
-                        Suspended
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem
-                        checked={statusFilter.includes('Blocked')}
-                        onCheckedChange={() => toggleFilter('status', 'Blocked')}
-                      >
-                        Blocked
-                      </DropdownMenuCheckboxItem>
-
-                      <DropdownMenuLabel>Filter by Role</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                       <DropdownMenuCheckboxItem
-                        checked={roleFilter.includes('Angler')}
-                        onCheckedChange={() => toggleFilter('role', 'Angler')}
-                      >
-                        Angler
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem
-                        checked={roleFilter.includes('Marshal')}
-                        onCheckedChange={() => toggleFilter('role', 'Marshal')}
-                      >
-                        Marshal
-                      </DropdownMenuCheckboxItem>
-                       <DropdownMenuCheckboxItem
-                        checked={roleFilter.includes('Club Admin')}
-                        onCheckedChange={() => toggleFilter('role', 'Club Admin')}
-                      >
-                        Club Admin
-                      </DropdownMenuCheckboxItem>
-                      {isSiteAdmin && (
+              <div className="flex gap-2">
+                {canEdit && (
+                    <Button onClick={() => setIsAddAnglerDialogOpen(true)} disabled={!selectedClubId}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Add Angler
+                    </Button>
+                )}
+                {canEdit && (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="ml-auto">
+                            <ListFilter className="mr-2 h-4 w-4" />
+                            Filter
+                        </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
                         <DropdownMenuCheckboxItem
-                            checked={roleFilter.includes('Site Admin')}
-                            onCheckedChange={() => toggleFilter('role', 'Site Admin')}
+                            checked={statusFilter.includes('Unverified')}
+                            onCheckedChange={() => toggleFilter('status', 'Unverified')}
                         >
-                            Site Admin
+                            Unverified
                         </DropdownMenuCheckboxItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-              )}
+                        <DropdownMenuCheckboxItem
+                            checked={statusFilter.includes('Pending')}
+                            onCheckedChange={() => toggleFilter('status', 'Pending')}
+                        >
+                            Pending
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuCheckboxItem
+                            checked={statusFilter.includes('Member')}
+                            onCheckedChange={() => toggleFilter('status', 'Member')}
+                        >
+                            Member
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuCheckboxItem
+                            checked={statusFilter.includes('Suspended')}
+                            onCheckedChange={() => toggleFilter('status', 'Suspended')}
+                        >
+                            Suspended
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuCheckboxItem
+                            checked={statusFilter.includes('Blocked')}
+                            onCheckedChange={() => toggleFilter('status', 'Blocked')}
+                        >
+                            Blocked
+                        </DropdownMenuCheckboxItem>
+
+                        <DropdownMenuLabel>Filter by Role</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuCheckboxItem
+                            checked={roleFilter.includes('Angler')}
+                            onCheckedChange={() => toggleFilter('role', 'Angler')}
+                        >
+                            Angler
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuCheckboxItem
+                            checked={roleFilter.includes('Marshal')}
+                            onCheckedChange={() => toggleFilter('role', 'Marshal')}
+                        >
+                            Marshal
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuCheckboxItem
+                            checked={roleFilter.includes('Club Admin')}
+                            onCheckedChange={() => toggleFilter('role', 'Club Admin')}
+                        >
+                            Club Admin
+                        </DropdownMenuCheckboxItem>
+                        {isSiteAdmin && (
+                            <DropdownMenuCheckboxItem
+                                checked={roleFilter.includes('Site Admin')}
+                                onCheckedChange={() => toggleFilter('role', 'Site Admin')}
+                            >
+                                Site Admin
+                            </DropdownMenuCheckboxItem>
+                        )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
+              </div>
             </div>
             <Table>
               <TableHeader>
@@ -513,6 +562,49 @@ export default function MembersPage() {
               </DialogFooter>
             </form>
           </DialogContent>
+        </Dialog>
+      )}
+
+      {canEdit && (
+        <Dialog open={isAddAnglerDialogOpen} onOpenChange={setIsAddAnglerDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+                <form onSubmit={handleAddUnverifiedAngler}>
+                    <DialogHeader>
+                        <DialogTitle>Add Unverified Angler</DialogTitle>
+                        <DialogDescription>
+                            Create a new angler record without an email address. They will not be able to log in.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="new-first-name">First Name</Label>
+                                <Input
+                                    id="new-first-name"
+                                    value={newAnglerFirstName}
+                                    onChange={(e) => setNewAnglerFirstName(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="new-last-name">Last Name</Label>
+                                <Input
+                                    id="new-last-name"
+                                    value={newAnglerLastName}
+                                    onChange={(e) => setNewAnglerLastName(e.target.value)}
+                                    required
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="ghost" onClick={() => setIsAddAnglerDialogOpen(false)}>Cancel</Button>
+                        <Button type="submit" disabled={isSaving}>
+                            {isSaving ? 'Saving...' : 'Add Angler'}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
         </Dialog>
       )}
     </>

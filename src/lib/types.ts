@@ -2,7 +2,7 @@
 import type { Timestamp } from 'firebase/firestore';
 
 export type UserRole = 'Site Admin' | 'Club Admin' | 'Marshal' | 'Angler';
-export type MembershipStatus = 'Pending' | 'Member' | 'Suspended' | 'Blocked' | 'Deleted';
+export type MembershipStatus = 'Pending' | 'Member' | 'Suspended' | 'Blocked' | 'Deleted' | 'Unverified';
 export type MatchStatus = 'Upcoming' | 'In Progress' | 'Completed' | 'Cancelled' | 'Weigh-in';
 export type WeighInStatus = 'NYW' | 'OK' | 'DNF' | 'DNW' | 'DSQ';
 
