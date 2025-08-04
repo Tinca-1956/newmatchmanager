@@ -25,7 +25,7 @@ import { SheetClose } from './ui/sheet';
 import { useAuth } from '@/hooks/use-auth';
 import type { User } from '@/lib/types';
 import { firestore } from '@/lib/firebase-client';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
 import { Skeleton } from './ui/skeleton';
 
 const navItems = [
@@ -53,16 +53,40 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
   const { user, userProfile } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isEmulatorMode, setIsEmulatorMode] = useState(false);
+  const [hasPendingApps, setHasPendingApps] = useState(false);
 
+  // Effect for checking emulator mode
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
       setIsEmulatorMode(true);
     }
-    // The loading state will be managed by the parent's auth check.
-    // If we have a userProfile, we can consider it loaded.
-    if(userProfile) {
+    if (userProfile) {
       setIsLoading(false);
     }
+  }, [userProfile]);
+
+  // Effect for listening to pending applications
+  useEffect(() => {
+    if (!firestore || !userProfile?.primaryClubId || (userProfile.role !== 'Site Admin' && userProfile.role !== 'Club Admin')) {
+      setHasPendingApps(false);
+      return;
+    }
+    
+    const applicationsQuery = query(
+      collection(firestore, 'applications'),
+      where('clubId', '==', userProfile.primaryClubId),
+      where('status', '==', 'pending'),
+      limit(1) // We only need to know if at least one exists
+    );
+
+    const unsubscribe = onSnapshot(applicationsQuery, (snapshot) => {
+      setHasPendingApps(!snapshot.empty);
+    }, (error) => {
+        console.error("Error listening for pending applications:", error);
+        setHasPendingApps(false);
+    });
+    
+    return () => unsubscribe();
 
   }, [userProfile]);
 
@@ -105,6 +129,12 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
       return 0;
   });
 
+  const linkClasses = (isActive: boolean) => `flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
+        isActive
+            ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+            : 'text-sidebar-primary hover:text-sidebar-foreground/70'
+    }`;
+
   return (
     <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
       {sortedNavItems.map((item) => {
@@ -113,14 +143,13 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
         const linkContent = (
           <Link
             href={item.href}
-            className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
-              isActive
-                ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                : 'text-sidebar-primary hover:text-sidebar-foreground/70'
-            }`}
+            className={linkClasses(isActive)}
           >
             <item.icon className="h-4 w-4" />
-            {item.label}
+            <span className="flex-1">{item.label}</span>
+             {item.href === '/main/applications' && hasPendingApps && (
+              <div className="h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse" />
+            )}
           </Link>
         );
 
