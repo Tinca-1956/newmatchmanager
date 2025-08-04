@@ -99,49 +99,10 @@ export default function ApplicationsPage() {
   }, [selectedClubId, toast, adminLoading]);
   
   const handleAccept = async (application: Application) => {
-    if (!firestore) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Firestore is not initialized.' });
-      return;
-    }
-    
-    setIsAccepting(application.id);
-    
-    try {
-        const batch = writeBatch(firestore);
-
-        // 1. Create a new document in the `memberships` collection
-        const newMembershipRef = doc(collection(firestore, 'memberships'));
-        batch.set(newMembershipRef, {
-            clubId: application.clubId,
-            userId: application.userId,
-            userName: application.userName,
-            userEmail: application.userEmail,
-            role: 'Angler',
-            status: 'Member',
-            joinedAt: Timestamp.now(),
-        });
-
-        // 2. Delete the original application document
-        const applicationRef = doc(firestore, 'applications', application.id);
-        batch.delete(applicationRef);
-
-        await batch.commit();
-        
-        toast({
-            title: 'Success!',
-            description: `${application.userName} has been accepted into the club.`,
-        });
-
-    } catch (error) {
-        console.error("Error accepting application:", error);
-        toast({
-            variant: 'destructive',
-            title: 'Acceptance Failed',
-            description: 'There was an error processing the application. Please try again.',
-        });
-    } finally {
-        setIsAccepting(null);
-    }
+    toast({
+        title: 'Action Required',
+        description: 'The logic for accepting an application needs to be implemented.',
+    });
   };
 
 
