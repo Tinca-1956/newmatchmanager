@@ -131,27 +131,27 @@ function MatchesPageContent() {
 
   // Effect to set the initial club for fetching matches
   useEffect(() => {
-      if (adminLoading) return;
-
-      if (isSiteAdmin) {
-          const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
-          const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
-              const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
-              setClubs(clubsData);
-              if (clubsData.length > 0 && !selectedClubId) {
-                setSelectedClubId(clubsData[0].id);
-              }
-          });
-          return () => unsubscribe();
-      } else if (userProfile?.primaryClubId) {
-          setSelectedClubId(userProfile.primaryClubId);
+    if (isSiteAdmin) {
+      if (firestore) {
+        const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
+        const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
+            const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+            setClubs(clubsData);
+            if (clubsData.length > 0 && !selectedClubId) {
+              setSelectedClubId(clubsData[0].id);
+            }
+        });
+        return () => unsubscribe();
       }
-  }, [isSiteAdmin, userProfile, adminLoading, selectedClubId]);
+    } else if (userProfile?.primaryClubId) {
+        setSelectedClubId(userProfile.primaryClubId);
+    }
+  }, [isSiteAdmin, userProfile, selectedClubId]);
 
 
   // Main data fetching effect
   useEffect(() => {
-    if (!firestore || !selectedClubId || adminLoading) {
+    if (!firestore || !selectedClubId) {
       return;
     }
 
@@ -201,7 +201,7 @@ function MatchesPageContent() {
     });
 
     return () => unsubscribe();
-  }, [selectedClubId, matchIdFilter, seriesIdFilter, adminLoading, toast]);
+  }, [selectedClubId, matchIdFilter, seriesIdFilter, toast]);
 
 
   const displayedMatches = useMemo(() => {
