@@ -1,20 +1,20 @@
-
 rules_version = '2';
 
+// See: https://firebase.google.com/docs/storage/security
 service firebase.storage {
   match /b/{bucket}/o {
+    // Rules are applied top-down. More specific rules should come first.
     
-    // Allow public read access to all files within the 'matches' folder and its subdirectories.
-    // This is necessary for the public dashboard to display match images.
-    match /matches/{allPaths=**} {
+    // Allow read access to club logos for the public-facing dashboard.
+    // This allows unauthenticated users to fetch logos.
+    match /clubs/{clubId}/{allImages=**} {
       allow read: if true;
     }
 
-    // Default rule: All other paths require authentication to read or write.
-    // This secures user-specific folders or other private areas.
-    // The path wildcard here ensures any path NOT matching the rule above
-    // falls into this more restrictive rule.
-    match /{path=**} {
+    // Default rule: All other files in storage require authentication to read or write.
+    // This is the most secure default. Any public access needs to be explicitly
+    // granted above this rule.
+    match /{allPaths=**} {
       allow read, write: if request.auth != null;
     }
   }

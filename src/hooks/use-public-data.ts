@@ -84,15 +84,24 @@ export const usePublicData = (): UsePublicDataReturn => {
     }, [toast]);
     
     const upcomingMatches = useMemo(() => {
-        const source = selectedClubId && selectedClubId !== 'all-clubs' ? allPublicUpcoming.filter(m => m.clubId === selectedClubId) : allPublicUpcoming;
+        const source = selectedClubId === 'all-clubs' 
+            ? allPublicUpcoming 
+            : allPublicUpcoming.filter(m => m.clubId === selectedClubId);
+            
         return source
             .sort((a, b) => a.date.seconds - b.date.seconds);
+
     }, [allPublicUpcoming, selectedClubId]);
 
     const lastCompletedMatch = useMemo(() => {
-        const source = selectedClubId && selectedClubId !== 'all-clubs' ? allPublicCompleted.filter(m => m.clubId === selectedClubId) : allPublicCompleted;
+        const source = selectedClubId === 'all-clubs'
+            ? allPublicCompleted
+            : allPublicCompleted.filter(m => m.clubId === selectedClubId);
+
         if (source.length === 0) return null;
+        
         return source.sort((a, b) => b.date.seconds - a.date.seconds)[0];
+
     }, [allPublicCompleted, selectedClubId]);
     
     const isLoading = isLoadingClubs || isLoadingCompleted || isLoadingUpcoming;
