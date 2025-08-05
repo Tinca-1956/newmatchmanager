@@ -89,10 +89,14 @@ export const useRequireAuth = (redirectUrl = '/login') => {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && !user) {
-        if(!pathname.startsWith('/auth')) {
-            router.push(redirectUrl);
-        }
+    // Do not redirect if loading, or if the user is authenticated.
+    if (loading || user) return;
+
+    // Do not redirect for public pages, auth pages, etc.
+    const isProtectedRoute = !pathname.startsWith('/auth') && !pathname.startsWith('/public');
+
+    if (isProtectedRoute) {
+        router.push(redirectUrl);
     }
   }, [user, loading, router, redirectUrl, pathname]);
 
