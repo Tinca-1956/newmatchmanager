@@ -79,10 +79,10 @@ export default function SeedDataPage() {
             });
             await usersBatch.commit();
             
-            toast({ title: 'Success!', description: `Sample users have been seeded into the selected club.` });
+            toast({ title: 'Success!', description: `Sample users have been added into the selected club.` });
         } catch (error) {
             console.error('Error seeding data:', error);
-            toast({ variant: 'destructive', title: 'Seed Failed', description: 'Could not seed the database.' });
+            toast({ variant: 'destructive', title: 'Seed Failed', description: 'Could not add sample users.' });
         } finally {
             setIsSeeding(false);
         }
@@ -122,20 +122,20 @@ export default function SeedDataPage() {
     return (
         <div className="flex flex-col gap-8">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight">Seed Database</h1>
-                <p className="text-muted-foreground">Use these actions to populate your Firestore database with sample data.</p>
+                <h1 className="text-3xl font-bold tracking-tight">Add Sample Anglers</h1>
+                <p className="text-muted-foreground">Use this page to populate your Firestore database with sample angler data.</p>
             </div>
              <Alert variant="destructive">
                 <Terminal className="h-4 w-4" />
                 <AlertTitle>Warning</AlertTitle>
                 <AlertDescription>
-                    Seeding data will add new documents and may create duplicates if run multiple times.
+                    Adding anglers will create new documents and may create duplicates if run multiple times. This does not create real user accounts.
                 </AlertDescription>
             </Alert>
             <Card>
                 <CardHeader>
-                    <CardTitle>Seed Actions</CardTitle>
-                    <CardDescription>Select a club and click the button to add sample users to your database.</CardDescription>
+                    <CardTitle>Add Anglers</CardTitle>
+                    <CardDescription>Select a club and click the button to add sample anglers to your database.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     <div className="space-y-2">
@@ -160,7 +160,7 @@ export default function SeedDataPage() {
                 </CardContent>
                 <CardFooter>
                      <Button onClick={handleSeedUsers} disabled={isSeeding || !selectedClubId || isLoadingClubs}>
-                        {isSeeding ? 'Seeding...' : 'Seed Users'}
+                        {isSeeding ? 'Adding...' : 'Add Sample Anglers'}
                     </Button>
                 </CardFooter>
             </Card>
