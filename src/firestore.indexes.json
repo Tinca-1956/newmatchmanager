@@ -3,7 +3,7 @@
   "indexes": [
     {
       "collectionGroup": "matches",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
           "fieldPath": "clubId",
@@ -147,10 +147,6 @@
         },
         {
           "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "date",
           "order": "ASCENDING"
         }
       ]
