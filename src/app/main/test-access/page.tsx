@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, getDocs, Timestamp, doc, getDoc, addDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp, doc, getDoc, addDoc, writeBatch } from 'firebase/firestore';
 import type { User, Match, Club } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -215,11 +215,14 @@ export default function TestAccessPage() {
         primaryClubId: userProfile.primaryClubId,
       };
 
-      const docRef = await addDoc(collection(firestore, 'users'), newAnglerData);
+      const batch = writeBatch(firestore);
+      const newAnglerRef = doc(collection(firestore, 'users'));
+      batch.set(newAnglerRef, newAnglerData);
+      await batch.commit();
       
       toast({
         title: 'Success!',
-        description: `Created unverified angler '${newAnglerFirstName} ${newAnglerLastName}' with ID: ${docRef.id}.`,
+        description: `Created unverified angler '${newAnglerFirstName} ${newAnglerLastName}' with ID: ${newAnglerRef.id}.`,
       });
       setNewAnglerFirstName('');
       setNewAnglerLastName('');
