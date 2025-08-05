@@ -76,7 +76,7 @@ interface AnglerStanding {
 type ResultWithSectionRank = Result & { sectionPosition?: number };
 
 export default function SeriesPage() {
-  const { user, userProfile } = useAuth();
+  const { userProfile } = useAuth();
   const { toast } = useToast();
   const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
   const router = useRouter();
@@ -102,52 +102,65 @@ export default function SeriesPage() {
 
   const [newSeriesName, setNewSeriesName] = useState('');
 
-  // Fetch all clubs if user is a site admin
+  // Effect to set the initial club for fetching data
   useEffect(() => {
-    if (isSiteAdmin && firestore) {
+    if (adminLoading) return;
+
+    if (isSiteAdmin) {
+      // For Site Admins, we fetch all clubs for the dropdown.
+      if (firestore) {
         const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
-        const unsubscribeClubs = onSnapshot(clubsQuery, (snapshot) => {
-            const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
-            setAllClubs(clubsData);
-            if (!selectedClubId && userProfile?.primaryClubId) {
+        const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
+          const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+          setAllClubs(clubsData);
+          // Set selected club only if it hasn't been set, defaulting to user's primary or first in list
+          if (!selectedClubId) {
+             if (userProfile?.primaryClubId && clubsData.some(c => c.id === userProfile.primaryClubId)) {
                 setSelectedClubId(userProfile.primaryClubId);
-            } else if (!selectedClubId && clubsData.length > 0) {
-                setSelectedClubId(clubsData[0].id); // Default to first club
-            }
+             } else if (clubsData.length > 0) {
+                setSelectedClubId(clubsData[0].id);
+             }
+          }
         });
-        return () => unsubscribeClubs();
+        return () => unsubscribe();
+      }
     } else if (userProfile?.primaryClubId) {
-        setSelectedClubId(userProfile.primaryClubId);
+      // For Club Admins and Anglers, just use their primary club.
+      setSelectedClubId(userProfile.primaryClubId);
     }
-  }, [isSiteAdmin, userProfile, selectedClubId]);
+  }, [isSiteAdmin, adminLoading, userProfile, selectedClubId]);
 
 
-  // Fetch series and matches for the selected club
+  // Main data fetching effect for Series
   useEffect(() => {
     if (!selectedClubId || !firestore) {
+      // Don't fetch if we don't have a club ID yet
       setSeriesList([]);
-      setClubName(isSiteAdmin ? 'Please select a club' : 'No Club Selected');
-      if (selectedClubId) setIsLoading(false);
+      setIsLoading(adminLoading); // Reflect admin auth loading status
       return;
     }
     
     setIsLoading(true);
 
+    // Fetch the name of the selected club
     const clubDocRef = doc(firestore, 'clubs', selectedClubId);
     const unsubscribeClub = onSnapshot(clubDocRef, (clubDoc) => {
       setClubName(clubDoc.exists() ? clubDoc.data().name : 'Selected Club');
     });
 
+    // Fetch all series for the selected club
     const seriesQuery = query(collection(firestore, 'series'), where("clubId", "==", selectedClubId));
     
     const unsubscribeSeries = onSnapshot(seriesQuery, async (seriesSnapshot) => {
       const seriesData = seriesSnapshot.docs.map(s => ({id: s.id, ...s.data()}) as Series);
 
       try {
+        // To get the match count, we fetch all matches for the club just once
         const matchesQuery = query(collection(firestore, 'matches'), where('clubId', '==', selectedClubId));
         const matchesSnapshot = await getDocs(matchesQuery);
         const matchesData = matchesSnapshot.docs.map(m => m.data() as Match);
 
+        // Then, we count matches for each series on the client
         const seriesWithCounts = seriesData.map(series => {
           const matchCount = matchesData.filter(m => m.seriesId === series.id).length;
           return {
@@ -158,12 +171,9 @@ export default function SeriesPage() {
 
         setSeriesList(seriesWithCounts);
       } catch (error) {
-        console.error("Error fetching matches:", error);
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'Could not fetch matches for series calculation.'
-        });
+        console.error("Error fetching match counts:", error);
+        // We can still show the series list even if match count fails
+        setSeriesList(seriesData.map(s => ({...s, matchCount: 0})));
       } finally {
         setIsLoading(false);
       }
@@ -177,8 +187,7 @@ export default function SeriesPage() {
         unsubscribeClub();
         unsubscribeSeries();
     };
-
-  }, [selectedClubId, toast, isSiteAdmin]);
+  }, [selectedClubId, toast]);
   
   const handleCreateSeries = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -575,7 +584,7 @@ export default function SeriesPage() {
 
       <Card>
         <CardHeader>
-            <CardTitle>{clubName} Series</CardTitle>
+            <CardTitle>{clubName || 'Select a club'} Series</CardTitle>
             <CardDescription>A list of all match series for the selected club.</CardDescription>
         </CardHeader>
         <CardContent>
