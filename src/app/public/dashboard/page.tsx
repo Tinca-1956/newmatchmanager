@@ -1,80 +1,56 @@
-
 'use client';
 
-import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Trophy, Image as ImageIcon } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Fish, LogIn } from 'lucide-react';
+import Link from 'next/link';
 
-export default function PublicDashboardPage() {
+export default function PublicDashboard() {
+
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-        <div>
-            <h1 className="text-3xl font-bold tracking-tight">Welcome to Match Manager</h1>
-            <p className="text-muted-foreground">
-                The premier platform for managing your fishing club's events and results.
-            </p>
+    <div className="flex flex-col min-h-screen bg-muted/40">
+      <header className="flex h-16 items-center justify-between border-b bg-background px-4 md:px-6">
+        <div className="flex items-center gap-2">
+          <Fish className="h-6 w-6" />
+          <span className="font-semibold">Match Manager</span>
         </div>
         <Button asChild>
           <Link href="/auth/login">
+            <LogIn className="mr-2 h-4 w-4" />
             Sign In
-            <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
         </Button>
-      </div>
+      </header>
 
-      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-4">
-        {/* Upcoming Matches Placeholder */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Upcoming Matches</CardTitle>
-            <CardDescription>Select a club to see their scheduled matches.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-48 flex items-center justify-center text-muted-foreground">
-              <p>Upcoming matches will be displayed here.</p>
-            </div>
-          </CardContent>
-        </Card>
+      <main className="flex-1 p-4 md:p-8 lg:p-10">
+        <div className="mx-auto max-w-4xl space-y-8">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
+              Welcome to Match Manager
+            </h1>
+            <p className="mt-4 text-lg text-muted-foreground">
+              The easiest way to manage your fishing club's matches, members, and results.
+            </p>
+          </div>
 
-        {/* Recent Results Placeholder */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Results</CardTitle>
-            <CardDescription>Latest match results from the selected club.</CardDescription>
-          </CardHeader>
-          <CardContent>
-             <div className="h-48 flex flex-col items-center justify-center text-center text-muted-foreground">
-                <Trophy className="h-8 w-8 mb-2" />
-                <p>Recent results will appear here.</p>
-            </div>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader>
+                <CardTitle>Explore a Club</CardTitle>
+                <CardDescription>Select a club from the dropdown below to see their upcoming matches and recent results.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {/* Placeholder for club selector and content */}
+                 <div className="flex items-center justify-center h-48 rounded-lg border-2 border-dashed bg-background">
+                    <p className="text-muted-foreground">Club selection and content will go here.</p>
+                </div>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
 
-        {/* Recent Photos Placeholder */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Photos</CardTitle>
-            <CardDescription>Photos from the latest matches.</CardDescription>
-          </CardHeader>
-          <CardContent>
-             <div className="h-48 flex flex-col items-center justify-center text-center text-muted-foreground">
-                <ImageIcon className="h-8 w-8 mb-2" />
-                <p>Recent photos will appear here.</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="text-center">
-        <CardHeader>
-            <CardTitle>Ready to Get Started?</CardTitle>
-        </CardHeader>
-        <CardContent>
-            <p className="text-muted-foreground">Sign in to manage your profile, register for matches, and view detailed results for your club.</p>
-        </CardContent>
-      </Card>
+      <footer className="text-center p-4 text-sm text-muted-foreground border-t">
+        Copyright EMANCIUM 2025 - All rights reserved
+      </footer>
     </div>
   );
 }
