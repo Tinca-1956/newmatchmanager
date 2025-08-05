@@ -8,7 +8,7 @@ import type { Match, Result as ResultType } from '@/lib/types';
 import { useToast } from './use-toast';
 import { useAuth } from './use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { doc, updateDoc, arrayUnion, increment, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayUnion, increment, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
 
 
 // Define the types for the public data
@@ -267,5 +267,3 @@ export const useMatchActions = () => {
     closeRemoveAnglerModal,
   };
 };
-
-    
