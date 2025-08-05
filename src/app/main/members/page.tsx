@@ -494,12 +494,6 @@ export default function MembersPage() {
                         </DropdownMenuContent>
                     </DropdownMenu>
                 )}
-                 {canEdit && (
-                    <Button onClick={() => setIsAddAnglerDialogOpen(true)} disabled={!selectedClubId}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Add Angler
-                    </Button>
-                )}
               </div>
             </div>
             <Table>
