@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -33,7 +34,7 @@ import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, getDocs, 
 import type { User, Club, MembershipStatus, UserRole } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { ListFilter, Search, Edit, UserX, PlusCircle } from 'lucide-react';
+import { ListFilter, Search, Edit, UserX, Check } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -80,13 +81,9 @@ export default function MembersPage() {
   const [roleFilter, setRoleFilter] = useState<UserRole[]>([]);
   
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isAddAnglerDialogOpen, setIsAddAnglerDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   
-  const [newAnglerFirstName, setNewAnglerFirstName] = useState('');
-  const [newAnglerLastName, setNewAnglerLastName] = useState('');
-
 
   // Fetch initial data based on user role
   useEffect(() => {
@@ -220,39 +217,6 @@ export default function MembersPage() {
     }
   };
 
-  const handleAddAngler = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newAnglerFirstName.trim() || !newAnglerLastName.trim() || !selectedClubId || !firestore) {
-        toast({ variant: 'destructive', title: 'Error', description: 'First name, last name, and a selected club are required.' });
-        return;
-    }
-    
-    setIsSaving(true);
-    try {
-        await addDoc(collection(firestore, 'users'), {
-            firstName: newAnglerFirstName,
-            lastName: newAnglerLastName,
-            email: '', // Unverified anglers have no email
-            role: 'Angler',
-            memberStatus: 'Unverified',
-            primaryClubId: selectedClubId,
-        });
-        toast({ title: 'Success!', description: `Unverified angler '${newAnglerFirstName} ${newAnglerLastName}' has been added.` });
-        setNewAnglerFirstName('');
-        setNewAnglerLastName('');
-        setIsAddAnglerDialogOpen(false);
-    } catch (error: any) {
-        console.error('Error adding angler:', error);
-         if (error.message.includes('permission-denied')) {
-            toast({ variant: 'destructive', title: 'Permission Denied', description: 'Your security rules are preventing this operation.' });
-        } else {
-            toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not add the angler.' });
-        }
-    } finally {
-        setIsSaving(false);
-    }
-  };
-
   const toggleFilter = (filter: 'status' | 'role', value: MembershipStatus | UserRole) => {
     if (filter === 'status') {
       setStatusFilter(prev =>
@@ -288,6 +252,7 @@ export default function MembersPage() {
         <TableRow key={i}>
           <TableCell><Skeleton className="h-4 w-32" /></TableCell>
           {canViewEmail && <TableCell><Skeleton className="h-4 w-48" /></TableCell>}
+          <TableCell><Skeleton className="h-4 w-12" /></TableCell>
           <TableCell><Skeleton className="h-8 w-24" /></TableCell>
           <TableCell><Skeleton className="h-8 w-32" /></TableCell>
           {canEdit && <TableCell><Skeleton className="h-8 w-20" /></TableCell>}
@@ -296,13 +261,16 @@ export default function MembersPage() {
     }
     
     if (filteredMembers.length === 0) {
-        return <TableRow><TableCell colSpan={canEdit ? (canViewEmail ? 6 : 5) : (canViewEmail ? 5 : 4)} className="h-24 text-center">No members found.</TableCell></TableRow>;
+        return <TableRow><TableCell colSpan={canEdit ? (canViewEmail ? 7 : 6) : (canViewEmail ? 6 : 5)} className="h-24 text-center">No members found.</TableCell></TableRow>;
     }
     
     return filteredMembers.map(member => (
       <TableRow key={member.id}>
         <TableCell className="font-medium">{`${member.firstName} ${member.lastName}`}</TableCell>
         {canViewEmail && <TableCell>{member.email || 'N/A'}</TableCell>}
+        <TableCell className="text-center">
+            {member.email && !member.email.endsWith('@test.com') && <Check className="h-5 w-5 text-green-600" />}
+        </TableCell>
         <TableCell>
           {canEdit ? (
             <Select
@@ -501,6 +469,7 @@ export default function MembersPage() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   {canViewEmail && <TableHead>Email</TableHead>}
+                  <TableHead>Verified</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Role</TableHead>
                   {canEdit && <TableHead className="text-right">Actions</TableHead>}
@@ -554,49 +523,6 @@ export default function MembersPage() {
                 <Button type="button" variant="ghost" onClick={() => { setIsEditDialogOpen(false); setSelectedUser(null); }}>Cancel</Button>
                 <Button type="submit" disabled={isSaving}>
                   {isSaving ? 'Saving...' : 'Save Changes'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {canEdit && (
-        <Dialog open={isAddAnglerDialogOpen} onOpenChange={setIsAddAnglerDialogOpen}>
-          <DialogContent className="sm:max-w-md">
-            <form onSubmit={handleAddAngler}>
-              <DialogHeader>
-                <DialogTitle>Add Unverified Angler</DialogTitle>
-                <DialogDescription>
-                  Manually add an angler who does not have an email or account. They will be added to the currently selected club.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="new-firstName">First Name</Label>
-                        <Input
-                            id="new-firstName"
-                            value={newAnglerFirstName}
-                            onChange={(e) => setNewAnglerFirstName(e.target.value)}
-                            required
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="new-lastName">Last Name</Label>
-                        <Input
-                            id="new-lastName"
-                            value={newAnglerLastName}
-                            onChange={(e) => setNewAnglerLastName(e.target.value)}
-                            required
-                        />
-                    </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="ghost" onClick={() => setIsAddAnglerDialogOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={isSaving}>
-                  {isSaving ? 'Adding...' : 'Add Angler'}
                 </Button>
               </DialogFooter>
             </form>
