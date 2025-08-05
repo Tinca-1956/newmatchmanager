@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -44,9 +43,9 @@ import 'jspdf-autotable';
 type ResultWithSectionRank = ResultType & { sectionRank?: number };
 
 export default function ResultsPage() {
-    const { user, userProfile, loading: authLoading } from 'use-auth';
+    const { user, userProfile, loading: authLoading } = useAuth();
     const { toast } = useToast();
-    const { isSiteAdmin } = useAdminAuth();
+    const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
 
     const [allClubs, setAllClubs] = useState<Club[]>([]);
     const [seriesForClub, setSeriesForClub] = useState<Series[]>([]);
@@ -63,42 +62,33 @@ export default function ResultsPage() {
     const [isLoadingMatches, setIsLoadingMatches] = useState(false);
     const [isLoadingResults, setIsLoadingResults] = useState(false);
 
-    // Step 1: Set the selected club based on user role and profile
+    // Step 1: Fetch clubs (for Site Admin) or set from profile
     useEffect(() => {
-        if (authLoading || !firestore) return;
+        if (adminLoading || !firestore) return;
 
-        const fetchAndSetClubs = async () => {
-            setIsLoadingClubs(true);
-            try {
-                if (isSiteAdmin) {
-                    const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
-                    const clubsSnapshot = await getDocs(clubsQuery);
-                    const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
-                    setAllClubs(clubsData);
-                    if (clubsData.length > 0) {
-                        // Default to user's primary if available, otherwise first in list
-                        setSelectedClubId(userProfile?.primaryClubId || clubsData[0].id);
-                    }
-                } else if (userProfile?.primaryClubId) {
-                    const clubDocRef = doc(firestore, 'clubs', userProfile.primaryClubId);
-                    const clubDoc = await getDoc(clubDocRef);
-                    if (clubDoc.exists()) {
-                        const primaryClub = { id: clubDoc.id, ...clubDoc.data() } as Club;
-                        setAllClubs([primaryClub]); // Set for display purposes
-                        setSelectedClubId(primaryClub.id);
-                    }
+        if (isSiteAdmin) {
+            const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
+            const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
+                const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+                setAllClubs(clubsData);
+                if (clubsData.length > 0) {
+                    setSelectedClubId(clubsData[0].id);
                 }
-            } catch (error) {
-                 console.error("Error fetching clubs:", error);
-                 toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch clubs.' });
-            } finally {
                 setIsLoadingClubs(false);
-            }
-        };
-        
-        fetchAndSetClubs();
-
-    }, [userProfile, isSiteAdmin, authLoading, toast]);
+            }, (error) => {
+                 console.error("Error fetching clubs for admin:", error);
+                 toast({ variant: 'destructive', title: 'Error', description: 'Could not load clubs.' });
+                 setIsLoadingClubs(false);
+            });
+            return () => unsubscribe();
+        } else if (userProfile?.primaryClubId) {
+            setSelectedClubId(userProfile.primaryClubId);
+            setIsLoadingClubs(false);
+        } else {
+             // For non-admins with no primary club
+            setIsLoadingClubs(false);
+        }
+    }, [isSiteAdmin, adminLoading, userProfile, firestore, toast]);
 
 
     // Step 2: Handle Club Selection -> Fetch Series
