@@ -23,9 +23,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 
 const sampleUsers = (clubId: string): Omit<User, 'id'>[] => [
-  { firstName: 'John', lastName: 'Angler', email: 'john.angler@test.com', role: 'Angler', memberStatus: 'Member', primaryClubId: clubId },
-  { firstName: 'Peter', lastName: 'Smith', email: 'peter.smith@test.com', role: 'Club Admin', memberStatus: 'Member', primaryClubId: clubId },
+  { firstName: 'John', lastName: 'Angler', email: 'john.angler@test.com', role: 'Angler', memberStatus: 'Pending', primaryClubId: clubId },
+  { firstName: 'Peter', lastName: 'Smith', email: 'peter.smith@test.com', role: 'Angler', memberStatus: 'Pending', primaryClubId: clubId },
   { firstName: 'Susan', lastName: 'Reel', email: 'susan.reel@test.com', role: 'Angler', memberStatus: 'Pending', primaryClubId: clubId },
+  { firstName: 'Mike', lastName: 'Fisher', email: 'mike.fisher@test.com', role: 'Angler', memberStatus: 'Pending', primaryClubId: clubId },
+  { firstName: 'Chloe', lastName: 'Waters', email: 'chloe.waters@test.com', role: 'Angler', memberStatus: 'Pending', primaryClubId: clubId },
 ];
 
 
