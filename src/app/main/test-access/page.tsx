@@ -36,6 +36,10 @@ export default function TestAccessPage() {
 
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   
+  const [isCreatingAngler, setIsCreatingAngler] = useState(false);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+
 
   const handleGetAnglers = async () => {
     if (!firestore || !userProfile?.primaryClubId) {
@@ -188,6 +192,49 @@ export default function TestAccessPage() {
     } finally {
         setIsSendingEmail(false);
     }
+  }
+
+  const handleCreateTestAngler = async () => {
+      if (!firestore || !userProfile?.primaryClubId) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Your primary club is not set.' });
+            return;
+        }
+        if (!firstName.trim() || !lastName.trim()) {
+            toast({ variant: 'destructive', title: 'Error', description: 'First and last name are required.' });
+            return;
+        }
+
+        setIsCreatingAngler(true);
+        try {
+            const batch = writeBatch(firestore);
+            const newUserRef = doc(collection(firestore, 'users'));
+            
+            const newAnglerData = {
+                firstName: firstName,
+                lastName: lastName,
+                email: '',
+                role: 'Angler',
+                memberStatus: 'Unverified',
+                primaryClubId: userProfile.primaryClubId,
+            };
+
+            batch.set(newUserRef, newAnglerData);
+            await batch.commit();
+            
+            toast({ title: 'Success!', description: `Unverified angler '${firstName} ${lastName}' has been added.` });
+            setFirstName('');
+            setLastName('');
+
+        } catch (error) {
+            console.error('Error adding angler:', error);
+            if (error instanceof Error && error.message.includes('permission-denied')) {
+                toast({ variant: 'destructive', title: 'Permission Denied', description: 'Your security rules are preventing this operation.' });
+            } else {
+                toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not add the angler.' });
+            }
+        } finally {
+            setIsCreatingAngler(false);
+        }
   }
 
   const renderCurrentUserInfo = () => {
@@ -347,6 +394,28 @@ export default function TestAccessPage() {
                 <Button onClick={handleSendTestEmail} disabled={isSendingEmail || authLoading || !userProfile}>
                     {isSendingEmail ? 'Sending...' : 'Send Test Email'}
                 </Button>
+            </div>
+
+            <div className="space-y-2 rounded-md border p-4">
+                <h3 className="font-semibold mb-2">Step 6: Create an Unverified Angler (Test)</h3>
+                 <p className="text-sm text-muted-foreground pb-4">
+                    This uses the same logic as the Seed Data page to try and add a new user.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg">
+                    <div className="space-y-2">
+                        <Label htmlFor="firstName">First Name</Label>
+                        <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="lastName">Last Name</Label>
+                        <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+                    </div>
+                </div>
+                 <div className="pt-4">
+                    <Button onClick={handleCreateTestAngler} disabled={isCreatingAngler || authLoading || !userProfile}>
+                        {isCreatingAngler ? 'Adding Angler...' : 'Add Test Angler'}
+                    </Button>
+                </div>
             </div>
 
         </CardContent>
