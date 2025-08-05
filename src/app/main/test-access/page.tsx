@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
 import { collection, query, where, getDocs, Timestamp, doc, getDoc, addDoc, writeBatch, setDoc } from 'firebase/firestore';
-import type { User, Match, Club, PublicUpcomingMatch } from '@/lib/types';
+import type { User, Match, Club, PublicUpcomingMatch, Series } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -29,6 +29,10 @@ export default function TestAccessPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [isMatchLoading, setIsMatchLoading] = useState(false);
   const [matchError, setMatchError] = useState<string | null>(null);
+
+  const [series, setSeries] = useState<Series[]>([]);
+  const [isSeriesLoading, setIsSeriesLoading] = useState(false);
+  const [seriesError, setSeriesError] = useState<string | null>(null);
 
   const [singleMatch, setSingleMatch] = useState<Match | null>(null);
   const [isSingleMatchLoading, setIsSingleMatchLoading] = useState(false);
@@ -124,6 +128,43 @@ export default function TestAccessPage() {
     }
   };
   
+  const handleGetSeries = async () => {
+    if (!firestore || !userProfile?.primaryClubId) {
+      toast({ variant: 'destructive', title: 'Error', description: 'User profile or primary club not loaded.' });
+      return;
+    }
+
+    setIsSeriesLoading(true);
+    setSeries([]);
+    setSeriesError(null);
+
+    try {
+      const seriesQuery = query(collection(firestore, 'series'), where('clubId', '==', userProfile.primaryClubId));
+      const querySnapshot = await getDocs(seriesQuery);
+
+      if (querySnapshot.empty) {
+          toast({ title: 'Series Query Succeeded', description: 'The query ran successfully but found no series documents.' });
+      } else {
+        const fetchedSeries = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Series));
+        setSeries(fetchedSeries);
+        toast({
+          title: 'Success!',
+          description: `Found ${fetchedSeries.length} series in your primary club.`
+        });
+      }
+    } catch (e: any) {
+      console.error("Error fetching series:", e);
+      setSeriesError(e.message);
+      toast({
+        variant: 'destructive',
+        title: 'Series Query Failed',
+        description: e.message,
+      });
+    } finally {
+      setIsSeriesLoading(false);
+    }
+  };
+
   const handleGetSingleMatch = async () => {
     if (!firestore) {
       toast({ variant: 'destructive', title: 'Error', description: 'Firestore not available.' });
@@ -353,8 +394,45 @@ export default function TestAccessPage() {
                 </div>
            </div>
 
+           <div className="space-y-2 rounded-md border p-4">
+                <h3 className="font-semibold mb-2">Step 3: Query for Series in Your Club</h3>
+                <p className="text-sm text-muted-foreground pb-4">
+                    Click to test fetching series in your primary club.
+                </p>
+                <Button onClick={handleGetSeries} disabled={isSeriesLoading || authLoading || !userProfile}>
+                    {isSeriesLoading ? 'Fetching Series...' : 'Run Series Test Query'}
+                </Button>
+
+                {seriesError && (
+                    <Alert variant="destructive" className="mt-4">
+                        <Terminal className="h-4 w-4" />
+                        <AlertTitle>Firestore Error (Series)</AlertTitle>
+                        <AlertDescription>
+                            {seriesError}
+                        </AlertDescription>
+                    </Alert>
+                )}
+
+                <div className="pt-4">
+                    <h4 className="font-semibold">Results:</h4>
+                    {isSeriesLoading ? (
+                        <div className="space-y-2 pt-2">
+                            <Skeleton className="h-6 w-full" />
+                        </div>
+                    ) : series.length > 0 ? (
+                        <ul className="list-disc pl-5 pt-2 text-sm">
+                            {series.map(s => (
+                                <li key={s.id}>{s.name}</li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p className="text-sm text-muted-foreground pt-2">No series fetched yet. Run the query.</p>
+                    )}
+                </div>
+           </div>
+
             <div className="space-y-2 rounded-md border p-4">
-                <h3 className="font-semibold mb-2">Step 3: Query for Matches in Your Club</h3>
+                <h3 className="font-semibold mb-2">Step 4: Query for Matches in Your Club</h3>
                 <p className="text-sm text-muted-foreground pb-4">
                     This is the critical test. Click to run the same query the Matches page uses.
                 </p>
@@ -391,7 +469,7 @@ export default function TestAccessPage() {
            </div>
            
            <div className="space-y-2 rounded-md border p-4">
-                <h3 className="font-semibold mb-2">Step 4: Query for a Single Match Document</h3>
+                <h3 className="font-semibold mb-2">Step 5: Query for a Single Match Document</h3>
                 <p className="text-sm text-muted-foreground pb-4">
                     This tests direct document access. Click to fetch a specific match.
                 </p>
@@ -426,7 +504,7 @@ export default function TestAccessPage() {
            </div>
 
            <div className="space-y-2 rounded-md border p-4">
-                <h3 className="font-semibold mb-2">Step 5: Send a Test Email</h3>
+                <h3 className="font-semibold mb-2">Step 6: Send a Test Email</h3>
                 <p className="text-sm text-muted-foreground pb-4">
                     Click this button to send a test email to yourself to verify the Resend integration.
                 </p>
@@ -436,7 +514,7 @@ export default function TestAccessPage() {
             </div>
 
             <div className="space-y-2 rounded-md border p-4">
-                <h3 className="font-semibold mb-2">Step 6: Create an Unverified Angler (Test)</h3>
+                <h3 className="font-semibold mb-2">Step 7: Create an Unverified Angler (Test)</h3>
                  <p className="text-sm text-muted-foreground pb-4">
                     This uses the same logic as the Seed Data page to try and add a new user.
                 </p>
