@@ -1,4 +1,3 @@
-
 import type { Timestamp } from 'firebase/firestore';
 
 export type UserRole = 'Site Admin' | 'Club Admin' | 'Marshal' | 'Angler';
@@ -68,4 +67,30 @@ export interface Result {
   section?: string;
   points?: number;
   payout?: number;
+}
+
+
+// Public-facing types for the publicMatches collection
+export interface PublicResult {
+    userId: string;
+    userName: string;
+    peg: string;
+    section: string;
+    weight: number;
+    status: string;
+    position: number | null;
+    sectionRank: number | null;
+}
+
+export interface PublicMatch {
+    id: string;
+    clubId: string;
+    clubName: string;
+    seriesId: string;
+    seriesName: string;
+    name: string;
+    location: string;
+    date: any; // Stored as Timestamp
+    status: string;
+    results: PublicResult[];
 }
