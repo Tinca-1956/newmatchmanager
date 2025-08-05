@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -19,7 +18,6 @@ import {
   Beaker,
   TestTube,
   CalendarDays,
-  UserPlus,
 } from 'lucide-react';
 import { SheetClose } from './ui/sheet';
 import { useAuth } from '@/hooks/use-auth';
@@ -31,12 +29,12 @@ import { Skeleton } from './ui/skeleton';
 const navItems = [
   { href: '/main/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/main/profile', icon: UserIcon, label: 'Profile' },
+  { href: '/main/events', icon: CalendarDays, label: 'Events' },
   { href: '/main/clubs', icon: Shield, label: 'Clubs' },
   { href: '/main/members', icon: Users, label: 'Members', adminOnly: true },
   { href: '/main/series', icon: Trophy, label: 'Series', adminOnly: true },
   { href: '/main/matches', icon: Swords, label: 'Matches', adminOnly: true },
   { href: '/main/results', icon: Medal, label: 'Results', adminOnly: true },
-  { href: '/main/admin/add-angler', icon: UserPlus, label: 'Add Angler', adminOnly: true },
   { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users', adminOnly: true, siteAdminOnly: true },
   { href: '/main/admin/seed', icon: Beaker, label: 'Seed Data', adminOnly: true, siteAdminOnly: true },
   { href: '/main/test-access', icon: TestTube, label: 'Test Access', adminOnly: true, siteAdminOnly: true },
@@ -91,7 +89,7 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
       }
       return true;
   }).sort((a, b) => {
-      const adminOrder = ['/main/admin/add-angler', '/main/admin/edit-seed-users', '/main/users/deleted', '/main/admin/seed', '/main/emulator', '/main/test-access'];
+      const adminOrder = ['/main/admin/seed', '/main/users/deleted', '/main/emulator', '/main/test-access'];
       const aIndex = adminOrder.indexOf(a.href);
       const bIndex = adminOrder.indexOf(b.href);
       

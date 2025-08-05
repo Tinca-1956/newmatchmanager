@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -81,8 +80,12 @@ export default function MembersPage() {
   const [roleFilter, setRoleFilter] = useState<UserRole[]>([]);
   
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isAddAnglerDialogOpen, setIsAddAnglerDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  
+  const [newAnglerFirstName, setNewAnglerFirstName] = useState('');
+  const [newAnglerLastName, setNewAnglerLastName] = useState('');
 
 
   // Fetch initial data based on user role
@@ -214,6 +217,39 @@ export default function MembersPage() {
       toast({ variant: 'destructive', title: 'Delete Failed', description: 'Could not delete the user.' });
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleAddAngler = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAnglerFirstName.trim() || !newAnglerLastName.trim() || !selectedClubId || !firestore) {
+        toast({ variant: 'destructive', title: 'Error', description: 'First name, last name, and a selected club are required.' });
+        return;
+    }
+    
+    setIsSaving(true);
+    try {
+        await addDoc(collection(firestore, 'users'), {
+            firstName: newAnglerFirstName,
+            lastName: newAnglerLastName,
+            email: '', // Unverified anglers have no email
+            role: 'Angler',
+            memberStatus: 'Unverified',
+            primaryClubId: selectedClubId,
+        });
+        toast({ title: 'Success!', description: `Unverified angler '${newAnglerFirstName} ${newAnglerLastName}' has been added.` });
+        setNewAnglerFirstName('');
+        setNewAnglerLastName('');
+        setIsAddAnglerDialogOpen(false);
+    } catch (error: any) {
+        console.error('Error adding angler:', error);
+         if (error.message.includes('permission-denied')) {
+            toast({ variant: 'destructive', title: 'Permission Denied', description: 'Your security rules are preventing this operation.' });
+        } else {
+            toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not add the angler.' });
+        }
+    } finally {
+        setIsSaving(false);
     }
   };
 
@@ -458,6 +494,12 @@ export default function MembersPage() {
                         </DropdownMenuContent>
                     </DropdownMenu>
                 )}
+                 {canEdit && (
+                    <Button onClick={() => setIsAddAnglerDialogOpen(true)} disabled={!selectedClubId}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Add Angler
+                    </Button>
+                )}
               </div>
             </div>
             <Table>
@@ -518,6 +560,49 @@ export default function MembersPage() {
                 <Button type="button" variant="ghost" onClick={() => { setIsEditDialogOpen(false); setSelectedUser(null); }}>Cancel</Button>
                 <Button type="submit" disabled={isSaving}>
                   {isSaving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {canEdit && (
+        <Dialog open={isAddAnglerDialogOpen} onOpenChange={setIsAddAnglerDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <form onSubmit={handleAddAngler}>
+              <DialogHeader>
+                <DialogTitle>Add Unverified Angler</DialogTitle>
+                <DialogDescription>
+                  Manually add an angler who does not have an email or account. They will be added to the currently selected club.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="new-firstName">First Name</Label>
+                        <Input
+                            id="new-firstName"
+                            value={newAnglerFirstName}
+                            onChange={(e) => setNewAnglerFirstName(e.target.value)}
+                            required
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="new-lastName">Last Name</Label>
+                        <Input
+                            id="new-lastName"
+                            value={newAnglerLastName}
+                            onChange={(e) => setNewAnglerLastName(e.target.value)}
+                            required
+                        />
+                    </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={() => setIsAddAnglerDialogOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving ? 'Adding...' : 'Add Angler'}
                 </Button>
               </DialogFooter>
             </form>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, getDocs, Timestamp, doc, getDoc, addDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp, doc, getDoc, addDoc } from 'firebase/firestore';
 import type { User, Match, Club } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,8 +14,6 @@ import { Terminal } from 'lucide-react';
 import { format } from 'date-fns';
 import { sendTestEmail } from '@/lib/send-email';
 import NextImage from 'next/image';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 
 export default function TestAccessPage() {
   const { userProfile, loading: authLoading } = useAuth();
@@ -37,8 +34,6 @@ export default function TestAccessPage() {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   
   const [isCreatingAngler, setIsCreatingAngler] = useState(false);
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
 
 
   const handleGetAnglers = async () => {
@@ -195,40 +190,22 @@ export default function TestAccessPage() {
   }
 
   const handleCreateTestAngler = async () => {
-      if (!firestore || !userProfile?.primaryClubId) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Your primary club is not set.' });
-            return;
-        }
-        if (!firstName.trim() || !lastName.trim()) {
-            toast({ variant: 'destructive', title: 'Error', description: 'First and last name are required.' });
-            return;
-        }
-
+      if (!firestore) return;
         setIsCreatingAngler(true);
         try {
-            const batch = writeBatch(firestore);
-            const newUserRef = doc(collection(firestore, 'users'));
-            
-            const newAnglerData = {
-                firstName: firstName,
-                lastName: lastName,
-                email: '',
+            await addDoc(collection(firestore, 'users'), {
+                firstName: 'Test',
+                lastName: 'Angler',
+                email: `test.angler.${Date.now()}@test.com`,
                 role: 'Angler',
                 memberStatus: 'Unverified',
-                primaryClubId: userProfile.primaryClubId,
-            };
-
-            batch.set(newUserRef, newAnglerData);
-            await batch.commit();
-            
-            toast({ title: 'Success!', description: `Unverified angler '${firstName} ${lastName}' has been added.` });
-            setFirstName('');
-            setLastName('');
-
-        } catch (error) {
+                primaryClubId: userProfile?.primaryClubId || '',
+            });
+            toast({ title: 'Success!', description: 'Test angler added.' });
+        } catch (error: any) {
             console.error('Error adding angler:', error);
-            if (error instanceof Error && error.message.includes('permission-denied')) {
-                toast({ variant: 'destructive', title: 'Permission Denied', description: 'Your security rules are preventing this operation.' });
+            if (error.message.includes('permission-denied')) {
+                 toast({ variant: 'destructive', title: 'Permission Denied', description: 'Your security rules are preventing this operation.' });
             } else {
                 toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not add the angler.' });
             }
@@ -401,21 +378,9 @@ export default function TestAccessPage() {
                  <p className="text-sm text-muted-foreground pb-4">
                     This uses the same logic as the Seed Data page to try and add a new user.
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg">
-                    <div className="space-y-2">
-                        <Label htmlFor="firstName">First Name</Label>
-                        <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="lastName">Last Name</Label>
-                        <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
-                    </div>
-                </div>
-                 <div className="pt-4">
-                    <Button onClick={handleCreateTestAngler} disabled={isCreatingAngler || authLoading || !userProfile}>
-                        {isCreatingAngler ? 'Adding Angler...' : 'Add Test Angler'}
-                    </Button>
-                </div>
+                <Button onClick={handleCreateTestAngler} disabled={isCreatingAngler || authLoading || !userProfile}>
+                    {isCreatingAngler ? 'Adding Angler...' : 'Add Test Angler'}
+                </Button>
             </div>
 
         </CardContent>
