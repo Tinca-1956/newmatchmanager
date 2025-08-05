@@ -121,17 +121,6 @@ export default function SeedDataPage() {
 
     return (
         <div className="flex flex-col gap-8">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">Add Sample Anglers</h1>
-                <p className="text-muted-foreground">Use this page to populate your Firestore database with sample angler data.</p>
-            </div>
-             <Alert variant="destructive">
-                <Terminal className="h-4 w-4" />
-                <AlertTitle>Warning</AlertTitle>
-                <AlertDescription>
-                    Adding anglers will create new documents and may create duplicates if run multiple times. This does not create real user accounts.
-                </AlertDescription>
-            </Alert>
             <Card>
                 <CardHeader>
                     <CardTitle>Add Anglers</CardTitle>
