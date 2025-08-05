@@ -1,21 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
-import {
-  collection,
-  query,
-  where,
-  onSnapshot,
-  orderBy,
-  limit,
-  Timestamp,
-  getDocs,
-  doc,
-  getDoc,
-} from 'firebase/firestore';
-import { firestore } from '@/lib/firebase-client';
-import type { Club, Match, Result, MatchStatus } from '@/lib/types';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import {
   Card,
   CardContent,
@@ -25,18 +11,39 @@ import {
   CardFooter,
 } from '@/components/ui/card';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { firestore } from '@/lib/firebase-client';
+import { collection, onSnapshot, doc, query, where, getDocs, orderBy, Timestamp, limit, getDoc, writeBatch } from 'firebase/firestore';
+import type { Match, User, Club, Result, MatchStatus } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import { format, compareDesc } from 'date-fns';
 import { MapPin, Image as ImageIcon, ArrowRight, Trophy as TrophyIcon } from 'lucide-react';
 import NextImage from 'next/image';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import {
   Carousel,
   CarouselContent,
@@ -44,164 +51,173 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel"
-import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter
-} from '@/components/ui/dialog';
 
-// Helper function to format angler names
-const formatAnglerName = (fullName: string) => {
-    if (!fullName) return '';
-    const parts = fullName.trim().split(' ');
-    if (parts.length < 2) return fullName;
-    const firstName = parts[0];
-    const lastName = parts.slice(1).join(' ') || '';
-    return `${firstName.charAt(0)}. ${lastName}`;
-}
+// Helper to get calculated status. Copied from the main dashboard.
+const getCalculatedStatus = (match: Match): MatchStatus => {
+  const now = new Date();
+  
+  let matchDate: Date;
+    if (match.date instanceof Timestamp) {
+        matchDate = match.date.toDate();
+    } else if (match.date instanceof Date) {
+        matchDate = match.date;
+    } else {
+        return match.status; // Invalid date format
+    }
+  
+  if (!match.drawTime || !match.endTime || !match.drawTime.includes(':') || !match.endTime.includes(':')) {
+    return match.status;
+  }
+
+  const [drawHours, drawMinutes] = match.drawTime.split(':').map(Number);
+  const drawDateTime = new Date(matchDate.getFullYear(), matchDate.getMonth(), matchDate.getDate(), drawHours, drawMinutes);
+
+  const [endHours, endMinutes] = match.endTime.split(':').map(Number);
+  const endDateTime = new Date(matchDate.getFullYear(), matchDate.getMonth(), matchDate.getDate(), endHours, endMinutes);
+  
+  const weighInProgressUntil = new Date(endDateTime.getTime() + 90 * 60 * 1000);
+
+  if (match.status === 'Cancelled') return 'Cancelled';
+  if (now > weighInProgressUntil) return 'Completed';
+  if (now > endDateTime) return 'Weigh-in';
+  if (now > drawDateTime) return 'In Progress';
+  
+  return 'Upcoming';
+};
 
 function PublicDashboardPage() {
-  const [clubs, setClubs] = useState<Club[]>([]);
-  const [selectedClubId, setSelectedClubId] = useState<string>('');
-  const [isLoadingClubs, setIsLoadingClubs] = useState(true);
-  
-  const [upcomingMatches, setUpcomingMatches] = useState<Match[]>([]);
-  const [isLoadingUpcoming, setIsLoadingUpcoming] = useState(true);
+    const { toast } = useToast();
 
-  const [recentResults, setRecentResults] = useState<Result[]>([]);
-  const [recentMatch, setRecentMatch] = useState<Match | null>(null);
-  const [isLoadingResults, setIsLoadingResults] = useState(true);
-  
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  
-  // New state to ensure dependent queries don't run prematurely
-  const [isReadyForDataFetch, setIsReadyForDataFetch] = useState(false);
-
-
-  // Step 1: Fetch all clubs for the dropdown
-  useEffect(() => {
-    if (!firestore) return;
+    const [allClubs, setAllClubs] = useState<Club[]>([]);
+    const [selectedClubId, setSelectedClubId] = useState<string>('');
     
-    const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
+    const [upcomingMatches, setUpcomingMatches] = useState<Match[]>([]);
+    const [recentResults, setRecentResults] = useState<Result[]>([]);
+    const [recentMatchDetails, setRecentMatchDetails] = useState<Match | null>(null);
     
-    const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
-      const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
-      setClubs(clubsData);
-      
-      // Set the first club as default only if one hasn't been selected
-      if (clubsData.length > 0 && !selectedClubId) {
-        setSelectedClubId(clubsData[0].id);
-      }
-      setIsLoadingClubs(false);
-      setIsReadyForDataFetch(true); // Ready to fetch other data now
-    }, (error) => {
-        console.error("Error fetching clubs:", error);
-        setIsLoadingClubs(false);
-    });
+    const [isLoadingClubs, setIsLoadingClubs] = useState(true);
+    const [isLoadingMatches, setIsLoadingMatches] = useState(false);
+    const [isLoadingResults, setIsLoadingResults] = useState(false);
 
-    return () => unsubscribe();
-  }, [selectedClubId]); // Depend on selectedClubId to prevent re-setting it on every render
-
-
-  // Step 2: Fetch upcoming matches for the selected club
-  useEffect(() => {
-    if (!isReadyForDataFetch || !selectedClubId || !firestore) {
-      setUpcomingMatches([]);
-      return;
-    };
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isReadyForDataFetch, setIsReadyForDataFetch] = useState(false);
     
-    setIsLoadingUpcoming(true);
-    
-    const upcomingMatchesQuery = query(
-      collection(firestore, 'matches'),
-      where('clubId', '==', selectedClubId),
-      where('status', '==', 'Upcoming'),
-      limit(5)
-    );
-    
-    const unsubscribe = onSnapshot(upcomingMatchesQuery, (snapshot) => {
-      const matchesData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        date: (doc.data().date as Timestamp).toDate(),
-      } as Match));
-      // Sort client-side
-      matchesData.sort((a, b) => a.date.getTime() - b.date.getTime());
-      setUpcomingMatches(matchesData);
-      setIsLoadingUpcoming(false);
-    }, (error) => {
-      console.error("Error fetching upcoming matches:", error);
-      setIsLoadingUpcoming(false);
-    });
 
-    return () => unsubscribe();
-  }, [selectedClubId, isReadyForDataFetch]);
-
-  // Step 3: Fetch recent results for the selected club
-  useEffect(() => {
-    if (!isReadyForDataFetch || !selectedClubId || !firestore) {
-      setRecentResults([]);
-      setRecentMatch(null);
-      return;
-    }
-    
-    setIsLoadingResults(true);
-
-    const fetchResults = async () => {
-        try {
-            // Find the last completed match
-            const completedMatchesQuery = query(
-                collection(firestore, 'matches'),
-                where('clubId', '==', selectedClubId),
-                where('status', '==', 'Completed'),
-                limit(1)
-            );
-            const matchesSnapshot = await getDocs(completedMatchesQuery);
-            
-            if (matchesSnapshot.empty) {
-                setRecentResults([]);
-                setRecentMatch(null);
-                setIsLoadingResults(false);
-                return;
+    // Step 1: Fetch all clubs to populate the dropdown.
+    useEffect(() => {
+        if (!firestore) return;
+        setIsLoadingClubs(true);
+        const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
+        const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
+            const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+            setAllClubs(clubsData);
+            if (clubsData.length > 0 && !selectedClubId) {
+                // Set the first club as default and signal that we're ready to fetch its data
+                setSelectedClubId(clubsData[0].id);
+                setIsReadyForDataFetch(true);
             }
-            
-            const lastMatchDoc = matchesSnapshot.docs[0];
-            const lastMatch = { 
-                id: lastMatchDoc.id, 
-                ...lastMatchDoc.data(),
-                date: (lastMatchDoc.data().date as Timestamp).toDate()
-            } as Match;
-            setRecentMatch(lastMatch);
-            
-            // Fetch results for that match
-            const resultsQuery = query(
-                collection(firestore, 'results'),
-                where('matchId', '==', lastMatch.id),
-                orderBy('position', 'asc')
-            );
-            const resultsSnapshot = await getDocs(resultsQuery);
-            const resultsData = resultsSnapshot.docs.map(doc => doc.data() as Result);
-            
-            setRecentResults(resultsData);
-        } catch (error) {
-            console.error("Error fetching recent results:", error);
-        } finally {
-            setIsLoadingResults(false);
-        }
-    };
-    
-    fetchResults();
+            setIsLoadingClubs(false);
+        }, (error) => {
+            console.error("Error fetching clubs:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch clubs.' });
+            setIsLoadingClubs(false);
+        });
+        return () => unsubscribe();
+    }, [toast, selectedClubId]);
 
-  }, [selectedClubId, isReadyForDataFetch]);
-  
+    // Step 2: Fetch matches and results for the selected club, only when ready.
+    useEffect(() => {
+        if (!isReadyForDataFetch || !selectedClubId || !firestore) {
+            return;
+        }
+
+        const fetchAllDataForClub = async () => {
+            setIsLoadingMatches(true);
+            setIsLoadingResults(true);
+
+            try {
+                // Fetch ALL matches for the club without ordering on the server.
+                const matchesQuery = query(collection(firestore, 'matches'), where('clubId', '==', selectedClubId));
+                const matchesSnapshot = await getDocs(matchesQuery);
+                
+                const matchesData = matchesSnapshot.docs.map(doc => {
+                    const data = doc.data();
+                    let date = data.date;
+                    if (date instanceof Timestamp) {
+                        date = date.toDate();
+                    }
+                    return { id: doc.id, ...data, date } as Match;
+                });
+
+                // --- Client-side processing ---
+
+                // Batch update statuses
+                const batch = writeBatch(firestore);
+                let updatesMade = 0;
+                matchesData.forEach(match => {
+                    const calculatedStatus = getCalculatedStatus(match);
+                    if(match.status !== calculatedStatus) {
+                        const matchRef = doc(firestore, 'matches', match.id);
+                        batch.update(matchRef, { status: calculatedStatus });
+                        updatesMade++;
+                        match.status = calculatedStatus;
+                    }
+                });
+                if (updatesMade > 0) {
+                    await batch.commit().catch(e => console.error("Status update failed:", e));
+                }
+
+                // Client-side sort and filter for UPCOMING matches
+                const upcoming = matchesData
+                    .filter(m => ['Upcoming', 'In Progress'].includes(m.status))
+                    .sort((a, b) => (a.date as Date).getTime() - (b.date as Date).getTime());
+                setUpcomingMatches(upcoming);
+                setIsLoadingMatches(false);
+
+                // Client-side sort and filter for RECENT results
+                const completed = matchesData
+                    .filter(m => m.status === 'Completed')
+                    .sort((a, b) => compareDesc(a.date as Date, b.date as Date));
+
+                if (completed.length > 0) {
+                    const latestMatch = completed[0];
+                    setRecentMatchDetails(latestMatch);
+                    
+                    const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', latestMatch.id));
+                    const resultsSnapshot = await getDocs(resultsQuery);
+                    const resultsData = resultsSnapshot.docs.map(d => d.data() as Result);
+                    const sortedResults = resultsData.sort((a, b) => (a.position || 999) - (b.position || 999));
+                    setRecentResults(sortedResults);
+                } else {
+                    setRecentMatchDetails(null);
+                    setRecentResults([]);
+                }
+            } catch (error) {
+                console.error("Error fetching match/result data: ", error);
+                if ((error as any).code === 'failed-precondition') {
+                    toast({ variant: 'destructive', title: 'Firestore Error', description: 'A required index is missing. Please contact support.' });
+                } else {
+                    toast({ variant: 'destructive', title: 'Data Error', description: 'Could not load match data.' });
+                }
+            } finally {
+                setIsLoadingMatches(false);
+                setIsLoadingResults(false);
+            }
+        };
+
+        fetchAllDataForClub();
+
+    }, [selectedClubId, isReadyForDataFetch, toast]);
+    
+    const handleClubChange = (clubId: string) => {
+        setSelectedClubId(clubId);
+        setIsReadyForDataFetch(true); // Signal to refetch data for the new club
+    };
+
 
   const renderUpcomingMatches = () => {
-    if (isLoadingUpcoming) {
+    if (isLoadingMatches) {
       return Array.from({ length: 3 }).map((_, i) => (
         <TableRow key={i}>
           <TableCell><Skeleton className="h-4 w-full" /></TableCell>
@@ -211,27 +227,31 @@ function PublicDashboardPage() {
         </TableRow>
       ));
     }
+
     if (upcomingMatches.length === 0) {
       return (
         <TableRow>
           <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-            No upcoming matches found for this club.
+            No upcoming matches scheduled for this club.
           </TableCell>
         </TableRow>
       );
     }
+
     return upcomingMatches.map(match => (
       <TableRow key={match.id}>
         <TableCell>
             <div className="flex flex-col">
-                <span>{format(match.date, 'dd/MM/yyyy')}</span>
+                <span>{format(match.date as Date, 'dd/MM/yyyy')}</span>
                 <span className="text-xs text-muted-foreground">{match.seriesName}</span>
             </div>
         </TableCell>
         <TableCell className="font-medium">{match.name}</TableCell>
         <TableCell>
              <div className="flex items-center gap-2">
-                <span>{match.location}</span>
+                <div>
+                    <span>{match.location}</span>
+                </div>
                 {match.googleMapsLink && (
                   <Link href={match.googleMapsLink} target="_blank" rel="noopener noreferrer">
                     <MapPin className="h-4 w-4 text-primary hover:text-primary/80" />
@@ -240,7 +260,7 @@ function PublicDashboardPage() {
             </div>
         </TableCell>
         <TableCell className="text-right">
-            <Button variant="ghost" size="icon" onClick={() => setIsModalOpen(true)}>
+             <Button variant="ghost" size="icon" onClick={() => setIsModalOpen(true)}>
                 <ArrowRight className="h-4 w-4" />
             </Button>
         </TableCell>
@@ -259,45 +279,41 @@ function PublicDashboardPage() {
         </TableRow>
       ));
     }
+
     if (recentResults.length === 0) {
       return (
         <TableRow>
             <TableCell colSpan={4} className="h-24 text-center">
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <TrophyIcon className="h-8 w-8" />
-                    <p>No recent results found for this club.</p>
+                    <p>No recent results found.</p>
                 </div>
             </TableCell>
         </TableRow>
       );
     }
-    return recentResults.map(result => {
-        const isPaidPlace = result.position !== null && (recentMatch?.paidPlaces ?? 0) > 0 && result.position <= (recentMatch?.paidPlaces ?? 0);
-        return (
-            <TableRow 
-                key={result.userId}
-                className={isPaidPlace ? 'bg-green-100 dark:bg-green-900/30' : ''}
-            >
-                <TableCell>
-                    <div className="w-6 h-6 flex items-center justify-center rounded-full bg-muted text-muted-foreground text-xs">
-                        {result.position || '-'}
-                    </div>
-                </TableCell>
-                <TableCell className="font-medium">{formatAnglerName(result.userName)}</TableCell>
-                <TableCell className="text-muted-foreground">{result.weight.toFixed(3)}kg</TableCell>
-                <TableCell>
-                    <Badge variant={result.status === 'OK' ? 'outline' : 'secondary'}>{result.status}</Badge>
-                </TableCell>
-            </TableRow>
-        );
-    });
+    
+    return recentResults.map(result => (
+      <TableRow key={result.userId}>
+          <TableCell>
+              <div className="w-6 h-6 flex items-center justify-center rounded-full bg-muted text-muted-foreground text-xs">
+              {result.position || '-'}
+              </div>
+          </TableCell>
+          <TableCell className="font-medium">{result.userName}</TableCell>
+          <TableCell className="text-muted-foreground">{result.weight.toFixed(3)}kg</TableCell>
+          <TableCell>
+              <Badge variant={result.status === 'OK' ? 'outline' : 'secondary'}>{result.status}</Badge>
+          </TableCell>
+      </TableRow>
+    ));
   };
   
-  const renderImageGallery = () => {
+   const renderImageGallery = () => {
     if (isLoadingResults) {
         return <Skeleton className="w-full h-full min-h-[200px]" />
     }
-    if (!recentMatch?.mediaUrls || recentMatch.mediaUrls.length === 0) {
+    if (!recentMatchDetails?.mediaUrls || recentMatchDetails.mediaUrls.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center p-4 border border-dashed rounded-lg bg-muted/50">
                 <ImageIcon className="h-12 w-12 text-muted-foreground" />
@@ -307,11 +323,14 @@ function PublicDashboardPage() {
     }
     return (
       <Carousel
-        opts={{ align: "start", loop: true }}
+        opts={{
+            align: "start",
+            loop: true,
+        }}
          className="w-full"
       >
         <CarouselContent className="-ml-1">
-          {recentMatch.mediaUrls.map((url, index) => (
+          {recentMatchDetails.mediaUrls.map((url, index) => (
             <CarouselItem key={index} className="pl-1">
               <div className="relative aspect-square w-full">
                 <NextImage
@@ -330,52 +349,39 @@ function PublicDashboardPage() {
         <CarouselNext />
       </Carousel>
     );
-  };
-  
-  const recentResultsTitle = recentMatch ? `${recentMatch.seriesName} - ${recentMatch.name}` : 'Last completed match';
+  }
 
-  return (
-    <div className="bg-muted/40 min-h-screen">
-      <header className="bg-background shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 className="text-2xl font-bold tracking-tight text-primary">Match Manager</h1>
-            <div className="flex items-center gap-4">
-               {isLoadingClubs ? (
-                 <Skeleton className="h-10 w-48" />
-               ) : (
-                <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={clubs.length === 0}>
-                    <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Select a club..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {clubs.map(club => (
-                            <SelectItem key={club.id} value={club.id}>{club.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-               )}
-               <Button asChild>
-                    <Link href="/auth/login">Sign In</Link>
-                </Button>
-            </div>
-        </div>
-      </header>
+    const recentResultsTitle = recentMatchDetails ? `${recentMatchDetails.seriesName} - ${recentMatchDetails.name}` : 'Last completed match'
 
-      <main className="container mx-auto p-4 lg:p-6">
-        <div className="flex flex-col gap-8">
-            <div>
-                <h2 className="text-3xl font-bold tracking-tight">Public Dashboard</h2>
-                <p className="text-muted-foreground">
-                    An overview of the selected club&apos;s activities.
-                </p>
-            </div>
+    return (
+        <div className="flex flex-col min-h-screen bg-muted/40">
+            {/* Header */}
+            <header className="bg-background border-b shadow-sm sticky top-0 z-10">
+                <div className="container mx-auto px-4 lg:px-6 h-16 flex items-center justify-between">
+                    <h1 className="text-xl font-bold tracking-tight">Public Dashboard</h1>
+                    <div className="flex items-center gap-2">
+                         <Label htmlFor="club-select">Club:</Label>
+                         {isLoadingClubs ? <Skeleton className="h-10 w-48" /> : (
+                            <Select value={selectedClubId} onValueChange={handleClubChange}>
+                                <SelectTrigger id="club-select" className="w-48">
+                                    <SelectValue placeholder="Select a club..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {allClubs.map(club => (
+                                        <SelectItem key={club.id} value={club.id}>{club.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                         )}
+                    </div>
+                </div>
+            </header>
 
-            <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-4">
-                <div className="lg:col-span-1 xl:col-span-2">
-                    <Card className="h-full">
-                        <CardHeader>
-                            <CardTitle>Upcoming Matches</CardTitle>
-                        </CardHeader>
+            {/* Main Content */}
+            <main className="flex-grow container mx-auto p-4 lg:p-6">
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                    <Card className="lg:col-span-2">
+                        <CardHeader><CardTitle>Upcoming Matches</CardTitle></CardHeader>
                         <CardContent>
                             <Table>
                                 <TableHeader>
@@ -386,26 +392,18 @@ function PublicDashboardPage() {
                                         <TableHead><span className="sr-only">Actions</span></TableHead>
                                     </TableRow>
                                 </TableHeader>
-                                <TableBody>
-                                    {renderUpcomingMatches()}
-                                </TableBody>
+                                <TableBody>{renderUpcomingMatches()}</TableBody>
                             </Table>
                         </CardContent>
                     </Card>
-                </div>
 
-                <div className="lg:col-span-1 xl:col-span-1">
-                    <Card className="flex flex-col h-full">
+                    <Card className="flex flex-col">
                         <CardHeader>
                             <CardTitle>Recent Results</CardTitle>
-                             {isLoadingResults ? (
-                                <Skeleton className="h-5 w-48" />
-                            ) : (
-                                <CardDescription>{recentResults.length > 0 ? recentResultsTitle : "No completed matches"}</CardDescription>
-                            )}
+                            <CardDescription>{isLoadingResults ? <Skeleton className="h-5 w-48" /> : (recentResults.length > 0 ? recentResultsTitle : "No completed matches")}</CardDescription>
                         </CardHeader>
                         <CardContent className="flex-grow">
-                            <Table>
+                             <Table>
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead className="w-[50px]">Pos</TableHead>
@@ -414,66 +412,48 @@ function PublicDashboardPage() {
                                         <TableHead>Status</TableHead>
                                     </TableRow>
                                 </TableHeader>
-                                <TableBody>
-                                    {renderRecentResults()}
-                                </TableBody>
+                                <TableBody>{renderRecentResults()}</TableBody>
                             </Table>
                         </CardContent>
-                         {recentMatch && (
-                            <CardFooter>
-                                <Button onClick={() => setIsModalOpen(true)} variant="outline" className="w-full">
-                                    Go to Match
-                                    <ArrowRight className="ml-2 h-4 w-4" />
-                                </Button>
-                            </CardFooter>
-                        )}
                     </Card>
-                </div>
 
-                <div className="lg:col-span-1 xl:col-span-1">
-                    <Card className="flex flex-col h-full">
+                    <Card className="flex flex-col">
                         <CardHeader>
                             <CardTitle>Recent Photos</CardTitle>
-                            {isLoadingResults ? (
-                                <Skeleton className="h-5 w-32" />
-                            ) : (
-                                <CardDescription>{recentMatch?.mediaUrls?.length ? "From the last match" : "No recent photos"}</CardDescription>
-                            )}
+                            <CardDescription>{isLoadingResults ? <Skeleton className="h-5 w-32" /> : (recentMatchDetails?.mediaUrls?.length > 0 ? "From the last match" : "No recent photos")}</CardDescription>
                         </CardHeader>
                         <CardContent className="flex-grow flex items-center justify-center">
                             {renderImageGallery()}
                         </CardContent>
                     </Card>
                 </div>
-            </div>
+            </main>
+             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                    <DialogTitle>Registration Required</DialogTitle>
+                    <DialogDescription>
+                        Please sign in or create an account to register for matches and access more features.
+                    </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsModalOpen(false)}>Close</Button>
+                        <Button asChild>
+                           <Link href="/auth/login">Sign In</Link>
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
-      </main>
-
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Sign in Required</DialogTitle>
-                <DialogDescription>
-                    Please sign in to view match details and register for matches.
-                </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-                <Button variant="outline" onClick={() => setIsModalOpen(false)}>Close</Button>
-                <Button asChild>
-                   <Link href="/auth/login">Sign In</Link>
-                </Button>
-            </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+    );
 }
 
-// Suspense Boundary for search params
-export default function PublicDashboardPageWrapper() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <PublicDashboardPage />
-    </Suspense>
-  )
+export default function SuspendedPublicDashboard() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <PublicDashboardPage />
+        </Suspense>
+    )
 }
+
+    
