@@ -33,6 +33,20 @@
         }
       ]
     },
+    {
+      "collectionGroup": "matches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "clubId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "ASCENDING"
+        }
+      ]
+    },
      {
       "collectionGroup": "matches",
       "queryScope": "COLLECTION",
