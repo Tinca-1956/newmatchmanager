@@ -1,22 +1,26 @@
+
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   CardDescription,
+  CardFooter
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
-import { collection, writeBatch, doc, getDocs, addDoc } from 'firebase/firestore';
+import { collection, writeBatch, doc, getDocs, orderBy, query } from 'firebase/firestore';
 import type { Club, User } from '@/lib/types';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 const sampleUsers = (clubId: string): Omit<User, 'id'>[] => [
   { firstName: 'John', lastName: 'Angler', email: 'john.angler@test.com', role: 'Angler', memberStatus: 'Member', primaryClubId: clubId },
@@ -29,6 +33,28 @@ export default function SeedDataPage() {
     const { isSiteAdmin, loading: adminLoading } = useAdminAuth();
     const { toast } = useToast();
     const [isSeeding, setIsSeeding] = useState(false);
+    const [clubs, setClubs] = useState<Club[]>([]);
+    const [selectedClubId, setSelectedClubId] = useState<string>('');
+    const [isLoadingClubs, setIsLoadingClubs] = useState(true);
+
+    useEffect(() => {
+        if (!isSiteAdmin) return;
+
+        const fetchClubs = async () => {
+            if (!firestore) return;
+            setIsLoadingClubs(true);
+            const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
+            const clubsSnapshot = await getDocs(clubsQuery);
+            const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+            setClubs(clubsData);
+            if (clubsData.length > 0) {
+                setSelectedClubId(clubsData[0].id);
+            }
+            setIsLoadingClubs(false);
+        };
+
+        fetchClubs();
+    }, [isSiteAdmin]);
 
     const handleSeedUsers = async () => {
         if (!firestore) {
@@ -36,26 +62,22 @@ export default function SeedDataPage() {
             return;
         }
 
+        if (!selectedClubId) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Please select a club to seed users into.' });
+            return;
+        }
+
         setIsSeeding(true);
         try {
-            // We need a club to associate with
-            const clubsSnapshot = await getDocs(collection(firestore, 'clubs'));
-            if (clubsSnapshot.empty) {
-                toast({ variant: 'destructive', title: 'Error', description: 'No clubs found in the database. A club must exist before seeding users.' });
-                setIsSeeding(false);
-                return;
-            }
-            const firstClub = { id: clubsSnapshot.docs[0].id, ...clubsSnapshot.docs[0].data() } as Club;
-
             const usersBatch = writeBatch(firestore);
-            sampleUsers(firstClub.id).forEach(user => {
+            sampleUsers(selectedClubId).forEach(user => {
                 // Note: This doesn't create auth users, just firestore user documents
                 const docRef = doc(collection(firestore, 'users'));
                 usersBatch.set(docRef, user);
             });
             await usersBatch.commit();
             
-            toast({ title: 'Success!', description: 'Sample users have been seeded into the first available club.' });
+            toast({ title: 'Success!', description: `Sample users have been seeded into the selected club.` });
         } catch (error) {
             console.error('Error seeding data:', error);
             toast({ variant: 'destructive', title: 'Seed Failed', description: 'Could not seed the database.' });
@@ -111,13 +133,34 @@ export default function SeedDataPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Seed Actions</CardTitle>
-                    <CardDescription>Click the button to add sample users to your database. A club must exist for users to be added.</CardDescription>
+                    <CardDescription>Select a club and click the button to add sample users to your database.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                     <Button onClick={handleSeedUsers} disabled={isSeeding}>
+                    <div className="space-y-2">
+                         <Label htmlFor="club-select">Target Club</Label>
+                        {isLoadingClubs ? (
+                            <Skeleton className="h-10 w-full" />
+                        ) : (
+                            <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={clubs.length === 0}>
+                                <SelectTrigger id="club-select">
+                                    <SelectValue placeholder="Select a club..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {clubs.map((club) => (
+                                        <SelectItem key={club.id} value={club.id}>
+                                            {club.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                    </div>
+                </CardContent>
+                <CardFooter>
+                     <Button onClick={handleSeedUsers} disabled={isSeeding || !selectedClubId || isLoadingClubs}>
                         {isSeeding ? 'Seeding...' : 'Seed Users'}
                     </Button>
-                </CardContent>
+                </CardFooter>
             </Card>
         </div>
     );
