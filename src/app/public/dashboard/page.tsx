@@ -3,40 +3,48 @@
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Fish } from 'lucide-react';
+import { Fish, LogIn } from 'lucide-react';
 import Link from 'next/link';
 
-
 export default function PublicDashboard() {
-
   return (
-    <main className="flex-1 bg-muted/40">
-        <section className="bg-sidebar text-sidebar-foreground py-12">
-            <div className="container mx-auto px-4 text-center">
-                <Fish className="h-16 w-16 mx-auto text-primary-foreground" />
-                <h1 className="text-4xl font-bold mt-4">Welcome to Match Manager</h1>
-                <p className="text-xl text-primary-foreground/80 mt-2">The modern solution for managing your fishing club.</p>
-                <Button className="mt-6" asChild>
+    <div className="flex-1 w-full">
+        <main className="flex-1 p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-8">
+                <h1 className="text-2xl font-bold">Welcome to Match Manager</h1>
+                <Button asChild>
                     <Link href="/auth/login">
+                        <LogIn className="mr-2 h-4 w-4" />
                         Sign In
                     </Link>
                 </Button>
             </div>
-        </section>
 
-        <section className="py-12">
-            <div className="container mx-auto px-4 space-y-8">
-                 <div className="text-center">
-                    <h2 className="text-3xl font-bold tracking-tight">Ready to get started?</h2>
-                    <p className="text-muted-foreground mt-2">
-                        Create an account to manage your own club and members.
-                    </p>
-                    <Button className="mt-4" asChild>
-                        <Link href="/auth/register">Sign Up Now</Link>
-                    </Button>
-                </div>
+            <div className="grid gap-6">
+                 <Card className="flex flex-col items-center justify-center text-center p-8">
+                    <CardHeader>
+                        <div className="mx-auto bg-primary text-primary-foreground rounded-full p-4 w-20 h-20 flex items-center justify-center mb-4">
+                            <Fish className="h-10 w-10" />
+                        </div>
+                        <CardTitle className="text-3xl">Streamline Your Fishing Club</CardTitle>
+                        <CardDescription className="max-w-prose">
+                            Match Manager is the ultimate tool for organizing fishing matches, tracking results, and managing members. Sign in to access your club's dashboard or contact an administrator to get your club set up.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="mt-6">
+                             <h3 className="text-xl font-semibold">Ready to get started?</h3>
+                             <p className="text-muted-foreground mt-2">Sign in to your account to view your personalized dashboard.</p>
+                             <Button asChild className="mt-4">
+                                <Link href="/auth/login">
+                                    Go to Sign In
+                                </Link>
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
-        </section>
-    </main>
+        </main>
+    </div>
   );
 }
