@@ -84,52 +84,58 @@ export default function MembersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   
-
-  // Fetch initial data based on user role
   useEffect(() => {
-    if (adminLoading) return;
-    
-    const fetchInitialData = async () => {
-        if (!firestore) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Firestore not available.' });
-            return;
-        }
+    if (adminLoading || !firestore) return;
 
-        try {
-            if (isSiteAdmin) {
-                const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
-                const clubsSnapshot = await getDocs(clubsQuery);
-                const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
-                setClubs(clubsData);
-                if (userProfile?.primaryClubId) {
-                    setSelectedClubId(userProfile.primaryClubId);
-                } else if (clubsData.length > 0) {
-                    setSelectedClubId(clubsData[0].id);
-                }
-            } else {
-                setSelectedClubId(userProfile?.primaryClubId || '');
-            }
-        } catch (error) {
-            console.error("Error fetching initial data: ", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not load initial data.' });
+    if (isSiteAdmin) {
+      // Site Admin: Fetch all clubs for the dropdown
+      const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
+      const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
+        const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+        setClubs(clubsData);
+        // Set selected club to user's primary, or first in the list, or empty
+        if (userProfile?.primaryClubId) {
+          setSelectedClubId(userProfile.primaryClubId);
+        } else if (clubsData.length > 0) {
+          setSelectedClubId(clubsData[0].id);
+        } else {
+          setIsLoading(false);
         }
-    };
-    
-    fetchInitialData();
+      }, (error) => {
+        console.error("Error fetching clubs for admin:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not load clubs.' });
+        setIsLoading(false);
+      });
+      return () => unsubscribe();
+    } else {
+      // Non-Admin: Just set their primary club ID
+      if (userProfile?.primaryClubId) {
+        setSelectedClubId(userProfile.primaryClubId);
+        // Also fetch just their club to display its name
+        const clubDocRef = doc(firestore, 'clubs', userProfile.primaryClubId);
+        getDoc(clubDocRef).then(docSnap => {
+          if (docSnap.exists()) {
+            setClubs([{ id: docSnap.id, ...docSnap.data() } as Club]);
+          }
+        });
+      } else {
+        // No primary club set for this user
+        setIsLoading(false);
+      }
+    }
+  }, [isSiteAdmin, adminLoading, userProfile, firestore, toast]);
 
-  }, [userProfile, isSiteAdmin, adminLoading, toast]);
   
   useEffect(() => {
     if (!selectedClubId || !firestore) {
-      if (!adminLoading) { // Only stop loading if we aren't waiting for admin status
-        setIsLoading(false);
-      }
-      setAllUsers([]);
+      setAllUsers([]); // Clear users if no club is selected
+      if (!adminLoading) setIsLoading(false); // Stop loading if we're not waiting on auth
       return;
     }
     
     setIsLoading(true);
     const membersQuery = query(collection(firestore, 'users'), where('primaryClubId', '==', selectedClubId));
+    
     const unsubscribe = onSnapshot(membersQuery, (snapshot) => {
         const membersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
         setAllUsers(membersData);
@@ -141,7 +147,7 @@ export default function MembersPage() {
     });
 
     return () => unsubscribe();
-  }, [selectedClubId, toast, adminLoading]);
+  }, [selectedClubId, toast, adminLoading, firestore]);
   
   const handleEditClick = (userToEdit: User) => {
     setSelectedUser({ ...userToEdit }); // Create a copy to edit
@@ -364,7 +370,7 @@ export default function MembersPage() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap items-center gap-4 mb-4">
-               {isSiteAdmin && (
+               {isSiteAdmin ? (
                 <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={clubs.length === 0}>
                     <SelectTrigger className="w-48">
                         <SelectValue placeholder="Select a club..." />
@@ -377,6 +383,10 @@ export default function MembersPage() {
                         ))}
                     </SelectContent>
                 </Select>
+              ) : (
+                <div className="w-48 h-10 flex items-center px-3 text-sm font-medium border rounded-md bg-muted">
+                    {clubs.length > 0 ? clubs[0].name : 'Your Club'}
+                </div>
               )}
               <div className="relative flex-1">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />

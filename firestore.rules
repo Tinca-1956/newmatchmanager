@@ -1,57 +1,68 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check user role
-    function getUserRole(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
     }
 
-    // Helper function to check if a user is an admin (Club or Site)
-    function isAdmin(userId) {
-      let userRole = getUserRole(userId);
-      return userRole == 'Site Admin' || userRole == 'Club Admin';
+    // ========== COLLECTIONS ==========
+
+    // CLUBS: Only authenticated users can read club info.
+    // Site admins can write/update club info.
+    match /clubs/{clubId} {
+      allow read: if request.auth != null;
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
     }
 
-    // Helper function to check if the user is a Site Admin
-    function isSiteAdmin(userId) {
-      return getUserRole(userId) == 'Site Admin';
-    }
-
-    // Unsecured public data for the public dashboard
-    match /publicMatches/{matchId} {
-      allow read: if true;
-      allow write: if request.auth != null; // Only authenticated users (admins) can publish
+    // USERS: 
+    // 1. A user can always read/update their OWN document.
+    // 2. Site Admins can read/write any user document.
+    // 3. Authenticated users can read the list of users for a specific club.
+    match /users/{userId} {
+      allow read, update: if request.auth.uid == userId;
+      allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
+      allow list: if request.auth != null; // Simplified list rule
     }
     
-    match /clubs/{clubId} {
-      allow read: if true; // All users can see the list of clubs
-      allow write: if isSiteAdmin(request.auth.uid); // Only Site Admins can create/edit clubs
-    }
-
-    match /users/{userId} {
-      // ANY authenticated user can read the list of users (for member pages, etc.)
-      allow read: if request.auth != null;
-      // Only an admin OR the user themselves can update a user document
-      allow write: if isAdmin(request.auth.uid) || request.auth.uid == userId;
-    }
-
+    // SERIES: Authenticated users can read.
+    // Admins can write.
     match /series/{seriesId} {
         allow read: if request.auth != null;
-        allow write: if isAdmin(request.auth.uid);
-    }
-
-    match /matches/{matchId} {
-      // Any authenticated user can read match data
-      allow read: if request.auth != null;
-      // Any authenticated user can register (update registeredAnglers)
-      allow write: if request.auth != null;
+        allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin' 
+                  || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin';
     }
     
-    match /results/{resultId} {
+    // MATCHES: 
+    // - Authenticated users can read.
+    // - Admins can write/create.
+    // - Any user can update the 'registeredAnglers' and 'registeredCount' fields (for registering/unregistering)
+    match /matches/{matchId} {
+      allow read, create, delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin' 
+                          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin';
       allow read: if request.auth != null;
-      allow write: if isAdmin(request.auth.uid);
+      allow update: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin' 
+                      || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin'
+                      || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['registeredAnglers', 'registeredCount']));
+    }
+
+    // RESULTS: Authenticated users can read.
+    // Admins/Marshals can write.
+    match /results/{resultId} {
+        allow read: if request.auth != null;
+        allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin' 
+                  || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin'
+                  || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Marshal';
+    }
+    
+    // PUBLIC MATCHES:
+    // Anyone can read, only authenticated users (via the app) can write.
+    match /publicMatches/{matchId} {
+      allow read: if true;
+      allow write: if request.auth != null;
     }
   }
 }
