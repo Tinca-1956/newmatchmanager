@@ -26,9 +26,17 @@ export const usePublicData = (): UsePublicDataReturn => {
     const [isLoadingCompleted, setIsLoadingCompleted] = useState(true);
     const [isLoadingUpcoming, setIsLoadingUpcoming] = useState(true);
 
-    // Fetch all clubs once
+    // This state tracks if firestore is ready
+    const [isFirestoreReady, setIsFirestoreReady] = useState(false);
     useEffect(() => {
-        if (!firestore) {
+        if (firestore) {
+            setIsFirestoreReady(true);
+        }
+    }, []);
+
+    // Fetch all clubs once firestore is ready
+    useEffect(() => {
+        if (!isFirestoreReady) {
             setIsLoadingClubs(false);
             return;
         }
@@ -43,11 +51,11 @@ export const usePublicData = (): UsePublicDataReturn => {
             setIsLoadingClubs(false);
         });
         return () => unsubscribe();
-    }, [toast]);
+    }, [isFirestoreReady, toast]);
 
-    // Fetch all public completed matches once
+    // Fetch all public completed matches once firestore is ready
     useEffect(() => {
-        if (!firestore) {
+        if (!isFirestoreReady) {
             setIsLoadingCompleted(false);
             return;
         }
@@ -62,11 +70,11 @@ export const usePublicData = (): UsePublicDataReturn => {
             setIsLoadingCompleted(false);
         });
         return () => unsubscribe();
-    }, [toast]);
+    }, [isFirestoreReady, toast]);
     
-    // Fetch all public upcoming matches once
+    // Fetch all public upcoming matches once firestore is ready
     useEffect(() => {
-        if (!firestore) {
+        if (!isFirestoreReady) {
             setIsLoadingUpcoming(false);
             return;
         }
@@ -81,7 +89,7 @@ export const usePublicData = (): UsePublicDataReturn => {
             setIsLoadingUpcoming(false);
         });
         return () => unsubscribe();
-    }, [toast]);
+    }, [isFirestoreReady, toast]);
     
     const upcomingMatches = useMemo(() => {
         const source = selectedClubId === 'all-clubs' 
