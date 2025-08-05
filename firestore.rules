@@ -2,76 +2,40 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // CLUBS: Only authenticated users can read club info.
-    // Writes are restricted to Site Admins.
+  
+    // Helper function to check if the requester is an admin
+    function isRequesterAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Site Admin', 'Club Admin'];
+    }
+
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth.uid == userId; // Anyone can create their own user record
+      allow update: if request.auth.uid == userId || isRequesterAdmin();
+      allow delete: if isRequesterAdmin(); 
+    }
+
     match /clubs/{clubId} {
       allow read: if request.auth != null;
-      allow write: if request.auth.token.role == 'Site Admin';
+      allow write: if isRequesterAdmin();
     }
-
-    // SERIES: Authenticated users can read.
-    // Writes are restricted to Site Admins and Club Admins of that club.
+    
     match /series/{seriesId} {
       allow read: if request.auth != null;
-      allow write: if request.auth.token.role == 'Site Admin' 
-                  || (request.auth.token.role == 'Club Admin' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == resource.data.clubId);
+      allow write: if isRequesterAdmin();
     }
 
-    // MATCHES: Authenticated users can read.
-    // Writes restricted to admins. Registration is a custom update rule.
     match /matches/{matchId} {
       allow read: if request.auth != null;
-      
-      // Admin create/delete
-      allow create, delete: if request.auth.token.role == 'Site Admin' 
-                  || (request.auth.token.role == 'Club Admin' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == request.resource.data.clubId);
-
-      // Custom update logic
-      allow update: if 
-          // Rule 1: Allow admins to update anything
-          (request.auth.token.role in ['Site Admin', 'Club Admin']) ||
-          // Rule 2: Allow an authenticated user to register/unregister themselves
-          (
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['registeredAnglers', 'registeredCount']) &&
-            (
-              // Registration: adding their own UID
-              request.resource.data.registeredAnglers == resource.data.registeredAnglers.concat([request.auth.uid]) &&
-              request.resource.data.registeredCount == resource.data.registeredCount + 1
-            ) || (
-              // Un-registration: removing their own UID
-              request.resource.data.registeredAnglers == resource.data.registeredAnglers.removeAll([request.auth.uid]) &&
-              request.resource.data.registeredCount == resource.data.registeredCount - 1
-            )
-          );
+      allow create: if isRequesterAdmin();
+      // Allow update if user is an admin OR if they are just adding/removing themselves from registeredAnglers
+      allow update: if isRequesterAdmin() || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['registeredAnglers', 'registeredCount']));
+      allow delete: if isRequesterAdmin();
     }
     
-    // RESULTS: Authenticated users can read.
-    // Writes are restricted to Admins and Marshals.
     match /results/{resultId} {
         allow read: if request.auth != null;
-        allow write: if request.auth.token.role in ['Site Admin', 'Club Admin', 'Marshal'];
-    }
-
-    // USERS: Complex rules for user management
-    match /users/{userId} {
-    
-      // READ: A user can read their own profile, or any profile if they are an admin.
-      allow read: if request.auth.uid == userId 
-                  || request.auth.token.role in ['Site Admin', 'Club Admin'];
-
-      // CREATE: A user can create their own document (on signup)
-      // Admins can create users (e.g. unverified anglers)
-      allow create: if request.auth.uid == userId 
-                  || request.auth.token.role in ['Site Admin', 'Club Admin'];
-
-      // UPDATE: A user can update their own document.
-      // Admins can update any user document.
-      allow update: if request.auth.uid == userId 
-                  || request.auth.token.role in ['Site Admin', 'Club Admin'];
-
-      // DELETE: Only Site Admins can delete users.
-      allow delete: if request.auth.token.role == 'Site Admin';
+        allow write: if isRequesterAdmin() || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Marshal';
     }
   }
 }
