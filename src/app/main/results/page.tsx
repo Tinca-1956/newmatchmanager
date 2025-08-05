@@ -44,7 +44,7 @@ import 'jspdf-autotable';
 type ResultWithSectionRank = ResultType & { sectionRank?: number };
 
 export default function ResultsPage() {
-    const { user, userProfile, loading: authLoading } = useAuth();
+    const { user, userProfile, loading: authLoading } from 'use-auth';
     const { toast } = useToast();
     const { isSiteAdmin } = useAdminAuth();
 
@@ -63,11 +63,11 @@ export default function ResultsPage() {
     const [isLoadingMatches, setIsLoadingMatches] = useState(false);
     const [isLoadingResults, setIsLoadingResults] = useState(false);
 
-    // Step 1: Fetch clubs for the dropdown (or user's primary club)
+    // Step 1: Set the selected club based on user role and profile
     useEffect(() => {
         if (authLoading || !firestore) return;
 
-        const fetchClubs = async () => {
+        const fetchAndSetClubs = async () => {
             setIsLoadingClubs(true);
             try {
                 if (isSiteAdmin) {
@@ -75,17 +75,16 @@ export default function ResultsPage() {
                     const clubsSnapshot = await getDocs(clubsQuery);
                     const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
                     setAllClubs(clubsData);
-                    if (userProfile?.primaryClubId) {
-                      setSelectedClubId(userProfile.primaryClubId);
-                    } else if (clubsData.length > 0) {
-                        setSelectedClubId(clubsData[0].id);
+                    if (clubsData.length > 0) {
+                        // Default to user's primary if available, otherwise first in list
+                        setSelectedClubId(userProfile?.primaryClubId || clubsData[0].id);
                     }
                 } else if (userProfile?.primaryClubId) {
                     const clubDocRef = doc(firestore, 'clubs', userProfile.primaryClubId);
                     const clubDoc = await getDoc(clubDocRef);
                     if (clubDoc.exists()) {
                         const primaryClub = { id: clubDoc.id, ...clubDoc.data() } as Club;
-                        setAllClubs([primaryClub]);
+                        setAllClubs([primaryClub]); // Set for display purposes
                         setSelectedClubId(primaryClub.id);
                     }
                 }
@@ -97,9 +96,10 @@ export default function ResultsPage() {
             }
         };
         
-        fetchClubs();
+        fetchAndSetClubs();
 
     }, [userProfile, isSiteAdmin, authLoading, toast]);
+
 
     // Step 2: Handle Club Selection -> Fetch Series
     useEffect(() => {
@@ -388,22 +388,26 @@ export default function ResultsPage() {
                     <div className="flex flex-wrap items-end gap-4 mb-6">
                         <div className="flex flex-col gap-1.5">
                             <Label htmlFor="club-filter">Club</Label>
-                            <Select 
-                                value={selectedClubId} 
-                                onValueChange={(value) => setSelectedClubId(value)}
-                                disabled={isLoadingClubs || allClubs.length === 0}
-                            >
-                                <SelectTrigger id="club-filter" className="w-[200px]">
-                                    <SelectValue placeholder="Select a club..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {allClubs.map((club) => (
-                                        <SelectItem key={club.id} value={club.id}>
-                                            {club.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            {isSiteAdmin ? (
+                                <Select 
+                                    value={selectedClubId} 
+                                    onValueChange={(value) => setSelectedClubId(value)}
+                                    disabled={isLoadingClubs || allClubs.length === 0}
+                                >
+                                    <SelectTrigger id="club-filter" className="w-[200px]">
+                                        <SelectValue placeholder="Select a club..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {allClubs.map((club) => (
+                                            <SelectItem key={club.id} value={club.id}>
+                                                {club.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            ) : (
+                                <Input value={allClubs.length > 0 ? allClubs[0].name : 'Loading...'} disabled className="w-[200px]" />
+                            )}
                         </div>
                          <div className="flex flex-col gap-1.5">
                             <Label htmlFor="series-filter">Series</Label>
