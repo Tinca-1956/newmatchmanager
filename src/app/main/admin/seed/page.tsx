@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
-import { collection, writeBatch, doc, getDocs, orderBy, query } from 'firebase/firestore';
+import { collection, writeBatch, doc, getDocs, orderBy, query, getDoc } from 'firebase/firestore';
 import type { Club, User } from '@/lib/types';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -21,6 +21,7 @@ import { Terminal } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/hooks/use-auth';
 
 const sampleUsers = (clubId: string): Omit<User, 'id'>[] => [
   { firstName: 'John', lastName: 'Angler', email: 'john.angler@test.com', role: 'Angler', memberStatus: 'Pending', primaryClubId: clubId },
@@ -32,7 +33,8 @@ const sampleUsers = (clubId: string): Omit<User, 'id'>[] => [
 
 
 export default function SeedDataPage() {
-    const { isSiteAdmin, loading: adminLoading } = useAdminAuth();
+    const { userProfile } = useAuth();
+    const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
     const { toast } = useToast();
     const [isSeeding, setIsSeeding] = useState(false);
     const [clubs, setClubs] = useState<Club[]>([]);
@@ -40,23 +42,39 @@ export default function SeedDataPage() {
     const [isLoadingClubs, setIsLoadingClubs] = useState(true);
 
     useEffect(() => {
-        if (!isSiteAdmin) return;
+        if (adminLoading || !firestore) return;
 
         const fetchClubs = async () => {
-            if (!firestore) return;
             setIsLoadingClubs(true);
-            const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
-            const clubsSnapshot = await getDocs(clubsQuery);
-            const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
-            setClubs(clubsData);
-            if (clubsData.length > 0) {
-                setSelectedClubId(clubsData[0].id);
+            try {
+                if (isSiteAdmin) {
+                    const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
+                    const clubsSnapshot = await getDocs(clubsQuery);
+                    const clubsData = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+                    setClubs(clubsData);
+                    if (clubsData.length > 0 && !selectedClubId) {
+                        setSelectedClubId(clubsData[0].id);
+                    }
+                } else if (isClubAdmin && userProfile?.primaryClubId) {
+                    const clubDocRef = doc(firestore, 'clubs', userProfile.primaryClubId);
+                    const clubDoc = await getDoc(clubDocRef);
+                    if (clubDoc.exists()) {
+                        const clubData = { id: clubDoc.id, ...clubDoc.data() } as Club;
+                        setClubs([clubData]);
+                        setSelectedClubId(clubData.id);
+                    }
+                }
+            } catch (error) {
+                console.error("Error fetching clubs:", error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not load clubs.' });
+            } finally {
+                setIsLoadingClubs(false);
             }
-            setIsLoadingClubs(false);
         };
 
         fetchClubs();
-    }, [isSiteAdmin]);
+    }, [isSiteAdmin, isClubAdmin, userProfile, adminLoading, toast, selectedClubId]);
+
 
     const handleSeedUsers = async () => {
         if (!firestore) {
@@ -106,7 +124,7 @@ export default function SeedDataPage() {
         )
     }
 
-    if (!isSiteAdmin) {
+    if (!isSiteAdmin && !isClubAdmin) {
         return (
              <Alert variant="destructive">
                 <Terminal className="h-4 w-4" />
@@ -127,11 +145,11 @@ export default function SeedDataPage() {
                     <CardDescription>Click the button below to add 5 random anglers to your club's member list. Then navigate to the MEMBERS page and edit the names. THese anglers may then be added to matches.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    <div className="space-y-2">
-                         <Label htmlFor="club-select">Target Club</Label>
+                     <div className="space-y-2">
+                        <Label htmlFor="club-select">Target Club</Label>
                         {isLoadingClubs ? (
                             <Skeleton className="h-10 w-full" />
-                        ) : (
+                        ) : isSiteAdmin ? (
                             <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={clubs.length === 0}>
                                 <SelectTrigger id="club-select">
                                     <SelectValue placeholder="Select a club..." />
@@ -144,6 +162,8 @@ export default function SeedDataPage() {
                                     ))}
                                 </SelectContent>
                             </Select>
+                        ) : (
+                            <Input value={clubs.length > 0 ? clubs[0].name : 'Loading...'} disabled />
                         )}
                     </div>
                 </CardContent>
