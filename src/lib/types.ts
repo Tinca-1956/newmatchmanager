@@ -94,6 +94,7 @@ export interface PublicMatch {
     date: any; // Stored as Timestamp
     status: string;
     results: PublicResult[];
+    mediaUrls?: string[];
 }
 
 // A simplified, public-safe version of an upcoming match

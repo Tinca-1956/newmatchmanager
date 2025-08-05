@@ -1,0 +1,21 @@
+
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Allow public read access to all files within the 'matches' folder and its subdirectories.
+    // This is necessary for the public dashboard to display match images.
+    match /matches/{allPaths=**} {
+      allow read: if true;
+    }
+
+    // Default rule: All other paths require authentication to read or write.
+    // This secures user-specific folders or other private areas.
+    // The path wildcard here ensures any path NOT matching the rule above
+    // falls into this more restrictive rule.
+    match /{path=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

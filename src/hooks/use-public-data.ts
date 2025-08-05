@@ -13,10 +13,7 @@ interface UsePublicDataReturn {
     setSelectedClubId: (id: string) => void;
     isLoading: boolean;
     upcomingMatches: PublicUpcomingMatch[];
-    completedMatches: PublicMatch[];
-    uniqueSeries: { id: string; name: string }[];
-    selectedSeriesId: string;
-    setSelectedSeriesId: (id: string) => void;
+    lastCompletedMatch: PublicMatch | null;
 }
 
 export const usePublicData = (): UsePublicDataReturn => {
@@ -25,7 +22,6 @@ export const usePublicData = (): UsePublicDataReturn => {
     const [allPublicCompleted, setAllPublicCompleted] = useState<PublicMatch[]>([]);
     const [allPublicUpcoming, setAllPublicUpcoming] = useState<PublicUpcomingMatch[]>([]);
     const [selectedClubId, setSelectedClubId] = useState<string>('');
-    const [selectedSeriesId, setSelectedSeriesId] = useState<string>('');
     const [isLoadingClubs, setIsLoadingClubs] = useState(true);
     const [isLoadingCompleted, setIsLoadingCompleted] = useState(true);
     const [isLoadingUpcoming, setIsLoadingUpcoming] = useState(true);
@@ -40,9 +36,6 @@ export const usePublicData = (): UsePublicDataReturn => {
         const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
             const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
             setClubs(clubsData);
-            if (clubsData.length > 0 && !selectedClubId) {
-                setSelectedClubId(clubsData[0].id);
-            }
             setIsLoadingClubs(false);
         }, (error) => {
             console.error("Error fetching clubs: ", error);
@@ -50,7 +43,7 @@ export const usePublicData = (): UsePublicDataReturn => {
             setIsLoadingClubs(false);
         });
         return () => unsubscribe();
-    }, [toast, selectedClubId]);
+    }, [toast]);
 
     // Fetch all public completed matches once
     useEffect(() => {
@@ -91,28 +84,16 @@ export const usePublicData = (): UsePublicDataReturn => {
     }, [toast]);
     
     const upcomingMatches = useMemo(() => {
-        if (!selectedClubId) return [];
-        return allPublicUpcoming
-            .filter(m => m.clubId === selectedClubId)
+        const source = selectedClubId ? allPublicUpcoming.filter(m => m.clubId === selectedClubId) : allPublicUpcoming;
+        return source
             .sort((a, b) => a.date.seconds - b.date.seconds);
     }, [allPublicUpcoming, selectedClubId]);
 
-    const completedMatches = useMemo(() => {
-        if (!selectedClubId) return [];
-        return allPublicCompleted
-            .filter(m => m.clubId === selectedClubId)
-            .sort((a, b) => b.date.seconds - a.date.seconds);
+    const lastCompletedMatch = useMemo(() => {
+        const source = selectedClubId ? allPublicCompleted.filter(m => m.clubId === selectedClubId) : allPublicCompleted;
+        if (source.length === 0) return null;
+        return source.sort((a, b) => b.date.seconds - a.date.seconds)[0];
     }, [allPublicCompleted, selectedClubId]);
-
-    const uniqueSeries = useMemo(() => {
-        const seriesMap = new Map<string, { id: string; name: string }>();
-        completedMatches.forEach(match => {
-            if (!seriesMap.has(match.seriesId)) {
-                seriesMap.set(match.seriesId, { id: match.seriesId, name: match.seriesName });
-            }
-        });
-        return Array.from(seriesMap.values());
-    }, [completedMatches]);
     
     const isLoading = isLoadingClubs || isLoadingCompleted || isLoadingUpcoming;
 
@@ -122,9 +103,6 @@ export const usePublicData = (): UsePublicDataReturn => {
         setSelectedClubId,
         isLoading,
         upcomingMatches,
-        completedMatches,
-        uniqueSeries,
-        selectedSeriesId,
-        setSelectedSeriesId,
+        lastCompletedMatch,
     };
 };

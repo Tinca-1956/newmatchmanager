@@ -4,37 +4,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { Match, Result as ResultType } from '@/lib/types';
+import type { Match, Result as ResultType, PublicMatch, PublicResult } from '@/lib/types';
 import { useToast } from './use-toast';
 import { useAuth } from './use-auth';
 import { firestore } from '@/lib/firebase-client';
 import { doc, getDoc, updateDoc, arrayUnion, increment, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
-
-
-// Define the types for the public data
-interface PublicResult {
-    userId: string;
-    userName: string;
-    peg: string;
-    section: string;
-    weight: number;
-    status: string;
-    position: number | null;
-    sectionRank: number | null;
-}
-
-interface PublicMatch {
-    id: string;
-    clubId: string;
-    clubName: string;
-    seriesId: string;
-    seriesName: string;
-    name: string;
-    location: string;
-    date: any; // Stored as Timestamp
-    status: string;
-    results: PublicResult[];
-}
 
 
 export const useMatchActions = () => {
@@ -142,6 +116,7 @@ export const useMatchActions = () => {
             date: match.date, // Keep as Timestamp or Date object
             status: match.status,
             results: publicResults,
+            mediaUrls: match.mediaUrls || [],
         };
 
         // 5. Write to the `publicMatches` collection, using the match ID as the document ID
