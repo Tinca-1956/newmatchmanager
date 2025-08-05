@@ -1,43 +1,75 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function isRequesterAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Site Admin', 'Club Admin'];
+  
+    // UTILITY: Function to check if a user has a specific role
+    function hasRole(role) {
+      return request.auth.token.role == role;
+    }
+    
+    // UTILITY: Function to check if a user has any admin role
+    function isAdmin() {
+      return hasRole('Site Admin') || hasRole('Club Admin');
+    }
+    
+    // UTILITY: Function to check if a user is the owner of the document
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
 
+    // -- Start of Rules --
+
+    // CLUBS: Only Site Admins can manage clubs. Any authenticated user can read them.
     match /clubs/{clubId} {
-      allow read: if true;
-      allow write: if isRequesterAdmin();
+      allow read: if request.auth != null;
+      allow create, update, delete: if hasRole('Site Admin');
     }
-
+    
+    // USERS: 
+    // - Users can read and update their own document.
+    // - Admins can read any user document within their own club.
+    // - Site Admins can read any user document.
+    // - Admins can create/update users (e.g. for seeding or status changes).
+    match /users/{userId} {
+      allow read, update: if isOwner(userId);
+      allow read, create, update: if isAdmin() && (hasRole('Site Admin') || resource.data.primaryClubId == request.auth.token.primaryClubId);
+      allow delete: if hasRole('Site Admin');
+    }
+    
+    // SERIES:
+    // - Any authenticated user can read series data.
+    // - Admins can create, update, and delete series.
     match /series/{seriesId} {
-      allow read: if request.auth != null;
-      allow write: if isRequesterAdmin();
+        allow read: if request.auth != null;
+        allow create, update, delete: if isAdmin();
     }
 
+    // MATCHES:
+    // - Any authenticated user can read match data.
+    // - Admins can create, update, and delete matches.
     match /matches/{matchId} {
-      allow read: if request.auth != null;
-      
-      // Allow admins to perform any write.
-      // Allow any authenticated user to update (register/unregister).
-      allow create, delete: if isRequesterAdmin();
-      allow update: if request.auth != null;
+        allow read: if request.auth != null;
+        // Check that the user is an admin of the club the match belongs to
+        allow create: if isAdmin() && request.resource.data.clubId == request.auth.token.primaryClubId;
+        allow update: if isAdmin() && get(/databases/$(database)/documents/matches/$(matchId)).data.clubId == request.auth.token.primaryClubId;
+        allow delete: if isAdmin() && get(/databases/$(database)/documents/matches/$(matchId)).data.clubId == request.auth.token.primaryClubId;
     }
-
+    
+    // RESULTS:
+    // - Any authenticated user can read results.
+    // - Marshals and Admins can create/update results.
     match /results/{resultId} {
         allow read: if request.auth != null;
-        allow write: if request.auth.token.role in ['Site Admin', 'Club Admin', 'Marshal'];
+        allow create, update, delete: if hasRole('Marshal') || isAdmin();
     }
-
-    match /users/{userId} {
-      // Allow authenticated users to read any user document.
-      allow read: if request.auth != null;
-      
-      // Allow users to update their own document, or admins to update any document.
-      allow write: if request.auth.uid == userId || isRequesterAdmin();
+    
+    // PUBLIC MATCHES:
+    // - Allow ANYONE to read this collection.
+    // - Only allow authenticated users (specifically admins via app logic) to write.
+    match /publicMatches/{matchId} {
+        allow read: if true;
+        allow write: if request.auth != null;
     }
   }
 }
