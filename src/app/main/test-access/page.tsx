@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -5,8 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, getDocs, Timestamp, doc, getDoc, addDoc } from 'firebase/firestore';
-import type { User, Match, Club } from '@/lib/types';
+import { collection, query, where, getDocs, Timestamp, doc, getDoc, addDoc, writeBatch, setDoc } from 'firebase/firestore';
+import type { User, Match, Club, PublicUpcomingMatch } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -14,9 +15,11 @@ import { Terminal } from 'lucide-react';
 import { format } from 'date-fns';
 import { sendTestEmail } from '@/lib/send-email';
 import NextImage from 'next/image';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 export default function TestAccessPage() {
   const { userProfile, loading: authLoading } = useAuth();
+  const { isSiteAdmin, loading: adminLoading } = useAdminAuth();
   const { toast } = useToast();
   
   const [anglers, setAnglers] = useState<User[]>([]);
@@ -32,8 +35,8 @@ export default function TestAccessPage() {
   const [singleMatchError, setSingleMatchError] = useState<string | null>(null);
 
   const [isSendingEmail, setIsSendingEmail] = useState(false);
-  
   const [isCreatingAngler, setIsCreatingAngler] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
 
   const handleGetAnglers = async () => {
@@ -84,7 +87,6 @@ export default function TestAccessPage() {
     setMatchError(null);
 
     try {
-      // This query is similar to the one on the matches page
       const matchesQuery = query(collection(firestore, 'matches'), where('clubId', '==', userProfile.primaryClubId));
       const querySnapshot = await getDocs(matchesQuery);
 
@@ -127,7 +129,6 @@ export default function TestAccessPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Firestore not available.' });
       return;
     }
-    // A hardcoded ID for a match that is known to exist for testing purposes.
     const matchId = "dwoFy4YJJVzLWwQqFow1";
 
     setIsSingleMatchLoading(true);
@@ -214,6 +215,46 @@ export default function TestAccessPage() {
         }
   }
 
+  const handleSyncUpcomingMatches = async () => {
+    if (!firestore) return;
+    setIsSyncing(true);
+    try {
+        const batch = writeBatch(firestore);
+        const matchesQuery = query(collection(firestore, 'matches'), where('status', 'in', ['Upcoming', 'In Progress']));
+        const matchesSnapshot = await getDocs(matchesQuery);
+
+        let count = 0;
+        matchesSnapshot.forEach(matchDoc => {
+            const matchData = matchDoc.data() as Match;
+            const publicUpcomingRef = doc(firestore, 'publicUpcomingMatches', matchDoc.id);
+            const publicData: PublicUpcomingMatch = {
+                id: matchDoc.id,
+                clubId: matchData.clubId,
+                seriesId: matchData.seriesId,
+                seriesName: matchData.seriesName,
+                name: matchData.name,
+                location: matchData.location,
+                date: matchData.date,
+                drawTime: matchData.drawTime,
+                startTime: matchData.startTime,
+                endTime: matchData.endTime,
+                status: matchData.status,
+            };
+            batch.set(publicUpcomingRef, publicData);
+            count++;
+        });
+
+        await batch.commit();
+        toast({ title: 'Sync Complete', description: `${count} upcoming matches have been synchronized to the public collection.` });
+
+    } catch (error) {
+        console.error("Error syncing upcoming matches:", error);
+        toast({ variant: 'destructive', title: 'Sync Failed', description: 'Could not sync upcoming matches.' });
+    } finally {
+        setIsSyncing(false);
+    }
+  };
+
   const renderCurrentUserInfo = () => {
       if (authLoading) {
           return (
@@ -238,9 +279,30 @@ export default function TestAccessPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Test Access</h1>
-        <p className="text-muted-foreground">A simple page to test Firestore read permissions.</p>
+        <h1 className="text-3xl font-bold tracking-tight">Test Access & Utilities</h1>
+        <p className="text-muted-foreground">A page to test permissions and run admin utilities.</p>
       </div>
+
+      {isSiteAdmin && (
+          <Card>
+              <CardHeader>
+                  <CardTitle>Site Admin Utilities</CardTitle>
+                  <CardDescription>One-off actions to manage application data.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                  <div className="space-y-2 rounded-md border p-4">
+                      <h3 className="font-semibold mb-2">Sync Public Upcoming Matches</h3>
+                      <p className="text-sm text-muted-foreground pb-4">
+                          This will read all matches from the private 'matches' collection and create/overwrite entries in the 'publicUpcomingMatches' collection for any match with a status of "Upcoming" or "In Progress". Run this once to populate the public dashboard for the first time.
+                      </p>
+                      <Button onClick={handleSyncUpcomingMatches} disabled={isSyncing}>
+                          {isSyncing ? 'Syncing...' : 'Run Upcoming Match Sync'}
+                      </Button>
+                  </div>
+              </CardContent>
+          </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Core Permission Test</CardTitle>

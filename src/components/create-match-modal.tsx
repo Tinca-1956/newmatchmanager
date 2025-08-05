@@ -24,9 +24,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { firestore } from '@/lib/firebase-client';
-import { addDoc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import type { Match, Series } from '@/lib/types';
+import type { Match, Series, PublicUpcomingMatch } from '@/lib/types';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Skeleton } from './ui/skeleton';
@@ -104,18 +104,44 @@ export function CreateMatchModal({ isOpen, onClose, clubId }: CreateMatchModalPr
     
     setIsSaving(true);
     try {
-        const selectedSeries = seriesList.find(s => s.id === newMatch.seriesId);
+        const batch = writeBatch(firestore);
+        const matchesCollection = collection(firestore, 'matches');
+        const newMatchRef = doc(matchesCollection); // Auto-generate ID
 
-        const dataToSave = {
+        const selectedSeries = seriesList.find(s => s.id === newMatch.seriesId);
+        const matchDate = Timestamp.fromDate(newMatch.date);
+
+        const dataToSave: Omit<Match, 'id'> = {
             ...newMatch,
             clubId,
             seriesName: selectedSeries?.name || '',
-            date: Timestamp.fromDate(newMatch.date),
+            date: matchDate,
             registeredCount: 0,
             registeredAnglers: [],
         };
+        batch.set(newMatchRef, dataToSave);
 
-        await addDoc(collection(firestore, 'matches'), dataToSave);
+        // Also write to publicUpcomingMatches if status is Upcoming
+        if (dataToSave.status === 'Upcoming') {
+            const publicUpcomingMatchRef = doc(firestore, 'publicUpcomingMatches', newMatchRef.id);
+            const publicData: PublicUpcomingMatch = {
+                id: newMatchRef.id,
+                clubId: dataToSave.clubId,
+                seriesId: dataToSave.seriesId,
+                seriesName: dataToSave.seriesName,
+                name: dataToSave.name,
+                location: dataToSave.location,
+                date: dataToSave.date,
+                drawTime: dataToSave.drawTime,
+                startTime: dataToSave.startTime,
+                endTime: dataToSave.endTime,
+                status: dataToSave.status,
+            };
+            batch.set(publicUpcomingMatchRef, publicData);
+        }
+
+        await batch.commit();
+
         toast({ title: 'Success', description: 'New match has been created.' });
         setNewMatch(initialMatchState); // Reset form
         onClose();

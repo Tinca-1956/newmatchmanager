@@ -350,36 +350,42 @@ export default function SeriesPage() {
     }
   };
   
-    const handleDeleteSeries = async (seriesId: string) => {
-        if (!firestore) return;
-        setIsSaving(true);
-        try {
-            const batch = writeBatch(firestore);
+  const handleDeleteSeries = async (seriesId: string) => {
+      if (!firestore) return;
+      setIsSaving(true);
+      try {
+          const batch = writeBatch(firestore);
 
-            // 1. Find and delete all results in the series
-            const resultsQuery = query(collection(firestore, 'results'), where('seriesId', '==', seriesId));
-            const resultsSnapshot = await getDocs(resultsQuery);
-            resultsSnapshot.docs.forEach(d => batch.delete(d.ref));
+          // 1. Find all matches in the series
+          const matchesQuery = query(collection(firestore, 'matches'), where('seriesId', '==', seriesId));
+          const matchesSnapshot = await getDocs(matchesQuery);
+          const matchIds = matchesSnapshot.docs.map(d => d.id);
+          
+          // 2. Delete matches and associated public upcoming matches
+          matchIds.forEach(matchId => {
+              batch.delete(doc(firestore, 'matches', matchId));
+              batch.delete(doc(firestore, 'publicUpcomingMatches', matchId));
+          });
+          
+          // 3. Delete all results in the series
+          const resultsQuery = query(collection(firestore, 'results'), where('seriesId', '==', seriesId));
+          const resultsSnapshot = await getDocs(resultsQuery);
+          resultsSnapshot.docs.forEach(d => batch.delete(d.ref));
+          
+          // 4. Delete the series document itself
+          const seriesDocRef = doc(firestore, 'series', seriesId);
+          batch.delete(seriesDocRef);
 
-            // 2. Find and delete all matches in the series
-            const matchesQuery = query(collection(firestore, 'matches'), where('seriesId', '==', seriesId));
-            const matchesSnapshot = await getDocs(matchesQuery);
-            matchesSnapshot.docs.forEach(d => batch.delete(d.ref));
-            
-            // 3. Delete the series document itself
-            const seriesDocRef = doc(firestore, 'series', seriesId);
-            batch.delete(seriesDocRef);
+          await batch.commit();
 
-            await batch.commit();
-
-            toast({ title: 'Success!', description: `Series and all its associated matches/results have been deleted.` });
-        } catch (error) {
-            console.error('Error deleting series:', error);
-            toast({ variant: 'destructive', title: 'Delete Failed', description: 'Could not delete the series and its data.' });
-        } finally {
-            setIsSaving(false);
-        }
-    };
+          toast({ title: 'Success!', description: `Series and all its associated data have been deleted.` });
+      } catch (error) {
+          console.error('Error deleting series:', error);
+          toast({ variant: 'destructive', title: 'Delete Failed', description: 'Could not delete the series and its data.' });
+      } finally {
+          setIsSaving(false);
+      }
+  };
     
   const handleExportStandingsPdf = () => {
         if (!selectedSeriesForAction || leagueStandings.length === 0) {

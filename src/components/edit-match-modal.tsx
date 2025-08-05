@@ -24,9 +24,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { firestore } from '@/lib/firebase-client';
-import { doc, updateDoc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, where, getDocs, Timestamp, writeBatch, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import type { Match, Series, MatchStatus } from '@/lib/types';
+import type { Match, Series, MatchStatus, PublicUpcomingMatch } from '@/lib/types';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Skeleton } from './ui/skeleton';
@@ -46,7 +46,6 @@ export function EditMatchModal({ isOpen, onClose, match }: EditMatchModalProps) 
 
   useEffect(() => {
     if (match) {
-      // Create a mutable copy for editing
       setEditedMatch({ ...match });
     }
   }, [match]);
@@ -72,8 +71,8 @@ export function EditMatchModal({ isOpen, onClose, match }: EditMatchModalProps) 
   }, [isOpen, match, toast]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setEditedMatch(prev => prev ? { ...prev, [name]: value } : null);
+    const { name, value, type } = e.target;
+    setEditedMatch(prev => prev ? { ...prev, [name]: type === 'number' ? Number(value) : value } : null);
   };
   
   const handleSelectChange = (name: keyof Match, value: string) => {
@@ -82,7 +81,6 @@ export function EditMatchModal({ isOpen, onClose, match }: EditMatchModalProps) 
     setEditedMatch(prev => prev ? { 
         ...prev, 
         [name]: value,
-        // Also update seriesName if seriesId is changed
         ...(name === 'seriesId' && { seriesName: selectedSeries?.name || '' })
     } : null);
   };
@@ -98,15 +96,38 @@ export function EditMatchModal({ isOpen, onClose, match }: EditMatchModalProps) 
     
     setIsSaving(true);
     try {
+        const batch = writeBatch(firestore);
         const matchDocRef = doc(firestore, 'matches', editedMatch.id);
         
-        // Convert JS Date back to Firestore Timestamp if it was changed
         const dataToSave = {
             ...editedMatch,
             date: editedMatch.date instanceof Date ? Timestamp.fromDate(editedMatch.date) : editedMatch.date
         };
+        batch.update(matchDocRef, dataToSave);
+        
+        const publicUpcomingMatchRef = doc(firestore, 'publicUpcomingMatches', editedMatch.id);
 
-        await updateDoc(matchDocRef, dataToSave);
+        if (['Upcoming', 'In Progress'].includes(editedMatch.status)) {
+             const publicData: PublicUpcomingMatch = {
+                id: editedMatch.id,
+                clubId: editedMatch.clubId,
+                seriesId: editedMatch.seriesId,
+                seriesName: editedMatch.seriesName,
+                name: editedMatch.name,
+                location: editedMatch.location,
+                date: dataToSave.date,
+                drawTime: editedMatch.drawTime,
+                startTime: editedMatch.startTime,
+                endTime: editedMatch.endTime,
+                status: editedMatch.status,
+            };
+            batch.set(publicUpcomingMatchRef, publicData);
+        } else {
+            // If status is not upcoming/in-progress, delete from public collection
+            batch.delete(publicUpcomingMatchRef);
+        }
+
+        await batch.commit();
         toast({ title: 'Success', description: 'Match details updated successfully.' });
         onClose();
     } catch (error) {

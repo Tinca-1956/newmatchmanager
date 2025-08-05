@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
 export type UserRole = 'Site Admin' | 'Club Admin' | 'Marshal' | 'Angler';
@@ -93,4 +94,19 @@ export interface PublicMatch {
     date: any; // Stored as Timestamp
     status: string;
     results: PublicResult[];
+}
+
+// A simplified, public-safe version of an upcoming match
+export interface PublicUpcomingMatch {
+    id: string;
+    clubId: string;
+    seriesId: string;
+    seriesName: string;
+    name: string;
+    location: string;
+    date: any; // Stored as Timestamp
+    drawTime: string;
+    startTime: string;
+    endTime: string;
+    status: MatchStatus;
 }
