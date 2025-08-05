@@ -1,71 +1,38 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo, Suspense } from 'react';
+import { firestore } from '@/lib/firebase-client';
+import { collection, query, where, Timestamp, orderBy, limit, getDocs, writeBatch, onSnapshot, doc } from 'firebase/firestore';
+import type { Club, User, Match, MatchStatus, Result } from '@/lib/types';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
+import { format } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
+import { MapPin, Image as ImageIcon, ArrowRight, Trophy as TrophyIcon, LogIn } from 'lucide-react';
 import Link from 'next/link';
 import NextImage from 'next/image';
-
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardFooter,
-} from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
-} from '@/components/ui/carousel';
+} from "@/components/ui/carousel"
 import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
-  DialogFooter,
+  DialogFooter
 } from '@/components/ui/dialog';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-
-import { firestore } from '@/lib/firebase-client';
-import {
-  collection,
-  query,
-  where,
-  Timestamp,
-  orderBy,
-  getDocs,
-  writeBatch,
-  doc,
-  onSnapshot
-} from 'firebase/firestore';
-import type { User, Match, MatchStatus, Result, Club } from '@/lib/types';
-import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
-import { MapPin, Image as ImageIcon, ArrowRight, Trophy as TrophyIcon } from 'lucide-react';
 
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
@@ -73,10 +40,7 @@ const getCalculatedStatus = (match: Match): MatchStatus => {
   let matchDate: Date;
     if (match.date instanceof Timestamp) {
         matchDate = match.date.toDate();
-    } else if (typeof match.date === 'string') {
-        matchDate = new Date(match.date);
-    }
-     else if (match.date instanceof Date) {
+    } else if (match.date instanceof Date) {
         matchDate = match.date;
     } else {
         return match.status;
@@ -109,16 +73,18 @@ const formatAnglerName = (fullName: string) => {
     const firstName = parts[0];
     const lastName = parts.slice(1).join(' ') || '';
     return `${firstName.charAt(0)}. ${lastName}`;
-};
+}
 
 
-export default function PublicDashboardPage() {
-  const { toast } = useToast();
+function PublicDashboardPageComponent() {
   const router = useRouter();
 
   const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   const [isLoadingClubs, setIsLoadingClubs] = useState(true);
+  
+  // This new state will gate the data fetching effects
+  const [isReadyForDataFetch, setIsReadyForDataFetch] = useState(false);
 
   const [upcomingMatches, setUpcomingMatches] = useState<Match[]>([]);
   const [recentResults, setRecentResults] = useState<Result[]>([]);
@@ -129,14 +95,19 @@ export default function PublicDashboardPage() {
   const [recentMatchImages, setRecentMatchImages] = useState<string[]>([]);
   const [recentMatchId, setRecentMatchId] = useState<string | null>(null);
 
+
   const [isLoadingMatches, setIsLoadingMatches] = useState(true);
   const [isLoadingResults, setIsLoadingResults] = useState(true);
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Step 1: Fetch all clubs on initial load
+  // Effect to fetch the list of clubs. This is the first step.
   useEffect(() => {
-    if (!firestore) return;
+    if (!firestore) {
+      console.error("Firestore is not initialized.");
+      setIsLoadingClubs(false);
+      return;
+    }
 
     setIsLoadingClubs(true);
     const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
@@ -144,88 +115,62 @@ export default function PublicDashboardPage() {
     const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
       const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
       setClubs(clubsData);
-      if (clubsData.length > 0) {
-        // Set the first club as the default selection
+      
+      // If a default club isn't set, set it to the first one.
+      if (!selectedClubId && clubsData.length > 0) {
         setSelectedClubId(clubsData[0].id);
       }
       setIsLoadingClubs(false);
+      // Once we have clubs and a selected club ID, we are ready to fetch data.
+      if (clubsData.length > 0) {
+        setIsReadyForDataFetch(true);
+      }
     }, (error) => {
-        console.error("Failed to fetch clubs:", error);
-        toast({ variant: "destructive", title: "Error", description: "Could not load clubs." });
-        setIsLoadingClubs(false);
+      console.error("Error fetching clubs:", error);
+      setIsLoadingClubs(false);
     });
 
     return () => unsubscribe();
-  }, [toast]);
+  }, []); // Runs only once on mount
 
-
-  // Step 2: Fetch data for the selected club
+  // This effect handles fetching the matches and results based on the selected club.
+  // It will re-run whenever selectedClubId changes.
   useEffect(() => {
-    // Only run this effect if a club has been selected
-    if (!selectedClubId || !firestore) {
-      setIsLoadingMatches(false);
-      setIsLoadingResults(false);
+    // CRITICAL FIX: Only run this effect if we are ready to fetch data.
+    if (!isReadyForDataFetch || !selectedClubId || !firestore) {
       return;
     }
 
-    const processMatches = async () => {
-        setIsLoadingMatches(true);
-        setIsLoadingResults(true);
+    setIsLoadingMatches(true);
+    setIsLoadingResults(true);
 
-        const allMatchesQuery = query(
-            collection(firestore, 'matches'),
-            where('clubId', '==', selectedClubId)
-        );
+    const matchesQuery = query(
+      collection(firestore, 'matches'),
+      where('clubId', '==', selectedClubId),
+      orderBy('date', 'desc')
+    );
 
-        const allMatchesSnapshot = await getDocs(allMatchesQuery);
-        const matchesData = allMatchesSnapshot.docs.map(doc => {
+    const unsubscribe = onSnapshot(matchesQuery, async (snapshot) => {
+        const matchesData = snapshot.docs.map(doc => {
             const data = doc.data();
-            let date = data.date;
-            if (date instanceof Timestamp) {
-                date = date.toDate();
-            }
             return {
                 id: doc.id,
                 ...data,
-                date,
+                date: (data.date as Timestamp).toDate(),
             } as Match
         });
-        
-        // --- Status Update Logic ---
-        const batch = writeBatch(firestore);
-        let updatesMade = 0;
-        matchesData.forEach(match => {
-            const calculatedStatus = getCalculatedStatus(match);
-            if(match.status !== calculatedStatus) {
-                const matchRef = doc(firestore, 'matches', match.id);
-                batch.update(matchRef, { status: calculatedStatus });
-                updatesMade++;
-                match.status = calculatedStatus; // Update local copy
-            }
-        });
 
-        if (updatesMade > 0) {
-            try {
-                await batch.commit();
-                console.log(`Updated status for ${updatesMade} matches.`);
-            } catch (error) {
-                console.error("Failed to batch update match statuses:", error);
-            }
-        }
-        
-        // --- Filter for Upcoming Matches display ---
+        // Filter for upcoming
         const trulyUpcoming = matchesData
             .filter(match => ['Upcoming', 'In Progress'].includes(getCalculatedStatus(match)))
             .sort((a, b) => (a.date as Date).getTime() - (b.date as Date).getTime());
-        
         setUpcomingMatches(trulyUpcoming);
         setIsLoadingMatches(false);
-
-        // --- Filter for Recent Results display ---
-        const completedMatches = matchesData
-            .filter(match => match.status === 'Completed')
-            .sort((a, b) => (b.date as Date).getTime() - (a.date as Date).getTime());
         
+        // Filter for recent results
+        const completedMatches = matchesData
+            .filter(match => match.status === 'Completed'); // Already sorted by date desc
+
         if (completedMatches.length > 0) {
             const recentMatch = completedMatches[0];
             setRecentMatchId(recentMatch.id);
@@ -237,49 +182,39 @@ export default function PublicDashboardPage() {
             
             const resultsQuery = query(
                 collection(firestore, 'results'),
-                where('matchId', '==', recentMatch.id)
+                where('matchId', '==', recentMatch.id),
+                orderBy('position', 'asc')
             );
             const resultsSnapshot = await getDocs(resultsQuery);
             const resultsData = resultsSnapshot.docs.map(d => d.data() as Result);
-            
-            const anglersWithWeight = resultsData
-                .filter(r => r.status === 'OK' && r.weight > 0)
-                .sort((a, b) => b.weight - a.weight);
-
-            const lastRankedPosition = anglersWithWeight.length;
-            const didNotWeighRank = lastRankedPosition + 1;
-
-            const finalResults = resultsData.map(result => {
-                if (['DNW', 'DNF', 'DSQ'].includes(result.status || '')) {
-                    return { ...result, position: didNotWeighRank };
-                }
-                const rankedIndex = anglersWithWeight.findIndex(r => r.userId === result.userId);
-                if (rankedIndex !== -1) {
-                    return { ...result, position: rankedIndex + 1 };
-                }
-                if(result.status === 'OK' && result.weight === 0) {
-                    return { ...result, position: didNotWeighRank };
-                }
-                return result;
-            });
-            
-            const sortedResults = finalResults.sort((a, b) => (a.position || 999) - (b.position || 999));
-            setRecentResults(sortedResults);
-
+            setRecentResults(resultsData);
         } else {
-            setRecentResults([]);
-            setRecentMatchId(null);
-            setRecentMatchName('');
-            setRecentSeriesName('');
-            setRecentMatchLocation('');
-            setRecentMatchImages([]);
+             setRecentResults([]);
+             setRecentMatchId(null);
+             setRecentMatchName('');
+             setRecentSeriesName('');
+             setRecentMatchLocation('');
+             setRecentMatchImages([]);
         }
         setIsLoadingResults(false);
-    };
+    });
 
-    processMatches();
+    return () => unsubscribe();
 
-  }, [selectedClubId, toast]);
+  }, [selectedClubId, isReadyForDataFetch]); // Re-run when club changes or we become ready
+
+
+  const handleGoToMatch = () => {
+    setIsModalOpen(true);
+  };
+  
+  const handleClubChange = (clubId: string) => {
+    setUpcomingMatches([]);
+    setRecentResults([]);
+    setIsLoadingMatches(true);
+    setIsLoadingResults(true);
+    setSelectedClubId(clubId);
+  }
 
   const renderUpcomingMatches = () => {
     if (isLoadingMatches) {
@@ -297,7 +232,7 @@ export default function PublicDashboardPage() {
       return (
         <TableRow>
           <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-            No upcoming matches scheduled.
+            No upcoming matches scheduled for this club.
           </TableCell>
         </TableRow>
       );
@@ -329,12 +264,12 @@ export default function PublicDashboardPage() {
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                         <Button variant="ghost" size="icon" onClick={() => setIsModalOpen(true)}>
+                         <Button variant="ghost" size="icon" onClick={handleGoToMatch}>
                             <ArrowRight className="h-4 w-4" />
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                        <p>Sign in to register for matches</p>
+                        <p>Sign in to register</p>
                     </TooltipContent>
                 </Tooltip>
             </TooltipProvider>
@@ -361,7 +296,7 @@ export default function PublicDashboardPage() {
             <TableCell colSpan={4} className="h-24 text-center">
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <TrophyIcon className="h-8 w-8" />
-                    <p>No recent results found.</p>
+                    <p>No recent results found for this club.</p>
                 </div>
             </TableCell>
         </TableRow>
@@ -401,6 +336,7 @@ export default function PublicDashboardPage() {
             <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center p-4 border border-dashed rounded-lg bg-muted/50">
                 <ImageIcon className="h-12 w-12 text-muted-foreground" />
                 <p className="mt-4 text-sm text-muted-foreground">No photos from the last match.</p>
+                 <p className="text-xs text-muted-foreground">Photos from club members appear here.</p>
             </div>
         )
     }
@@ -435,110 +371,118 @@ export default function PublicDashboardPage() {
   }
 
   return (
-    <>
-        <div className="flex-grow flex flex-col">
-            <header className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 w-full border-b">
-                <div className="container flex h-16 items-center justify-between">
-                    <div className="flex items-center gap-4">
-                       <h1 className="text-2xl font-bold tracking-tight">Public Dashboard</h1>
-                    </div>
-                     <div className="flex items-center gap-4">
-                        {isLoadingClubs ? (
-                            <Skeleton className="h-10 w-48" />
-                        ) : (
-                            <div className="flex items-center gap-2">
-                                <Label htmlFor="club-select" className="hidden sm:block">Club:</Label>
-                                <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={clubs.length === 0}>
-                                    <SelectTrigger id="club-select" className="w-[180px]">
-                                        <SelectValue placeholder="Select a club..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {clubs.map((club) => (
-                                            <SelectItem key={club.id} value={club.id}>
-                                                {club.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        )}
-                        <Button asChild>
-                            <Link href="/auth/login">Sign In</Link>
-                        </Button>
-                    </div>
-                </div>
-            </header>
-            <main className="flex-1 p-4 md:p-8">
-                <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-4">
-                    <Card className="lg:col-span-2 xl:col-span-2">
-                        <CardHeader>
-                            <CardTitle>Upcoming Matches</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Date &amp; Series</TableHead>
-                                        <TableHead>Match</TableHead>
-                                        <TableHead>Venue &amp; Status</TableHead>
-                                        <TableHead><span className="sr-only">Actions</span></TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {renderUpcomingMatches()}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="flex flex-col lg:col-span-1 xl:col-span-1">
-                        <CardHeader>
-                            <CardTitle>Recent Results</CardTitle>
-                            {isLoadingResults ? (
-                                <Skeleton className="h-5 w-48" />
-                            ) : (
-                                <CardDescription>{recentResults.length > 0 ? recentResultsTitle : "No completed matches"}</CardDescription>
-                            )}
-                        </CardHeader>
-                        <CardContent className="flex-grow">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="w-[50px]">Pos</TableHead>
-                                        <TableHead>Angler</TableHead>
-                                        <TableHead>Weight</TableHead>
-                                        <TableHead>Status</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {renderRecentResults()}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="flex flex-col lg:col-span-1 xl:col-span-1">
-                        <CardHeader>
-                            <CardTitle>Recent Photos</CardTitle>
-                            {isLoadingResults ? (
-                                <Skeleton className="h-5 w-32" />
-                            ) : (
-                                <CardDescription>{recentMatchImages.length > 0 ? "From the last match" : "No recent photos"}</CardDescription>
-                            )}
-                        </CardHeader>
-                        <CardContent className="flex-grow flex items-center justify-center">
-                            {renderImageGallery()}
-                        </CardContent>
-                    </Card>
-                </div>
-            </main>
+    <main className="flex min-h-screen w-full flex-col">
+       <header className="sticky top-0 flex h-16 items-center justify-between gap-4 border-b bg-background px-4 md:px-6 z-10">
+         <div className="flex items-center gap-4">
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight">Public Dashboard</h1>
+         </div>
+         <div className="flex items-center gap-4">
+             <div className="flex flex-col gap-1.5 min-w-[200px] md:min-w-[240px]">
+                <Label htmlFor="club-select" className="sr-only">Select Club</Label>
+                {isLoadingClubs ? (
+                    <Skeleton className="h-10 w-full" />
+                ) : (
+                    <Select value={selectedClubId} onValueChange={handleClubChange} disabled={clubs.length === 0}>
+                        <SelectTrigger id="club-select">
+                            <SelectValue placeholder="Select a club..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {clubs.map((club) => (
+                                <SelectItem key={club.id} value={club.id}>
+                                    {club.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                )}
+            </div>
+            <Button asChild>
+                <Link href="/auth/login">
+                    <LogIn className="mr-2 h-4 w-4" />
+                    Sign In
+                </Link>
+            </Button>
         </div>
-        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+       </header>
+
+       <div className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8 bg-muted/40">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
+                <Card className="xl:col-span-2">
+                    <CardHeader>
+                        <CardTitle>Upcoming Matches</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Date &amp; Series</TableHead>
+                                    <TableHead>Match</TableHead>
+                                    <TableHead>Venue &amp; Status</TableHead>
+                                    <TableHead><span className="sr-only">Actions</span></TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {renderUpcomingMatches()}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+
+                <Card className="flex flex-col">
+                    <CardHeader>
+                        <CardTitle>Recent Results</CardTitle>
+                        {isLoadingResults ? (
+                            <Skeleton className="h-5 w-48" />
+                        ) : (
+                            <CardDescription>{recentResults.length > 0 ? recentResultsTitle : "No completed matches"}</CardDescription>
+                        )}
+                    </CardHeader>
+                    <CardContent className="flex-grow">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-[50px]">Pos</TableHead>
+                                    <TableHead>Angler</TableHead>
+                                    <TableHead>Weight</TableHead>
+                                    <TableHead>Status</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {renderRecentResults()}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                    {recentMatchId && (
+                        <CardFooter>
+                            <Button onClick={handleGoToMatch} variant="outline" className="w-full">
+                                View Full Match Details
+                                <ArrowRight className="ml-2 h-4 w-4" />
+                            </Button>
+                        </CardFooter>
+                    )}
+                </Card>
+
+                <Card className="flex flex-col">
+                    <CardHeader>
+                        <CardTitle>Recent Photos</CardTitle>
+                        {isLoadingResults ? (
+                            <Skeleton className="h-5 w-32" />
+                        ) : (
+                            <CardDescription>{recentMatchImages.length > 0 ? "From the last match" : "No recent photos"}</CardDescription>
+                        )}
+                    </CardHeader>
+                    <CardContent className="flex-grow flex items-center justify-center">
+                        {renderImageGallery()}
+                    </CardContent>
+                </Card>
+            </div>
+       </div>
+       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Registration Required</DialogTitle>
                     <DialogDescription>
-                        Please sign in to your account to register for matches and view more details.
+                        Please sign in to view more match details or to register for events.
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
@@ -549,6 +493,16 @@ export default function PublicDashboardPage() {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
-    </>
+    </main>
   );
 }
+
+
+export default function PublicDashboardPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <PublicDashboardPageComponent />
+        </Suspense>
+    )
+}
+
