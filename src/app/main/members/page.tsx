@@ -84,10 +84,6 @@ export default function MembersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const [isAddAnglerDialogOpen, setIsAddAnglerDialogOpen] = useState(false);
-  const [newAnglerFirstName, setNewAnglerFirstName] = useState('');
-  const [newAnglerLastName, setNewAnglerLastName] = useState('');
-
 
   // Fetch initial data based on user role
   useEffect(() => {
@@ -236,36 +232,6 @@ export default function MembersPage() {
       );
     }
   };
-
-  const handleAddUnverifiedAngler = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newAnglerFirstName.trim() || !newAnglerLastName.trim() || !firestore || !selectedClubId) {
-        toast({ variant: 'destructive', title: 'Error', description: 'First name and last name are required.' });
-        return;
-    }
-
-    setIsSaving(true);
-    try {
-        await addDoc(collection(firestore, 'users'), {
-            firstName: newAnglerFirstName,
-            lastName: newAnglerLastName,
-            email: '', // No email for unverified anglers
-            role: 'Angler',
-            memberStatus: 'Unverified',
-            primaryClubId: selectedClubId
-        });
-        toast({ title: 'Success', description: 'Unverified angler has been added.' });
-        setIsAddAnglerDialogOpen(false);
-        setNewAnglerFirstName('');
-        setNewAnglerLastName('');
-    } catch (error) {
-        console.error('Error adding unverified angler:', error);
-        toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not add the angler.' });
-    } finally {
-        setIsSaving(false);
-    }
-  };
-
 
   const filteredMembers = allUsers.filter(member => {
     const clubMatch = !selectedClubId || member.primaryClubId === selectedClubId;
@@ -420,12 +386,6 @@ export default function MembersPage() {
               </div>
               <div className="flex gap-2">
                 {canEdit && (
-                    <Button onClick={() => setIsAddAnglerDialogOpen(true)} disabled={!selectedClubId}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Add Angler
-                    </Button>
-                )}
-                {canEdit && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                         <Button variant="outline" className="ml-auto">
@@ -562,52 +522,6 @@ export default function MembersPage() {
               </DialogFooter>
             </form>
           </DialogContent>
-        </Dialog>
-      )}
-
-      {canEdit && (
-        <Dialog open={isAddAnglerDialogOpen} onOpenChange={setIsAddAnglerDialogOpen}>
-            <DialogContent className="sm:max-w-md">
-                <form onSubmit={handleAddUnverifiedAngler}>
-                    <DialogHeader>
-                        <DialogTitle>Add Unverified Angler</DialogTitle>
-                        <DialogDescription>
-                          Create a new angler record. They will not be able to log in.
-                          <span className="block text-xs mt-2">
-                            Added by: {userProfile?.firstName} {userProfile?.lastName} ({userProfile?.role})
-                          </span>
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="new-first-name">First Name</Label>
-                                <Input
-                                    id="new-first-name"
-                                    value={newAnglerFirstName}
-                                    onChange={(e) => setNewAnglerFirstName(e.target.value)}
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="new-last-name">Last Name</Label>
-                                <Input
-                                    id="new-last-name"
-                                    value={newAnglerLastName}
-                                    onChange={(e) => setNewAnglerLastName(e.target.value)}
-                                    required
-                                />
-                            </div>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button type="button" variant="ghost" onClick={() => setIsAddAnglerDialogOpen(false)}>Cancel</Button>
-                        <Button type="submit" disabled={isSaving}>
-                            {isSaving ? 'Saving...' : 'Add Angler'}
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
         </Dialog>
       )}
     </>
