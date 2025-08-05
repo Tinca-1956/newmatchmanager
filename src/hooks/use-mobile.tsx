@@ -1,25 +1,25 @@
-import * as React from "react"
+import { useState, useEffect } from "react";
 
-const MOBILE_BREAKPOINT = 768
+const MOBILE_BREAKPOINT = 768;
 
 export function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined)
+  const [isMobile, setIsMobile] = useState(false); // Default to false on server
 
-  React.useEffect(() => {
-    // Handler to call on window resize
+  useEffect(() => {
+    // This code only runs on the client, after the initial render.
     const handleResize = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
-    }
+      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    };
 
-    // Add event listener
-    window.addEventListener("resize", handleResize)
+    // Set the initial value on the client
+    handleResize();
 
-    // Call handler right away so state gets updated with initial window size
-    handleResize()
+    // Add event listener for subsequent changes
+    window.addEventListener("resize", handleResize);
 
     // Remove event listener on cleanup
-    return () => window.removeEventListener("resize", handleResize)
-  }, []) // Empty array ensures that effect is only run on mount and unmount
+    return () => window.removeEventListener("resize", handleResize);
+  }, []); // Empty dependency array ensures this runs only once on the client
 
-  return isMobile
+  return isMobile;
 }
