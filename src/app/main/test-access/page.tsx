@@ -36,10 +36,6 @@ export default function TestAccessPage() {
 
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   
-  const [newAnglerFirstName, setNewAnglerFirstName] = useState('');
-  const [newAnglerLastName, setNewAnglerLastName] = useState('');
-  const [isCreatingAngler, setIsCreatingAngler] = useState(false);
-
 
   const handleGetAnglers = async () => {
     if (!firestore || !userProfile?.primaryClubId) {
@@ -193,51 +189,6 @@ export default function TestAccessPage() {
         setIsSendingEmail(false);
     }
   }
-
-  const handleCreateTestAngler = async () => {
-    if (!firestore || !userProfile?.primaryClubId) {
-      toast({ variant: 'destructive', title: 'Error', description: 'User profile or primary club not loaded.' });
-      return;
-    }
-    if (!newAnglerFirstName.trim() || !newAnglerLastName.trim()) {
-      toast({ variant: 'destructive', title: 'Error', description: 'First and Last name are required.' });
-      return;
-    }
-    
-    setIsCreatingAngler(true);
-    try {
-      const newAnglerData = {
-        firstName: newAnglerFirstName,
-        lastName: newAnglerLastName,
-        email: '',
-        role: 'Angler',
-        memberStatus: 'Unverified',
-        primaryClubId: userProfile.primaryClubId,
-      };
-
-      const batch = writeBatch(firestore);
-      const newAnglerRef = doc(collection(firestore, 'users'));
-      batch.set(newAnglerRef, newAnglerData);
-      await batch.commit();
-      
-      toast({
-        title: 'Success!',
-        description: `Created unverified angler '${newAnglerFirstName} ${newAnglerLastName}' with ID: ${newAnglerRef.id}.`,
-      });
-      setNewAnglerFirstName('');
-      setNewAnglerLastName('');
-    } catch (e: any) {
-      console.error("Error creating angler:", e);
-      toast({
-        variant: 'destructive',
-        title: 'Create Angler Failed',
-        description: e.message,
-      });
-    } finally {
-      setIsCreatingAngler(false);
-    }
-  };
-
 
   const renderCurrentUserInfo = () => {
       if (authLoading) {
@@ -395,36 +346,6 @@ export default function TestAccessPage() {
                 </p>
                 <Button onClick={handleSendTestEmail} disabled={isSendingEmail || authLoading || !userProfile}>
                     {isSendingEmail ? 'Sending...' : 'Send Test Email'}
-                </Button>
-            </div>
-            
-            <div className="space-y-4 rounded-md border p-4">
-                <h3 className="font-semibold mb-2">Step 6: Create an Unverified Angler</h3>
-                <p className="text-sm text-muted-foreground pb-4">
-                    This tests the `create` permission for the `users` collection.
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="new-first-name">First Name</Label>
-                        <Input
-                            id="new-first-name"
-                            value={newAnglerFirstName}
-                            onChange={(e) => setNewAnglerFirstName(e.target.value)}
-                            placeholder="e.g., John"
-                        />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="new-last-name">Last Name</Label>
-                        <Input
-                            id="new-last-name"
-                            value={newAnglerLastName}
-                            onChange={(e) => setNewAnglerLastName(e.target.value)}
-                            placeholder="e.g., Doe"
-                        />
-                    </div>
-                </div>
-                <Button onClick={handleCreateTestAngler} disabled={isCreatingAngler || authLoading || !userProfile}>
-                    {isCreatingAngler ? 'Creating Angler...' : 'Run Create Angler Test'}
                 </Button>
             </div>
 

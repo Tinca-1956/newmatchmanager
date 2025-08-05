@@ -1,52 +1,67 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function isUserAuthenticated() {
+    
+    // Helper Functions
+    function isRequesterAuthenticated() {
       return request.auth != null;
     }
+    
+    function isRequesterAdmin() {
+      // Check the user's role by looking up their profile in the users collection.
+      // This is the most reliable way to check for admin privileges.
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Site Admin', 'Club Admin'];
+    }
 
-    function isUserOwner(userId) {
+    function isUserRequestingOwnData(userId) {
       return request.auth.uid == userId;
     }
-    
-    function getUserRole(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role;
-    }
 
-    function isSiteAdmin() {
-      return isUserAuthenticated() && getUserRole(request.auth.uid) == 'Site Admin';
-    }
-
-    function isClubAdmin(clubId) {
-       return isUserAuthenticated() && getUserRole(request.auth.uid) == 'Club Admin' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
-    }
-
+    // CLUBS
     match /clubs/{clubId} {
-      allow read: if isUserAuthenticated();
-      allow write: if isSiteAdmin();
+      allow read: if isRequesterAuthenticated();
+      allow write: if isRequesterAdmin();
     }
     
+    // SERIES
     match /series/{seriesId} {
-      allow read: if isUserAuthenticated();
-      allow create, update, delete: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
+      allow read: if isRequesterAuthenticated();
+      allow write: if isRequesterAdmin();
     }
     
+    // MATCHES
     match /matches/{matchId} {
-      allow read: if isUserAuthenticated();
-      allow create, update: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
-      allow delete: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
+      allow read: if isRequesterAuthenticated();
+      
+      // Update: Allow any authenticated user to add themselves to the registeredAnglers array.
+      // Admins can modify any other field.
+      allow update: if isRequesterAdmin() || 
+                    (request.auth.uid in request.resource.data.registeredAnglers &&
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['registeredAnglers', 'registeredCount']));
+      
+      allow create, delete: if isRequesterAdmin();
     }
     
+    // RESULTS
     match /results/{resultId} {
-        allow read: if isUserAuthenticated();
-        allow write: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
+        allow read: if isRequesterAuthenticated();
+        allow write: if isRequesterAdmin();
     }
-    
+
+    // USERS
     match /users/{userId} {
-      allow read: if isUserAuthenticated();
-      allow write: if request.auth.uid == userId || request.auth.token.role in ['Site Admin', 'Club Admin'];
+      allow read: if isRequesterAuthenticated();
+
+      // Create: A user can create their own doc, or an admin can create one.
+      allow create: if isUserRequestingOwnData(userId) || isRequesterAdmin();
+      
+      // Update: A user can update their own doc, or an admin can update any.
+      allow update: if isUserRequestingOwnData(userId) || isRequesterAdmin();
+
+      // Delete: Only admins can delete.
+      allow delete: if isRequesterAdmin();
     }
   }
 }

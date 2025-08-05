@@ -23,8 +23,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 export default function AddAnglerPage() {
-    const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
-    const { userProfile } = useAuth();
+    const { isSiteAdmin, isClubAdmin, loading: adminLoading, userRole } from useAdminAuth();
+    const { user, userProfile } = useAuth();
     const { toast } = useToast();
     
     const [isSaving, setIsSaving] = useState(false);
@@ -118,7 +118,9 @@ export default function AddAnglerPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Angler Details</CardTitle>
-                    <CardDescription>The new angler will be associated with your primary club: <span className="font-semibold">{userProfile?.primaryClubId || 'N/A'}</span></CardDescription>
+                    <CardDescription>
+                        The new angler will be associated with your primary club. This action is being performed by {userProfile?.firstName} {userProfile?.lastName} ({userRole}).
+                    </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
