@@ -38,6 +38,7 @@ import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { Input } from '@/components/ui/input';
 
 
 type ResultWithSectionRank = ResultType & { sectionRank?: number };
@@ -64,14 +65,14 @@ export default function ResultsPage() {
 
     // Step 1: Fetch clubs (for Site Admin) or set from profile
     useEffect(() => {
-        if (adminLoading || !firestore) return;
+        if (adminLoading || authLoading || !firestore) return;
 
         if (isSiteAdmin) {
             const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
             const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
                 const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
                 setAllClubs(clubsData);
-                if (clubsData.length > 0) {
+                if (clubsData.length > 0 && !selectedClubId) {
                     setSelectedClubId(clubsData[0].id);
                 }
                 setIsLoadingClubs(false);
@@ -82,13 +83,19 @@ export default function ResultsPage() {
             });
             return () => unsubscribe();
         } else if (userProfile?.primaryClubId) {
+             const clubDocRef = doc(firestore, 'clubs', userProfile.primaryClubId);
+             getDoc(clubDocRef).then(docSnap => {
+                if (docSnap.exists()) {
+                    setAllClubs([{ id: docSnap.id, ...docSnap.data()} as Club]);
+                }
+             });
             setSelectedClubId(userProfile.primaryClubId);
             setIsLoadingClubs(false);
         } else {
              // For non-admins with no primary club
             setIsLoadingClubs(false);
         }
-    }, [isSiteAdmin, adminLoading, userProfile, firestore, toast]);
+    }, [isSiteAdmin, adminLoading, authLoading, userProfile, firestore, toast, selectedClubId]);
 
 
     // Step 2: Handle Club Selection -> Fetch Series
