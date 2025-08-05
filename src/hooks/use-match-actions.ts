@@ -66,6 +66,13 @@ export const useMatchActions = () => {
      router.push(`/main/matches/${matchId}/weigh-in`);
   };
 
+  const handlePublish = (match: Match) => {
+    toast({
+      title: 'Action Not Implemented',
+      description: 'The publish action is not yet available.',
+    });
+  };
+
   const handleRegister = async (match: Match) => {
      if (!user || !firestore) {
         toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to register.' });
@@ -132,6 +139,7 @@ export const useMatchActions = () => {
     handleManagePegs,
     handleWeighIn,
     handleManageImages,
+    handlePublish,
     closeResultsModal,
     closeAnglerListModal,
     closeDisplayAnglerListModal,
