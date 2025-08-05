@@ -22,6 +22,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/use-auth';
+import { Input } from '@/components/ui/input';
 
 const sampleUsers = (clubId: string): Omit<User, 'id'>[] => [
   { firstName: 'John', lastName: 'Angler', email: 'john.angler@test.com', role: 'Angler', memberStatus: 'Pending', primaryClubId: clubId },
