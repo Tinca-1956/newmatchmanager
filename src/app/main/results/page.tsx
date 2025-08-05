@@ -44,9 +44,9 @@ import 'jspdf-autotable';
 type ResultWithSectionRank = ResultType & { sectionRank?: number };
 
 export default function ResultsPage() {
-    const { user, userProfile } = useAuth();
+    const { user, userProfile, loading: authLoading } = useAuth();
     const { toast } = useToast();
-    const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
+    const { isSiteAdmin } = useAdminAuth();
 
     const [allClubs, setAllClubs] = useState<Club[]>([]);
     const [seriesForClub, setSeriesForClub] = useState<Series[]>([]);
@@ -65,10 +65,7 @@ export default function ResultsPage() {
 
     // Step 1: Fetch clubs for the dropdown (or user's primary club)
     useEffect(() => {
-        if (adminLoading || !firestore || !user) {
-            if(!adminLoading) setIsLoadingClubs(false);
-            return;
-        };
+        if (authLoading || !firestore) return;
 
         const fetchClubs = async () => {
             setIsLoadingClubs(true);
@@ -80,6 +77,8 @@ export default function ResultsPage() {
                     setAllClubs(clubsData);
                     if (userProfile?.primaryClubId) {
                       setSelectedClubId(userProfile.primaryClubId);
+                    } else if (clubsData.length > 0) {
+                        setSelectedClubId(clubsData[0].id);
                     }
                 } else if (userProfile?.primaryClubId) {
                     const clubDocRef = doc(firestore, 'clubs', userProfile.primaryClubId);
@@ -100,7 +99,7 @@ export default function ResultsPage() {
         
         fetchClubs();
 
-    }, [user, userProfile, isSiteAdmin, adminLoading, toast]);
+    }, [userProfile, isSiteAdmin, authLoading, toast]);
 
     // Step 2: Handle Club Selection -> Fetch Series
     useEffect(() => {
