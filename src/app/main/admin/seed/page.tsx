@@ -124,7 +124,7 @@ export default function SeedDataPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Add Anglers</CardTitle>
-                    <CardDescription>Select a club and click the button to add sample anglers to your database.</CardDescription>
+                    <CardDescription>Click the button below to add 5 random anglers to your club's member list. Then navigate to the MEMBERS page and edit the names. THese anglers may then be added to matches.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     <div className="space-y-2">
