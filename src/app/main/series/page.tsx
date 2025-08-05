@@ -18,7 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trophy, HelpCircle, Trash2, ArrowRight, Download } from 'lucide-react';
+import { PlusCircle, Edit, Trophy, HelpCircle, Trash2, ArrowRight, Download, Globe } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -434,7 +434,7 @@ export default function SeriesPage() {
     if (seriesList.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={3} className="h-24 text-center">
+          <TableCell colSpan={4} className="h-24 text-center">
             No series found for this club. Create the first one!
           </TableCell>
         </TableRow>
@@ -482,6 +482,14 @@ export default function SeriesPage() {
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent side="left"><p>Edit series</p></TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" onClick={() => toast({ title: 'Publish action triggered for ' + series.name })}>
+                                    <Globe className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Publish</p></TooltipContent>
                         </Tooltip>
                         <AlertDialog>
                             <Tooltip>
@@ -623,9 +631,9 @@ export default function SeriesPage() {
                         <DialogDescription>
                             Update details for {selectedSeries.name}.
                              {selectedSeries.isCompleted ? (
-                                <div className="font-bold pt-2">SERIES COMPLETE</div>
+                                <span className="font-bold block pt-2">SERIES COMPLETE</span>
                             ) : (
-                                <div className="font-bold pt-2">SERIES IN PROGRESS</div>
+                                <span className="font-bold block pt-2">SERIES IN PROGRESS</span>
                             )}
                         </DialogDescription>
                     </DialogHeader>
@@ -675,13 +683,13 @@ export default function SeriesPage() {
                         <DialogDescription>
                              Overall standings based on the sum of section positions from all completed matches in this series.
                              {selectedSeriesForAction.isCompleted ? (
-                                <div className="font-bold pt-2">SERIES COMPLETE</div>
+                                <span className="font-bold block pt-2">SERIES COMPLETE</span>
                             ) : (
-                                <div className="font-bold pt-2">SERIES IN PROGRESS</div>
+                                <span className="font-bold block pt-2">SERIES IN PROGRESS</span>
                             )}
-                            <p className="text-xs text-muted-foreground pt-2">
+                            <span className="text-xs text-muted-foreground block pt-2">
                                 The total points represent each anglers total points for all matches in the series. Where anglers did not attend a match in the series they are awarded maximum points. The match secretary will finalise the league standings after the final match has been completed
-                            </p>
+                            </span>
                         </DialogDescription>
                     </DialogHeader>
                     <div className="max-h-[60vh] overflow-y-auto">
