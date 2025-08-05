@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -23,33 +24,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, getDocs, onSnapshot, orderBy, limit, Timestamp } from 'firebase/firestore';
-import type { Club, Match, Result } from '@/lib/types';
+import { collection, onSnapshot, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
+import type { Club, Match } from '@/lib/types';
 import { format } from 'date-fns';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, CalendarDays, Trophy, List, Info, Fish } from 'lucide-react';
+import { MapPin, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
-export default function PublicDashboardPage() {
+export default function PublicDashboard() {
   const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   const [isLoadingClubs, setIsLoadingClubs] = useState(true);
-  
-  const [upcomingMatch, setUpcomingMatch] = useState<Match | null>(null);
-  const [completedMatch, setCompletedMatch] = useState<Match | null>(null);
-  const [results, setResults] = useState<Result[]>([]);
+
+  const [nextUpcomingMatch, setNextUpcomingMatch] = useState<Match | null>(null);
+  const [lastCompletedMatch, setLastCompletedMatch] = useState<Match | null>(null);
   
   const [isLoadingMatches, setIsLoadingMatches] = useState(false);
-  const [isLoadingResults, setIsLoadingResults] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Effect to fetch the list of all clubs
+  // Fetch all clubs once
   useEffect(() => {
-    if (!firestore) return;
-
+    if (!firestore) {
+      setIsLoadingClubs(false);
+      return;
+    };
     const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
     const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
       const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
@@ -58,233 +60,193 @@ export default function PublicDashboardPage() {
         setSelectedClubId(clubsData[0].id);
       }
       setIsLoadingClubs(false);
-    }, (err) => {
-      console.error("Error fetching clubs:", err);
-      setError("Could not load club data.");
+    }, (error) => {
+      console.error("Error fetching clubs:", error);
+      setError("Could not load club information.");
       setIsLoadingClubs(false);
     });
 
     return () => unsubscribe();
   }, [selectedClubId]);
 
-  // Effect to fetch matches and results when a club is selected
+  // Fetch matches when a club is selected
   useEffect(() => {
     if (!selectedClubId || !firestore) {
-      setUpcomingMatch(null);
-      setCompletedMatch(null);
-      setResults([]);
+      setNextUpcomingMatch(null);
+      setLastCompletedMatch(null);
       return;
     }
 
-    const fetchData = async () => {
-      setIsLoadingMatches(true);
-      setIsLoadingResults(true);
-      setError(null);
-      
-      try {
-        // Fetch all matches for the club
-        const matchesQuery = query(
-          collection(firestore, 'matches'),
-          where('clubId', '==', selectedClubId)
-        );
-        const matchesSnapshot = await getDocs(matchesQuery);
-        const allMatches = matchesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          date: (doc.data().date as Timestamp).toDate(),
+    setIsLoadingMatches(true);
+    setError(null);
+    setNextUpcomingMatch(null);
+    setLastCompletedMatch(null);
+    
+    const matchesQuery = query(
+      collection(firestore, 'matches'),
+      where('clubId', '==', selectedClubId)
+    );
+
+    const unsubscribe = onSnapshot(matchesQuery, (snapshot) => {
+        const allMatches = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            date: (doc.data().date as Timestamp).toDate(),
         } as Match));
+        
+        // Filter and sort for the next upcoming match
+        const upcoming = allMatches
+            .filter(m => m.status === 'Upcoming')
+            .sort((a, b) => (a.date as Date).getTime() - (b.date as Date).getTime());
+        setNextUpcomingMatch(upcoming.length > 0 ? upcoming[0] : null);
 
-        // Find the next upcoming match
-        const nextUpcomingMatch = allMatches
-          .filter(m => m.status === 'Upcoming')
-          .sort((a, b) => a.date.getTime() - b.date.getTime())[0] || null;
-        setUpcomingMatch(nextUpcomingMatch);
-
-        // Find the last completed match
-        const lastCompletedMatch = allMatches
-          .filter(m => m.status === 'Completed')
-          .sort((a, b) => b.date.getTime() - a.date.getTime())[0] || null;
-        setCompletedMatch(lastCompletedMatch);
+        // Filter and sort for the last completed match
+        const completed = allMatches
+            .filter(m => m.status === 'Completed')
+            .sort((a, b) => (b.date as Date).getTime() - (a.date as Date).getTime());
+        setLastCompletedMatch(completed.length > 0 ? completed[0] : null);
+        
         setIsLoadingMatches(false);
-
-        // If a completed match is found, fetch its results
-        if (lastCompletedMatch) {
-            const resultsQuery = query(
-                collection(firestore, 'results'),
-                where('matchId', '==', lastCompletedMatch.id),
-                orderBy('position', 'asc')
-            );
-            const resultsSnapshot = await getDocs(resultsQuery);
-            const resultsData = resultsSnapshot.docs.map(doc => doc.data() as Result);
-            setResults(resultsData);
-        } else {
-            setResults([]); // No completed match, so no results
-        }
-
-      } catch (err) {
+    }, (err) => {
         console.error("Error fetching match data:", err);
-        setError("Could not load match data for this club. The required database indexes might be missing.");
-      } finally {
+        setError("Could not load match data for this club.");
         setIsLoadingMatches(false);
-        setIsLoadingResults(false);
-      }
-    };
+    });
 
-    fetchData();
+    return () => unsubscribe();
   }, [selectedClubId]);
+
 
   const renderUpcomingMatch = () => {
     if (isLoadingMatches) {
-        return <Skeleton className="h-24 w-full" />;
+        return <Skeleton className="h-20 w-full" />;
     }
-
-    if (!upcomingMatch) {
-      return <p className="text-sm text-muted-foreground">No upcoming matches scheduled for this club.</p>;
+    if (error) {
+        return <p className="text-destructive">{error}</p>;
     }
-    
+    if (!nextUpcomingMatch) {
+      return <p className="text-sm text-center text-muted-foreground pt-4">No upcoming matches scheduled for this club.</p>;
+    }
     return (
-        <div className="text-sm">
-            <p className="font-semibold">{upcomingMatch.name}</p>
-            <p className="text-muted-foreground">{format(upcomingMatch.date, 'PPPP')} at {upcomingMatch.location}</p>
-        </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">{nextUpcomingMatch.name}</CardTitle>
+          <CardDescription>{nextUpcomingMatch.seriesName}</CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm space-y-2">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Date:</span>
+            <span>{format(nextUpcomingMatch.date as Date, 'PPP')}</span>
+          </div>
+          <div className="flex justify-between items-center">
+             <span className="text-muted-foreground">Venue:</span>
+             <div className="flex items-center gap-2">
+                <span>{nextUpcomingMatch.location}</span>
+                {nextUpcomingMatch.googleMapsLink && (
+                  <Link href={nextUpcomingMatch.googleMapsLink} target="_blank" rel="noopener noreferrer">
+                    <MapPin className="h-4 w-4 text-primary hover:text-primary/80" />
+                  </Link>
+                )}
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter>
+            <Button asChild className="w-full">
+                <Link href="/auth/login">
+                    Login to Register
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+            </Button>
+        </CardFooter>
+      </Card>
     );
   };
   
-  const renderCompletedMatch = () => {
-     if (isLoadingMatches) {
-        return <Skeleton className="h-6 w-1/2" />;
+  const renderLastCompletedMatch = () => {
+    if (isLoadingMatches) {
+        return <Skeleton className="h-20 w-full" />;
     }
-    if (!completedMatch) {
-        return <p className="text-sm text-muted-foreground">No completed matches found for this club.</p>;
+    if (error) {
+        return <p className="text-destructive">{error}</p>;
     }
-    return <p className="font-semibold">{completedMatch.name} at {completedMatch.location}</p>;
-  }
-  
-  const renderResultsTable = () => {
-    if (isLoadingResults) {
-        return (
-            <div className="space-y-2">
-                {Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
-            </div>
-        )
+    if (!lastCompletedMatch) {
+      return <p className="text-sm text-center text-muted-foreground pt-4">No recently completed matches found.</p>;
     }
-     if (results.length === 0) {
-        return null; // Don't show anything if there are no results
-    }
-
     return (
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHead>Angler</TableHead>
-                    <TableHead>Weight</TableHead>
-                    <TableHead>Peg</TableHead>
-                    <TableHead>Section</TableHead>
-                    <TableHead>Status</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {results.map((result) => (
-                    <TableRow key={result.userId}>
-                        <TableCell className="font-medium">{result.userName}</TableCell>
-                        <TableCell>{result.weight.toFixed(3)}kg</TableCell>
-                        <TableCell>{result.peg || '-'}</TableCell>
-                        <TableCell>{result.section || '-'}</TableCell>
-                        <TableCell>{result.status || 'OK'}</TableCell>
-                    </TableRow>
-                ))}
-            </TableBody>
-        </Table>
-    )
-
-  }
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">{lastCompletedMatch.name}</CardTitle>
+          <CardDescription>{lastCompletedMatch.seriesName}</CardDescription>
+        </CardHeader>
+         <CardContent className="text-sm space-y-2">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Date:</span>
+            <span>{format(lastCompletedMatch.date as Date, 'PPP')}</span>
+          </div>
+           <div className="flex justify-between items-center">
+             <span className="text-muted-foreground">Venue:</span>
+             <span>{lastCompletedMatch.location}</span>
+          </div>
+        </CardContent>
+        <CardFooter>
+            <Button asChild className="w-full">
+                <Link href="/auth/login">
+                    Login for Full Results
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+            </Button>
+        </CardFooter>
+      </Card>
+    );
+  };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-8">
-       <Card className="max-w-4xl mx-auto">
-        <CardHeader className="text-center">
-            <div className="flex justify-center pb-4">
-              <Fish className="h-12 w-12 text-primary" />
-            </div>
-            <CardTitle className="text-3xl">Welcome to Match Manager</CardTitle>
-            <CardDescription className="text-lg">
-                View public match information here or sign in to manage your account.
-            </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <div className="w-full sm:w-auto">
-                {isLoadingClubs ? (
-                    <Skeleton className="h-10 w-full sm:w-64" />
-                ) : (
-                    <Select value={selectedClubId} onValueChange={setSelectedClubId}>
-                        <SelectTrigger className="w-full sm:w-64">
-                            <SelectValue placeholder="Select a club..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                        {clubs.map((club) => (
-                            <SelectItem key={club.id} value={club.id}>
-                            {club.name}
-                            </SelectItem>
-                        ))}
-                        </SelectContent>
-                    </Select>
-                )}
-            </div>
-            <Button asChild className="w-full sm:w-auto">
-                <Link href="/auth/login">Sign In</Link>
-            </Button>
-        </CardContent>
-      </Card>
+    <main className="flex-1 bg-muted/40 p-4 md:p-10">
+      <div className="max-w-6xl mx-auto">
+        <header className="text-center mb-12">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Match Dashboard</h1>
+          <p className="text-lg text-muted-foreground mt-2">
+            View upcoming matches and recent results from local clubs.
+          </p>
+        </header>
 
-      {error && (
-        <Alert variant="destructive" className="max-w-4xl mx-auto">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+        <section className="mb-12">
+            <Card className="max-w-md mx-auto">
+                <CardHeader>
+                    <Label htmlFor="club-select" className="text-lg font-semibold">Select a Club</Label>
+                </CardHeader>
+                <CardContent>
+                    {isLoadingClubs ? (
+                        <Skeleton className="h-10 w-full" />
+                    ) : (
+                        <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={clubs.length === 0}>
+                            <SelectTrigger id="club-select">
+                                <SelectValue placeholder="Select a club..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {clubs.map((club) => (
+                                    <SelectItem key={club.id} value={club.id}>
+                                        {club.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
+                </CardContent>
+            </Card>
+        </section>
 
-      <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-                <CalendarDays className="h-5 w-5" />
-                Next Upcoming Match
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {renderUpcomingMatch()}
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader>
-             <CardTitle className="flex items-center gap-2">
-                <Trophy className="h-5 w-5" />
-                Last Completed Match
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {renderCompletedMatch()}
-            {renderResultsTable()}
-          </CardContent>
-        </Card>
+        <section className="grid md:grid-cols-2 gap-8">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight mb-4">Next Upcoming Match</h2>
+              {renderUpcomingMatch()}
+            </div>
+            <div>
+                <h2 className="text-2xl font-bold tracking-tight mb-4">Last Completed Match</h2>
+                {renderLastCompletedMatch()}
+            </div>
+        </section>
       </div>
-
-       <Card className="max-w-4xl mx-auto">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Info className="h-5 w-5" />
-                    About Match Manager
-                </CardTitle>
-            </CardHeader>
-            <CardContent>
-                <p className="text-muted-foreground">
-                    This platform provides a comprehensive solution for fishing clubs to manage their matches, members, and results efficiently. To get your club listed or for any inquiries, please contact the site administrator.
-                </p>
-            </CardContent>
-       </Card>
-
-    </div>
+    </main>
   );
 }
