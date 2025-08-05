@@ -88,7 +88,7 @@ const getCalculatedStatus = (match: Match): MatchStatus => {
 };
 
 function MatchesPageContent() {
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const { isSiteAdmin, isClubAdmin, userRole, loading: adminLoading } = useAdminAuth();
   const isMobile = useIsMobile();
@@ -131,6 +131,8 @@ function MatchesPageContent() {
 
   // Effect to set the initial club for fetching matches
   useEffect(() => {
+    if (adminLoading) return;
+
     if (isSiteAdmin) {
       if (firestore) {
         const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
@@ -146,12 +148,14 @@ function MatchesPageContent() {
     } else if (userProfile?.primaryClubId) {
         setSelectedClubId(userProfile.primaryClubId);
     }
-  }, [isSiteAdmin, userProfile, selectedClubId]);
+  }, [isSiteAdmin, adminLoading, userProfile, selectedClubId]);
 
 
   // Main data fetching effect
   useEffect(() => {
     if (!firestore || !selectedClubId) {
+      setMatches([]);
+      setIsLoading(true);
       return;
     }
 
