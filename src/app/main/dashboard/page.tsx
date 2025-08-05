@@ -430,9 +430,11 @@ export default function DashboardPage() {
             </CardContent>
             {recentMatchId && (
                 <CardFooter>
-                    <Button onClick={() => handleGoToMatch(recentMatchId)} variant="outline" className="w-full">
-                        Go to Match
-                        <ArrowRight className="ml-2 h-4 w-4" />
+                    <Button asChild variant="outline" className="w-full">
+                        <Link href="/auth/login">
+                            Login for More
+                            <ArrowRight className="ml-2 h-4 w-4" />
+                        </Link>
                     </Button>
                 </CardFooter>
             )}
@@ -456,3 +458,5 @@ export default function DashboardPage() {
     </>
   );
 }
+
+    
