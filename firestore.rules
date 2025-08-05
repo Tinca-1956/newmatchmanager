@@ -4,73 +4,70 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Allow public read-only access to clubs for the public dashboard dropdown.
-    match /clubs/{clubId} {
-      allow read: if true;
-      allow write: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
+    // Helper function to check if a user is an admin of a specific club
+    function isClubAdmin(clubId) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin' &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
     }
     
-    // PUBLIC-FACING DATA: Anyone can read this data.
-    match /publicMatches/{matchId} {
-      allow read: if true;
-      allow write: if request.auth != null; // Only authenticated users can publish.
+    // Helper function to check if a user is a site admin
+    function isSiteAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
     }
-    
+
+    // Anyone can read from public collections
     match /publicUpcomingMatches/{matchId} {
       allow read: if true;
-      allow write: if request.auth != null; // Only authenticated users can write.
+      allow write: if false; // Only backend can write
+    }
+    
+    match /publicMatches/{matchId} {
+        allow read: if true;
+        allow write: if false; // Only backend can write
     }
 
+    // All authenticated users can read their own user document
     match /users/{userId} {
-      // Allow any authenticated user to read from the users collection.
-      // Page-level queries will restrict this to specific clubs.
-      allow read: if request.auth != null;
-      
-      // Allow users to create their own profile document.
-      // Updates are restricted based on role.
-      allow create: if request.auth.uid == userId;
-      allow update: if request.auth.uid == userId 
-        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin'
-        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin';
-        
-      allow delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
+      allow read: if request.auth != null && request.auth.uid == userId;
+      // Allow creation for new users
+      allow create: if request.auth != null;
+      // Allow updates only by the user themselves, or a site admin.
+      // Club Admins can update roles/status of users in their own club.
+      allow update: if request.auth.uid == userId || isSiteAdmin() || 
+                       (isClubAdmin(resource.data.primaryClubId) && request.resource.data.role != 'Site Admin');
+      // Only Site Admins can delete user documents
+      allow delete: if isSiteAdmin();
     }
 
-    match /matches/{matchId} {
-      allow read, write: if request.auth != null && 
-        (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Marshal'
-        );
-      
-      // Allow any authenticated user to read a single match document.
-      // This is for things like the dashboard and profile pages.
-      allow get: if request.auth != null;
-      
-      // Allow any authenticated user to update the registeredAnglers array (register/unregister).
-      allow update: if request.auth != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['registeredAnglers', 'registeredCount']);
+    match /clubs/{clubId} {
+      allow read: if request.auth != null;
+      // Only site admins can create, update, or delete clubs
+      allow write: if isSiteAdmin();
     }
 
     match /series/{seriesId} {
-       allow read, write: if request.auth != null && 
-        (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin'
-        );
+      // Any authenticated user can read series data.
+      allow read: if request.auth != null;
+      // Only admins of the specific club can write to it.
+      allow write: if isClubAdmin(request.resource.data.clubId) || isSiteAdmin();
     }
 
-    match /results/{resultId} {
-      allow read, write: if request.auth != null && 
-        (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Marshal'
-        );
-        
-       // Allow any authenticated user to read results.
-       allow get: if request.auth != null;
+    match /matches/{matchId} {
+      // Any authenticated user can read match data
+      allow read: if request.auth != null;
+      // Allow registered users to update the registeredAnglers list to add themselves
+      allow update: if (isSiteAdmin() || isClubAdmin(resource.data.clubId)) || 
+                       (request.auth.uid in request.resource.data.registeredAnglers && !(request.auth.uid in resource.data.registeredAnglers)) ||
+                       (!(request.auth.uid in request.resource.data.registeredAnglers) && request.auth.uid in resource.data.registeredAnglers);
+      // Only admins of the specific club can create or delete matches
+      allow create, delete: if isClubAdmin(request.resource.data.clubId) || isSiteAdmin();
     }
+    
+    match /results/{resultId} {
+      allow read: if request.auth != null;
+      // Marshals and Admins can write results
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Marshal', 'Club Admin', 'Site Admin'];
+    }
+
   }
 }
