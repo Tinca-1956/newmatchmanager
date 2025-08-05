@@ -1,58 +1,61 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions for checking user roles from their token
+    
     function isSiteAdmin() {
-      return request.auth.token.role == 'Site Admin';
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
     }
 
     function isClubAdmin() {
-      return request.auth.token.role == 'Club Admin';
-    }
-    
-    function isAngler() {
-       return request.auth.token.role == 'Angler';
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin';
     }
 
-    // Explicitly allow logged-in users to read their own user document.
-    match /users/{userId} {
-      allow read: if request.auth.uid == userId || isSiteAdmin() || isClubAdmin();
-      
-      // Allow admins to perform any write operation.
-      // Allow users to create their own record or update their own name/club.
-      allow write: if isSiteAdmin() || isClubAdmin()
-                   || (request.auth.uid == userId && (
-                       (request.resource.data.diff(resource.data).affectedKeys()
-                        .hasOnly(['firstName', 'lastName', 'primaryClubId']))
-                       ||
-                       (request.resource.data.diff(resource.data).affectedKeys()
-                        .hasAll(['firstName', 'lastName', 'email', 'role', 'memberStatus', 'primaryClubId']))
-                     ));
-    }
-
+    // Allow read access to all clubs for any authenticated user.
+    // Write access is restricted to Site Admins.
     match /clubs/{clubId} {
       allow read: if request.auth != null;
       allow write: if isSiteAdmin();
     }
     
+    // Allow read access to all series for any authenticated user.
+    // Write access is restricted to Site and Club Admins.
     match /series/{seriesId} {
+        allow read: if request.auth != null;
+        allow write: if isSiteAdmin() || isClubAdmin();
+    }
+
+    // Allow read access to all matches for any authenticated user.
+    // Write access is restricted to Site and Club Admins.
+    match /matches/{matchId} {
       allow read: if request.auth != null;
       allow write: if isSiteAdmin() || isClubAdmin();
     }
     
-    match /matches/{matchId} {
-      allow read: if request.auth != null;
-      allow write: if isSiteAdmin() || isClubAdmin();
-      
-      // Allow any logged-in user to register/unregister by modifying the registeredAnglers array
-      allow update: if request.auth.uid != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['registeredAnglers', 'registeredCount']);
-    }
-
+    // Allow read access to all results for any authenticated user.
+    // Write access is restricted to Site and Club Admins.
     match /results/{resultId} {
-      allow read: if request.auth != null;
-      allow write: if isSiteAdmin() || isClubAdmin();
+        allow read: if request.auth != null;
+        allow write: if isSiteAdmin() || isClubAdmin();
+    }
+    
+    // USERS COLLECTION RULES
+    match /users/{userId} {
+      // READ: A user can read their own profile. An admin can read any profile.
+      allow read: if request.auth.uid == userId 
+                  || request.auth.token.role in ['Site Admin', 'Club Admin'];
+                  
+      // CREATE: A user can create their own profile. An admin can create any user profile.
+      allow create: if request.auth.uid == userId 
+                    || request.auth.token.role in ['Site Admin', 'Club Admin'];
+                    
+      // UPDATE: A user can update their own profile. An admin can update any profile.
+      allow update: if request.auth.uid == userId
+                    || request.auth.token.role in ['Site Admin', 'Club Admin'];
+
+      // DELETE: Only a Site Admin can delete a user document.
+      allow delete: if request.auth.token.role == 'Site Admin';
     }
   }
 }
