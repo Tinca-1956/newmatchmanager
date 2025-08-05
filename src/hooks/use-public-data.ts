@@ -21,7 +21,7 @@ export const usePublicData = (): UsePublicDataReturn => {
     const [clubs, setClubs] = useState<Club[]>([]);
     const [allPublicCompleted, setAllPublicCompleted] = useState<PublicMatch[]>([]);
     const [allPublicUpcoming, setAllPublicUpcoming] = useState<PublicUpcomingMatch[]>([]);
-    const [selectedClubId, setSelectedClubId] = useState<string>('');
+    const [selectedClubId, setSelectedClubId] = useState<string>('all-clubs'); // Default to 'all-clubs'
     const [isLoadingClubs, setIsLoadingClubs] = useState(true);
     const [isLoadingCompleted, setIsLoadingCompleted] = useState(true);
     const [isLoadingUpcoming, setIsLoadingUpcoming] = useState(true);
