@@ -36,6 +36,10 @@ Now that billing is enabled, we can activate the necessary APIs. The deployment 
 4.  **Cloud Storage API** (For `firebase deploy --only storage` and image uploads)
     *   **Link:** [https://console.cloud.google.com/apis/library/firebasestorage.googleapis.com?project=newmatchmanager](https://console.cloud.google.com/apis/library/firebasestorage.googleapis.com?project=newmatchmanager)
     *   **Purpose:** Allows managing Firebase Storage rules and files.
+    
+5.  **Firebase Extensions API** (Required for the latest function deployments)
+    *   **Link:** [https://console.cloud.google.com/apis/library/firebaseextensions.googleapis.com?project=newmatchmanager](https://console.cloud.google.com/apis/library/firebaseextensions.googleapis.com?project=newmatchmanager)
+    *   **Purpose:** Allows functions to interact with other Firebase services.
 
 ### Step 3: Grant Permissions to the Service Accounts
 
@@ -46,13 +50,15 @@ This is the most common point of failure. The automated "robots" that build and 
     *   On this page, click the checkbox for **"Include Google-provided role grants"** on the right side. This will ensure you see all service accounts.
 
 2.  **Grant Cloud Build Permissions:**
-    *   Look for a principal (a user/account) that ends in **`@cloudbuild.gserviceaccount.com`**. It will look like `[PROJECT_NUMBER]@cloudbuild.gserviceaccount.com`.
+    *   Look for the principal named **`Legacy Cloud Build Service Account`**. The email will look like `[PROJECT_NUMBER]@cloudbuild.gserviceaccount.com`.
     *   **If you do not see this principal**, it's because the Cloud Build API was just enabled. Please try to run the function deployment command from your terminal first (`firebase deploy --only functions`). The command will likely fail, but this action will force Google Cloud to create the service account. Then, refresh the IAM page.
     *   Once you see it, click the pencil icon next to it to edit its roles.
     *   Click **"+ Add Another Role"**.
     *   Search for and add the **`Cloud Build Service Agent`** role. This contains all the necessary permissions for building.
     *   Click **"+ Add Another Role"** again.
     *   Search for and add the **`Firebase Admin`** role. This allows the build process to interact with your Firebase project.
+    *   Click **"+ Add Another Role"** again.
+    *   Search for and add the **`Firebase Extensions API Service Agent`** role. This is required for deployment.
     *   Click **"Save"**.
 
 3.  **Grant App Hosting Permissions:**
