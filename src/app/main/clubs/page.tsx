@@ -40,6 +40,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import Image from 'next/image';
 import { Progress } from '@/components/ui/progress';
+import { useAuth } from '@/hooks/use-auth';
 
 const initialClubState: Omit<Club, 'id'> = {
   name: '',
@@ -49,7 +50,8 @@ const initialClubState: Omit<Club, 'id'> = {
 
 export default function ClubsPage() {
   const { toast } = useToast();
-  const { isSiteAdmin, loading: adminLoading } = useAdminAuth();
+  const { userProfile } = useAuth();
+  const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [clubs, setClubs] = useState<Club[]>([]);
@@ -63,8 +65,8 @@ export default function ClubsPage() {
   const [selectedClub, setSelectedClub] = useState<Partial<Club>>(initialClubState);
 
   useEffect(() => {
-    if (!firestore) {
-        setIsLoading(false);
+    if (!firestore || adminLoading) {
+        setIsLoading(adminLoading);
         return;
     }
 
@@ -72,7 +74,13 @@ export default function ClubsPage() {
     const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
 
     const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
-        const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+        let clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+        
+        // If user is a Club Admin but not a Site Admin, only show their primary club
+        if (isClubAdmin && !isSiteAdmin && userProfile?.primaryClubId) {
+            clubsData = clubsData.filter(club => club.id === userProfile.primaryClubId);
+        }
+
         setClubs(clubsData);
         setIsLoading(false);
     }, (error) => {
@@ -82,7 +90,7 @@ export default function ClubsPage() {
     });
 
     return () => unsubscribe();
-  }, [toast]);
+  }, [toast, adminLoading, isSiteAdmin, isClubAdmin, userProfile]);
 
   const handleOpenDialog = (mode: 'create' | 'edit', club?: Club) => {
     setDialogMode(mode);
@@ -108,7 +116,15 @@ export default function ClubsPage() {
     }
     
     setIsSaving(true);
-    const clubData = { ...selectedClub };
+    let clubData: Partial<Club> = { ...selectedClub };
+
+    // If Club Admin is editing, only allow description and imageUrl to be updated.
+    if(isClubAdmin && !isSiteAdmin) {
+        clubData = {
+            description: selectedClub.description,
+            imageUrl: selectedClub.imageUrl,
+        }
+    }
 
     try {
         if (dialogMode === 'edit' && 'id' in selectedClub && selectedClub.id) {
@@ -116,8 +132,11 @@ export default function ClubsPage() {
             await updateDoc(clubDocRef, clubData);
             toast({ title: 'Success!', description: 'Club updated successfully.' });
         } else {
-            await addDoc(collection(firestore, 'clubs'), clubData);
-            toast({ title: 'Success!', description: 'Club created successfully.' });
+            // Only Site Admins can create
+            if (isSiteAdmin) {
+                await addDoc(collection(firestore, 'clubs'), clubData);
+                toast({ title: 'Success!', description: 'Club created successfully.' });
+            }
         }
         setIsDialogOpen(false);
     } catch (error) {
@@ -157,52 +176,24 @@ export default function ClubsPage() {
       }
     );
   };
-
-  const renderClubList = () => {
-    if (isLoading || adminLoading) {
-      return Array.from({ length: 4 }).map((_, i) => (
-        <TableRow key={i}>
-          <TableCell>
-            <Skeleton className="h-10 w-10 rounded-full" />
-          </TableCell>
-          <TableCell>
-            <Skeleton className="h-4 w-32" />
-          </TableCell>
-          <TableCell>
-            <Skeleton className="h-4 w-64" />
-          </TableCell>
-          {isSiteAdmin && (
-            <TableCell>
-              <Skeleton className="h-8 w-8 rounded-md" />
-            </TableCell>
-          )}
-        </TableRow>
-      ));
-    }
-    
-    return clubs.map(club => (
-      <TableRow key={club.id}>
-        <TableCell>
-            {club.imageUrl ? (
-                <Image src={club.imageUrl} alt={club.name} width={40} height={40} className="rounded-full" />
-            ) : (
-                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-                    <Shield className="h-6 w-6 text-muted-foreground" />
+  
+  if (adminLoading) {
+      return (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                    <Skeleton className="h-8 w-48" />
+                    <Skeleton className="h-4 w-72" />
                 </div>
-            )}
-        </TableCell>
-        <TableCell className="font-medium">{club.name}</TableCell>
-        <TableCell>{club.description}</TableCell>
-        {isSiteAdmin && (
-            <TableCell className="text-right">
-                <Button variant="ghost" size="icon" onClick={() => handleOpenDialog('edit', club)}>
-                    <Edit className="h-4 w-4" />
-                </Button>
-            </TableCell>
-        )}
-      </TableRow>
-    ));
-  };
+                <Skeleton className="h-10 w-32" />
+            </div>
+            <Card>
+                <CardHeader><Skeleton className="h-6 w-40" /></CardHeader>
+                <CardContent><Skeleton className="h-48 w-full" /></CardContent>
+            </Card>
+        </div>
+      );
+  }
 
   return (
     <>
@@ -232,11 +223,43 @@ export default function ClubsPage() {
                   <TableHead className="w-16">Logo</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Description</TableHead>
-                  {isSiteAdmin && <TableHead className="text-right">Actions</TableHead>}
+                  {(isSiteAdmin || isClubAdmin) && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {renderClubList()}
+                {isLoading ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                        <TableRow key={i}>
+                        <TableCell><Skeleton className="h-10 w-10 rounded-full" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-64" /></TableCell>
+                        {(isSiteAdmin || isClubAdmin) && <TableCell><Skeleton className="h-8 w-8 rounded-md" /></TableCell>}
+                        </TableRow>
+                    ))
+                ) : (
+                    clubs.map(club => (
+                    <TableRow key={club.id}>
+                        <TableCell>
+                            {club.imageUrl ? (
+                                <Image src={club.imageUrl} alt={club.name} width={40} height={40} className="rounded-full" />
+                            ) : (
+                                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                                    <Shield className="h-6 w-6 text-muted-foreground" />
+                                </div>
+                            )}
+                        </TableCell>
+                        <TableCell className="font-medium">{club.name}</TableCell>
+                        <TableCell>{club.description}</TableCell>
+                        {(isSiteAdmin || (isClubAdmin && club.id === userProfile?.primaryClubId)) && (
+                            <TableCell className="text-right">
+                                <Button variant="ghost" size="icon" onClick={() => handleOpenDialog('edit', club)}>
+                                    <Edit className="h-4 w-4" />
+                                </Button>
+                            </TableCell>
+                        )}
+                    </TableRow>
+                    ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -262,7 +285,15 @@ export default function ClubsPage() {
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="name" className="text-right">Name</Label>
-                        <Input id="name" name="name" value={selectedClub.name || ''} onChange={handleInputChange} className="col-span-3" required />
+                        <Input 
+                            id="name" 
+                            name="name" 
+                            value={selectedClub.name || ''} 
+                            onChange={handleInputChange} 
+                            className="col-span-3" 
+                            required 
+                            disabled={!isSiteAdmin} // Only site admins can edit the name
+                        />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="description" className="text-right">Description</Label>
