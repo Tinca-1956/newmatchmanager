@@ -109,7 +109,7 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
   return (
     <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
       {sortedNavItems.map((item) => {
-        const isActive = pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/main/dashboard');
+        const isActive = pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/main/dashboard'  && item.href !== '/main/clubs');
 
         const linkContent = (
           <Link

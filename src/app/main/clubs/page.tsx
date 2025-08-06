@@ -19,7 +19,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Upload, Shield } from 'lucide-react';
+import { Edit, Upload, Shield } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -33,7 +33,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { firestore, storage } from '@/lib/firebase-client';
-import { collection, addDoc, onSnapshot, doc, updateDoc, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, query, orderBy } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import type { Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -41,12 +41,6 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 import Image from 'next/image';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/use-auth';
-
-const initialClubState: Omit<Club, 'id'> = {
-  name: '',
-  description: '',
-  imageUrl: '',
-};
 
 export default function ClubsPage() {
   const { toast } = useToast();
@@ -61,8 +55,7 @@ export default function ClubsPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
-  const [selectedClub, setSelectedClub] = useState<Partial<Club>>(initialClubState);
+  const [selectedClub, setSelectedClub] = useState<Partial<Club> | null>(null);
 
   useEffect(() => {
     if (adminLoading) {
@@ -88,60 +81,38 @@ export default function ClubsPage() {
     return () => unsubscribe();
   }, [toast, adminLoading]);
 
-  const handleOpenDialog = (mode: 'create' | 'edit', club?: Club) => {
-    setDialogMode(mode);
+  const handleOpenDialog = (club: Club) => {
+    setSelectedClub(club);
     setUploadProgress(0);
-    if (mode === 'edit' && club) {
-        setSelectedClub(club);
-    } else {
-        setSelectedClub(initialClubState);
-    }
     setIsDialogOpen(true);
   };
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setSelectedClub(prev => ({ ...prev, [name]: value }));
+    setSelectedClub(prev => (prev ? { ...prev, [name]: value } : null));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firestore || !selectedClub?.name) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Club name is required.' });
-        return;
-    }
+    if (!selectedClub?.id) return;
     
     setIsSaving(true);
-
     try {
-        if (dialogMode === 'edit' && selectedClub.id) {
-            const clubDocRef = doc(firestore, 'clubs', selectedClub.id);
-            
-            // This is the corrected logic.
-            // For Site Admins, we prepare an object with all editable fields.
-            // For Club Admins, we prepare a very specific object with only the fields they are allowed to change.
-            let dataToUpdate: Partial<Club>;
-            
-            if (isClubAdmin && !isSiteAdmin) {
-                dataToUpdate = {
-                    description: selectedClub.description || '',
-                    imageUrl: selectedClub.imageUrl || '',
-                };
-            } else {
-                const { id, ...restOfClub } = selectedClub;
-                dataToUpdate = restOfClub;
-            }
-            
-            await updateDoc(clubDocRef, dataToUpdate);
-            toast({ title: 'Success!', description: 'Club updated successfully.' });
-
-        } else if (dialogMode === 'create' && isSiteAdmin) {
-            // Logic for creating a new club (only Site Admins can do this)
-            const {id, ...newClubData} = selectedClub;
-            await addDoc(collection(firestore, 'clubs'), newClubData);
-            toast({ title: 'Success!', description: 'Club created successfully.' });
+        const clubDocRef = doc(firestore, 'clubs', selectedClub.id);
+        
+        let dataToUpdate: Partial<Club>;
+        if (isSiteAdmin) {
+            const { id, ...restOfClub } = selectedClub;
+            dataToUpdate = restOfClub;
+        } else {
+             dataToUpdate = {
+                description: selectedClub.description || '',
+                imageUrl: selectedClub.imageUrl || '',
+            };
         }
         
+        await updateDoc(clubDocRef, dataToUpdate as any); // Use 'as any' to bypass strict type checking on the partial object.
+        toast({ title: 'Success!', description: 'Club updated successfully.' });
         setIsDialogOpen(false);
 
     } catch (error) {
@@ -175,7 +146,7 @@ export default function ClubsPage() {
       },
       async () => {
         const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-        setSelectedClub(prev => ({ ...prev!, imageUrl: downloadURL }));
+        setSelectedClub(prev => (prev ? { ...prev, imageUrl: downloadURL } : null));
         setIsUploading(false);
         toast({ title: 'Success!', description: 'Logo uploaded. Remember to save your changes.' });
       }
@@ -190,7 +161,6 @@ export default function ClubsPage() {
                     <Skeleton className="h-8 w-48" />
                     <Skeleton className="h-4 w-72" />
                 </div>
-                <Skeleton className="h-10 w-32" />
             </div>
             <Card>
                 <CardHeader><Skeleton className="h-6 w-40" /></CardHeader>
@@ -208,12 +178,6 @@ export default function ClubsPage() {
             <h1 className="text-3xl font-bold tracking-tight">Clubs</h1>
             <p className="text-muted-foreground">View and manage all clubs in the system.</p>
           </div>
-          {isSiteAdmin && (
-            <Button onClick={() => handleOpenDialog('create')}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Create Club
-            </Button>
-          )}
         </div>
         
         <Card>
@@ -257,7 +221,7 @@ export default function ClubsPage() {
                         <TableCell>{club.description}</TableCell>
                         <TableCell className="text-right">
                            {(isSiteAdmin || (isClubAdmin && club.id === userProfile?.primaryClubId)) && (
-                                <Button variant="ghost" size="icon" onClick={() => handleOpenDialog('edit', club)}>
+                                <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(club)}>
                                     <Edit className="h-4 w-4" />
                                 </Button>
                             )}
@@ -278,33 +242,33 @@ export default function ClubsPage() {
         </Card>
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-            <form onSubmit={handleSubmit}>
-                <DialogHeader>
-                    <DialogTitle>{dialogMode === 'create' ? 'Create New Club' : 'Edit Club'}</DialogTitle>
-                    <DialogDescription>
-                    {dialogMode === 'create' ? 'Add a new club to the system.' : `Editing ${selectedClub.name}.`}
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="name" className="text-right">Name</Label>
-                        <Input 
-                            id="name" 
-                            name="name" 
-                            value={selectedClub.name || ''} 
-                            onChange={handleInputChange} 
-                            className="col-span-3" 
-                            required 
-                            disabled={!isSiteAdmin && dialogMode === 'edit'} // Club admins cannot edit the name
-                        />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="description" className="text-right">Description</Label>
-                        <Textarea id="description" name="description" value={selectedClub.description || ''} onChange={handleInputChange} className="col-span-3" />
-                    </div>
-                    {dialogMode === 'edit' && (
+      {selectedClub && (
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+              <form onSubmit={handleSubmit}>
+                  <DialogHeader>
+                      <DialogTitle>Edit Club</DialogTitle>
+                      <DialogDescription>
+                      Editing {selectedClub.name}.
+                      </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="name" className="text-right">Name</Label>
+                          <Input 
+                              id="name" 
+                              name="name" 
+                              value={selectedClub.name || ''} 
+                              onChange={handleInputChange} 
+                              className="col-span-3" 
+                              required 
+                              disabled={!isSiteAdmin}
+                          />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="description" className="text-right">Description</Label>
+                          <Textarea id="description" name="description" value={selectedClub.description || ''} onChange={handleInputChange} className="col-span-3" />
+                      </div>
                       <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="logo" className="text-right">Logo</Label>
                         <div className="col-span-3 space-y-2">
@@ -322,17 +286,17 @@ export default function ClubsPage() {
                           )}
                         </div>
                       </div>
-                    )}
-                </div>
-                <DialogFooter>
-                    <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                    <Button type="submit" disabled={isSaving || isUploading}>
-                    {isSaving ? 'Saving...' : 'Save Club'}
-                    </Button>
-                </DialogFooter>
-            </form>
-        </DialogContent>
-      </Dialog>
+                  </div>
+                  <DialogFooter>
+                      <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                      <Button type="submit" disabled={isSaving || isUploading}>
+                      {isSaving ? 'Saving...' : 'Save Club'}
+                      </Button>
+                  </DialogFooter>
+              </form>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }
