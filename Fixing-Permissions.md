@@ -34,7 +34,7 @@ This is the most important step.
     *   **CLICK THIS CHECKBOX TO CHECK IT.** This will make the hidden service accounts appear.
 
 3.  **Grant Cloud Build Permissions:**
-    *   After checking the box, look for the principal named **`Cloud Build Service Account`** (or `Legacy Cloud Build Service Account`). The email will look like `[PROJECT_NUMBER]@cloudbuild.gserviceaccount.com`.
+    *   After checking the box, look for the principal named **`Legacy Cloud Build Service Account`**. The email will look like `[PROJECT_NUMBER]@cloudbuild.gserviceaccount.com`.
     *   Click the **pencil icon** next to it to edit its roles.
     *   Click **"+ Add Another Role"**.
     *   Search for and add the **`Cloud Build Service Agent`** role.
