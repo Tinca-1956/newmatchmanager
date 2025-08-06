@@ -177,11 +177,18 @@ export default function LoginPage() {
           )}
         </CardContent>
       </form>
-      <CardFooter className="text-center text-sm">
-        Don&apos;t have an account?{' '}
-        <Link href="/auth/register" className="underline ml-1">
-          Sign up
-        </Link>
+      <CardFooter className="flex-col items-center justify-center text-sm gap-2">
+        <div className="flex gap-1">
+            <span>Don&apos;t have an account?</span>
+            <Link href="/auth/register" className="underline">
+            Sign up
+            </Link>
+        </div>
+        <div>
+          <Link href="/public/dashboard" className="underline text-muted-foreground">
+            Return to Dashboard
+          </Link>
+        </div>
       </CardFooter>
     </Card>
   );
