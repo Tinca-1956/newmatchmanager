@@ -1,50 +1,60 @@
-rules_version = '2';
 
+rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check ownership
-    function isOwner(userId) {
-      return request.auth.uid == userId;
+
+    // Helper function to check if a user has a specific role
+    function isRole(role) {
+      return request.auth.token.role == role;
     }
 
-    // Users can read their own profile, admins can read any.
-    match /users/{userId} {
-      allow read: if isOwner(userId) || request.auth.token.role in ['Club Admin', 'Site Admin'];
-      allow write: if isOwner(userId);
-      allow create: if request.auth != null; // Any authenticated user can create their profile
+    // Helper function to check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
     }
 
-    // Public collections can be read by anyone
-    match /publicMatches/{matchId} {
-      allow read: if true;
-    }
-    
-    match /publicUpcomingMatches/{matchId} {
-        allow read: if true;
-    }
-
-    // Clubs can be listed by anyone, but only written to by admins
+    // PUBLIC COLLECTIONS
     match /clubs/{clubId} {
       allow list: if true;
-      allow get: if request.auth != null;
-      allow write: if request.auth.token.role in ['Site Admin'];
+      allow get: if isAuthenticated();
+      allow write: if isRole('Site Admin');
     }
 
-    // Authenticated users can read matches, series, and results.
-    // Writes are restricted to admins/marshals.
-    match /matches/{matchId} {
-        allow read: if request.auth != null;
-        allow write: if request.auth.token.role in ['Club Admin', 'Site Admin', 'Marshal'];
+    match /publicMatches/{matchId} {
+        allow read: if true;
+        allow write: if isRole('Site Admin');
     }
-    
+
+    match /publicUpcomingMatches/{matchId} {
+        allow read: if true;
+        allow write: if isRole('Site Admin');
+    }
+
+    // USER-SPECIFIC
+    match /users/{userId} {
+      // Allow any authenticated user to read/list users.
+      // The application code handles filtering by club.
+      // Allow users to create their own profile, and admins/themselves to update.
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if request.auth.uid == userId || isRole('Site Admin') || isRole('Club Admin');
+      allow delete: if isRole('Site Admin');
+    }
+
+    // CLUB-SPECIFIC DATA
     match /series/{seriesId} {
-        allow read: if request.auth != null;
-        allow write: if request.auth.token.role in ['Club Admin', 'Site Admin'];
+       allow read: if isAuthenticated();
+       allow create, update, delete: if isRole('Site Admin') || isRole('Club Admin');
+    }
+
+    match /matches/{matchId} {
+       allow read: if isAuthenticated();
+       allow create, update, delete: if isRole('Site Admin') || isRole('Club Admin');
     }
 
     match /results/{resultId} {
-        allow read: if request.auth != null;
-        allow write: if request.auth.token.role in ['Club Admin', 'Site Admin', 'Marshal'];
+        allow read: if isAuthenticated();
+        allow create, update, delete: if isRole('Site Admin') || isRole('Club Admin') || isRole('Marshal');
     }
   }
 }
