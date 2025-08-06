@@ -52,3 +52,6 @@ export const setUserRole = functions.firestore
         
         return null;
     });
+
+// Export the image proxy function as well
+export { getClubLogo } from './image-proxy';
