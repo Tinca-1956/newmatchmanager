@@ -15,7 +15,6 @@ import {
   Fish,
   User as UserIcon,
   FlaskConical,
-  Trash2,
   Beaker,
   TestTube,
 } from 'lucide-react';
@@ -35,7 +34,6 @@ const navItems = [
   { href: '/main/matches', icon: Swords, label: 'Matches' },
   { href: '/main/results', icon: Medal, label: 'Results' },
   { href: '/main/admin/seed', icon: Beaker, label: 'Add Anglers', adminOnly: true },
-  { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users', adminOnly: true, siteAdminOnly: true },
   { href: '/main/test-access', icon: TestTube, label: 'Test Access', siteAdminOnly: true },
   { href: '/main/emulator', icon: FlaskConical, label: 'Emulator', adminOnly: true, emulatorOnly: true },
   { href: '/main/about', icon: Info, label: 'About' },
