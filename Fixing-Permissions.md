@@ -21,57 +21,55 @@ Once complete, the bottom-left corner will now show the `Blaze` plan.
 
 Now that billing is enabled, we can activate the necessary APIs. The deployment is failing because specific services are not enabled. Click each link below for your project and click the **"Enable"** button if it is not already active.
 
-1.  **Cloud Storage API** (For `firebase deploy --only storage`)
-    *   **Link:** [https://console.cloud.google.com/apis/library/firebasestorage.googleapis.com?project=newmatchmanager](https://console.cloud.google.com/apis/library/firebasestorage.googleapis.com?project=newmatchmanager)
-    *   **Purpose:** Allows managing Firebase Storage rules.
-
-2.  **Cloud Functions API** (For `firebase deploy --only functions`)
+1.  **Cloud Functions API** (A dependency for `setUserRole` function)
     *   **Link:** [https://console.cloud.google.com/apis/library/cloudfunctions.googleapis.com?project=newmatchmanager](https://console.cloud.google.com/apis/library/cloudfunctions.googleapis.com?project=newmatchmanager)
     *   **Purpose:** Allows deploying and managing Cloud Functions.
+
+2.  **Cloud Build API** (A dependency for Cloud Functions & App Hosting)
+    *   **Link:** [https://console.cloud.google.com/apis/library/cloudbuild.googleapis.com?project=newmatchmanager](https://console.cloud.google.com/apis/library/cloudbuild.googleapis.com?project=newmatchmanager)
+    *   **Purpose:** Compiles and builds your code on the server. **Enabling this API will create the `...@cloudbuild.gserviceaccount.com` service account we will need in the next step.**
 
 3.  **Artifact Registry API** (A dependency for Cloud Functions & App Hosting)
     *   **Link:** [https://console.cloud.google.com/apis/library/artifactregistry.googleapis.com?project=newmatchmanager](https://console.cloud.google.com/apis/library/artifactregistry.googleapis.com?project=newmatchmanager)
     *   **Purpose:** Stores the container images for your deployed services.
 
-4.  **Cloud Build API** (A dependency for Cloud Functions & App Hosting)
-    *   **Link:** [https://console.cloud.google.com/apis/library/cloudbuild.googleapis.com?project=newmatchmanager](https://console.cloud.google.com/apis/library/cloudbuild.googleapis.com?project=newmatchmanager)
-    *   **Purpose:** Compiles and builds your code on the server.
+4.  **Cloud Storage API** (For `firebase deploy --only storage` and image uploads)
+    *   **Link:** [https://console.cloud.google.com/apis/library/firebasestorage.googleapis.com?project=newmatchmanager](https://console.cloud.google.com/apis/library/firebasestorage.googleapis.com?project=newmatchmanager)
+    *   **Purpose:** Allows managing Firebase Storage rules and files.
 
-### Step 3: Grant Permissions to the Cloud Build Service Account
+### Step 3: Grant Permissions to the Service Accounts
 
-This is the most common point of failure. The automated "robot" that builds your code (the Cloud Build service account) needs explicit permission to act on your behalf.
+This is the most common point of failure. The automated "robots" that build and deploy your code need explicit permission to act on your behalf.
 
-1.  **Find your Cloud Build Service Account:**
-    *   Go to the IAM & Admin page: [https://console.cloud.google.com/iam-admin/iam?project=newmatchmanager](https://console.cloud.google.com/iam-admin/iam?project=newmatchmanager)
-    *   Look for a principal (a user/account) that ends in `@cloudbuild.gserviceaccount.com`. It will look like `[PROJECT_NUMBER]@cloudbuild.gserviceaccount.com`.
-    *   Copy this full email address.
+1.  **Go to the IAM Page:**
+    *   Open the IAM & Admin page for your project: [https://console.cloud.google.com/iam-admin/iam?project=newmatchmanager](https://console.cloud.google.com/iam-admin/iam?project=newmatchmanager)
+    *   On this page, click the checkbox for **"Include Google-provided role grants"** on the right side. This will ensure you see all service accounts.
 
-2.  **Grant the "Cloud Build Service Agent" Role:**
-    *   On that same IAM page, click the **"+ Grant Access"** button at the top.
-    *   In the "New principals" field, paste the service account email you just copied.
-    *   In the "Select a role" dropdown, search for and select **`Cloud Build Service Agent`**. This role contains all the necessary permissions for building and deploying.
+2.  **Grant Cloud Build Permissions:**
+    *   Look for a principal (a user/account) that ends in **`@cloudbuild.gserviceaccount.com`**. It will look like `[PROJECT_NUMBER]@cloudbuild.gserviceaccount.com`.
+    *   **If you do not see this principal**, it's because the Cloud Build API was just enabled. Please try to run the function deployment command from your terminal first (`firebase deploy --only functions`). The command will likely fail, but this action will force Google Cloud to create the service account. Then, refresh the IAM page.
+    *   Once you see it, click the pencil icon next to it to edit its roles.
+    *   Click **"+ Add Another Role"**.
+    *   Search for and add the **`Cloud Build Service Agent`** role. This contains all the necessary permissions for building.
+    *   Click **"+ Add Another Role"** again.
+    *   Search for and add the **`Firebase Admin`** role. This allows the build process to interact with your Firebase project.
     *   Click **"Save"**.
 
-3.  **Grant App Hosting Permissions (if using App Hosting):**
-    *   Look for a principal ending in `@gcp-sa-firebaseapphosting.iam.gserviceaccount.com`.
+3.  **Grant App Hosting Permissions:**
+    *   Look for the principal named **`App Hosting Service Account`** that ends in `@gcp-sa-firebaseapphosting.iam.gserviceaccount.com`.
     *   Click the pencil icon to edit its roles.
     *   Click **"+ Add Another Role"**.
     *   Search for and add the **`Firebase App Hosting Admin`** role.
+    *   Click **"+ Add Another Role"** again.
     *   Search for and add the **`Cloud Build Editor`** role.
     *   Click **"Save"**.
 
 ### Step 4: Re-run the Deployment
 
-Now that the project is correctly configured, return to your terminal and run the deployment command again.
+Now that the project is correctly configured, return to your terminal and run the deployment command again. This time, it should succeed.
 
-**For the function deployment:**
 ```bash
 firebase deploy --only functions
 ```
 
-**For the web app (App Hosting):**
-```bash
-firebase deploy
-```
-
-This time, the command should succeed without any permission errors.
+Once this command completes successfully, your `setUserRole` function will be active and working, which is the foundation for fixing all other permission issues in the app itself.
