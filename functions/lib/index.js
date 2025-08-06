@@ -71,6 +71,11 @@ exports.setUserRole = (0, firestore_1.onDocumentWritten)('users/{userId}', async
     }
     // Get the new data from the document.
     const userDocument = event.data.after.data();
+    // **FIX**: Ensure userDocument is not undefined before accessing its properties.
+    if (!userDocument) {
+        logger.log(`User document data for ${userId} is undefined. No action taken.`);
+        return null;
+    }
     const newRole = userDocument.role;
     // If the role is missing or invalid, we can't set a claim.
     if (typeof newRole !== 'string' || !newRole) {
