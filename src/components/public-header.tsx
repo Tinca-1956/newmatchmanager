@@ -16,11 +16,12 @@ export default function PublicHeader() {
         <h1 className="text-xl font-bold">MATCH MANAGER</h1>
       </Link>
       <div className="flex items-center gap-2">
-        {pathname.includes('/public/dashboard') && (
-           <Button asChild variant="secondary">
-              <Link href="/auth/login">Sign In</Link>
-            </Button>
-        )}
+        <Button asChild variant="ghost" className="text-sidebar-foreground hover:bg-sidebar-accent">
+          <Link href="/public/learn-more">Learn more</Link>
+        </Button>
+        <Button asChild variant="secondary">
+          <Link href="/auth/login">Sign In</Link>
+        </Button>
       </div>
     </header>
   );
