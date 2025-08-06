@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -93,17 +92,16 @@ export default function DashboardPage() {
         return;
     }
 
-    const processMatches = async () => {
+    const matchesQuery = query(
+        collection(firestore, 'matches'),
+        where('clubId', '==', userProfile.primaryClubId)
+    );
+
+    const unsubscribe = onSnapshot(matchesQuery, async (snapshot) => {
         setIsLoading(true);
         setIsLoadingResults(true);
-
-        const allMatchesQuery = query(
-            collection(firestore, 'matches'),
-            where('clubId', '==', userProfile.primaryClubId)
-        );
-
-        const allMatchesSnapshot = await getDocs(allMatchesQuery);
-        const matchesData = allMatchesSnapshot.docs.map(doc => {
+        
+        const matchesData = snapshot.docs.map(doc => {
             const data = doc.data();
             // Ensure date is a JS Date object for calculations
             let date = data.date;
@@ -205,9 +203,18 @@ export default function DashboardPage() {
             setRecentMatchImages([]);
         }
         setIsLoadingResults(false);
-    };
+    }, (error) => {
+        console.error("Dashboard subscription error: ", error);
+        toast({
+            variant: "destructive",
+            title: "Permissions Error",
+            description: "Could not fetch dashboard data. Check Firestore rules.",
+        });
+        setIsLoading(false);
+        setIsLoadingResults(false);
+    });
 
-    processMatches();
+    return () => unsubscribe();
 
   }, [userProfile, toast]);
 
@@ -467,4 +474,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
