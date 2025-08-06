@@ -76,11 +76,8 @@ export default function ClubsPage() {
     const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
         let clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
         
-        // If user is a Club Admin but not a Site Admin, only show their primary club
-        if (isClubAdmin && !isSiteAdmin && userProfile?.primaryClubId) {
-            clubsData = clubsData.filter(club => club.id === userProfile.primaryClubId);
-        }
-
+        // If user is a Club Admin but not a Site Admin, they can see all clubs, but can only edit their own.
+        // This remains unchanged as the edit button logic handles the permissions.
         setClubs(clubsData);
         setIsLoading(false);
     }, (error) => {
@@ -90,7 +87,7 @@ export default function ClubsPage() {
     });
 
     return () => unsubscribe();
-  }, [toast, adminLoading, isSiteAdmin, isClubAdmin, userProfile]);
+  }, [toast, adminLoading]);
 
   const handleOpenDialog = (mode: 'create' | 'edit', club?: Club) => {
     setDialogMode(mode);
@@ -116,29 +113,38 @@ export default function ClubsPage() {
     }
     
     setIsSaving(true);
-    let clubData: Partial<Club> = { ...selectedClub };
-
-    // If Club Admin is editing, only allow description and imageUrl to be updated.
-    if(isClubAdmin && !isSiteAdmin) {
-        clubData = {
-            description: selectedClub.description,
-            imageUrl: selectedClub.imageUrl,
-        }
-    }
+    let dataToUpdate: Partial<Club> = {};
 
     try {
         if (dialogMode === 'edit' && 'id' in selectedClub && selectedClub.id) {
+            // Logic for editing an existing club
             const clubDocRef = doc(firestore, 'clubs', selectedClub.id);
-            await updateDoc(clubDocRef, clubData);
-            toast({ title: 'Success!', description: 'Club updated successfully.' });
-        } else {
-            // Only Site Admins can create
-            if (isSiteAdmin) {
-                await addDoc(collection(firestore, 'clubs'), clubData);
-                toast({ title: 'Success!', description: 'Club created successfully.' });
+            
+            if (isClubAdmin && !isSiteAdmin) {
+                // Club Admins can only update description and imageUrl
+                dataToUpdate = {
+                    description: selectedClub.description,
+                    imageUrl: selectedClub.imageUrl,
+                };
+            } else {
+                // Site Admins can update everything
+                dataToUpdate = { ...selectedClub };
+                delete dataToUpdate.id; // Don't try to write the id field back to the document
             }
+            
+            await updateDoc(clubDocRef, dataToUpdate);
+            toast({ title: 'Success!', description: 'Club updated successfully.' });
+
+        } else if (dialogMode === 'create' && isSiteAdmin) {
+            // Logic for creating a new club (only Site Admins can do this)
+            const newClubData = { ...selectedClub };
+            delete newClubData.id;
+            await addDoc(collection(firestore, 'clubs'), newClubData);
+            toast({ title: 'Success!', description: 'Club created successfully.' });
         }
+        
         setIsDialogOpen(false);
+
     } catch (error) {
         console.error('Error saving club:', error);
         toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the club.' });
@@ -223,7 +229,7 @@ export default function ClubsPage() {
                   <TableHead className="w-16">Logo</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Description</TableHead>
-                  {(isSiteAdmin || isClubAdmin) && <TableHead className="text-right">Actions</TableHead>}
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -233,7 +239,7 @@ export default function ClubsPage() {
                         <TableCell><Skeleton className="h-10 w-10 rounded-full" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-64" /></TableCell>
-                        {(isSiteAdmin || isClubAdmin) && <TableCell><Skeleton className="h-8 w-8 rounded-md" /></TableCell>}
+                        <TableCell className="text-right"><Skeleton className="h-8 w-8 rounded-md" /></TableCell>
                         </TableRow>
                     ))
                 ) : (
@@ -250,13 +256,13 @@ export default function ClubsPage() {
                         </TableCell>
                         <TableCell className="font-medium">{club.name}</TableCell>
                         <TableCell>{club.description}</TableCell>
-                        {(isSiteAdmin || (isClubAdmin && club.id === userProfile?.primaryClubId)) && (
-                            <TableCell className="text-right">
+                        <TableCell className="text-right">
+                           {(isSiteAdmin || (isClubAdmin && club.id === userProfile?.primaryClubId)) && (
                                 <Button variant="ghost" size="icon" onClick={() => handleOpenDialog('edit', club)}>
                                     <Edit className="h-4 w-4" />
                                 </Button>
-                            </TableCell>
-                        )}
+                            )}
+                        </TableCell>
                     </TableRow>
                     ))
                 )}
@@ -292,7 +298,7 @@ export default function ClubsPage() {
                             onChange={handleInputChange} 
                             className="col-span-3" 
                             required 
-                            disabled={!isSiteAdmin} // Only site admins can edit the name
+                            disabled={!isSiteAdmin && dialogMode === 'edit'} // Club admins cannot edit the name
                         />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
