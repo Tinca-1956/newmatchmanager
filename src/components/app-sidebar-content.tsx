@@ -17,6 +17,7 @@ import {
   FlaskConical,
   Beaker,
   TestTube,
+  PlusCircle,
 } from 'lucide-react';
 import { SheetClose } from './ui/sheet';
 import { useAuth } from '@/hooks/use-auth';
@@ -34,6 +35,7 @@ const navItems = [
   { href: '/main/matches', icon: Swords, label: 'Matches' },
   { href: '/main/results', icon: Medal, label: 'Results' },
   { href: '/main/admin/seed', icon: Beaker, label: 'Add Anglers', adminOnly: true },
+  { href: '/main/clubs/create', icon: PlusCircle, label: 'Add New Club', siteAdminOnly: true },
   { href: '/main/test-access', icon: TestTube, label: 'Test Access', siteAdminOnly: true },
   { href: '/main/emulator', icon: FlaskConical, label: 'Emulator', adminOnly: true, emulatorOnly: true },
   { href: '/main/about', icon: Info, label: 'About' },
