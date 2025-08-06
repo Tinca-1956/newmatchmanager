@@ -382,29 +382,42 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-            <CardHeader>
-                <CardTitle>Upcoming Matches</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Date &amp; Series</TableHead>
-                            <TableHead>Match</TableHead>
-                            <TableHead>Venue &amp; Status</TableHead>
-                            <TableHead><span className="sr-only">Actions</span></TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {renderUpcomingMatches()}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="lg:col-span-2 grid auto-rows-min gap-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Upcoming Matches</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Date &amp; Series</TableHead>
+                                <TableHead>Match</TableHead>
+                                <TableHead>Venue &amp; Status</TableHead>
+                                <TableHead><span className="sr-only">Actions</span></TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {renderUpcomingMatches()}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
 
-         <Card className="flex flex-col">
+            <Card className="lg:col-span-1 hidden lg:block">
+              <CardHeader>
+                  <CardTitle>Recent Photos</CardTitle>
+                  <CardDescription>Photos from the last completed match.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                  {renderImageGallery()}
+              </CardContent>
+            </Card>
+
+        </div>
+
+         <Card className="flex flex-col lg:col-span-1">
             <CardHeader>
                 <CardTitle>Recent Results</CardTitle>
                  {isLoadingResults ? (
@@ -431,8 +444,8 @@ export default function DashboardPage() {
             {recentMatchId && (
                 <CardFooter>
                     <Button asChild variant="outline" className="w-full">
-                        <Link href="/auth/login">
-                            Login for More
+                        <Link href={`/main/matches?matchId=${recentMatchId}`}>
+                            View Full Results
                             <ArrowRight className="ml-2 h-4 w-4" />
                         </Link>
                     </Button>
@@ -440,7 +453,18 @@ export default function DashboardPage() {
             )}
         </Card>
       </div>
+
+       <Card className="block lg:hidden">
+          <CardHeader>
+              <CardTitle>Recent Photos</CardTitle>
+              <CardDescription>Photos from the last completed match.</CardDescription>
+          </CardHeader>
+          <CardContent>
+              {renderImageGallery()}
+          </CardContent>
+        </Card>
     </div>
     </>
   );
 }
+
