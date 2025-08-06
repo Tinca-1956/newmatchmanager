@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -311,7 +310,6 @@ export default function MembersPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Angler">Angler</SelectItem>
-                <SelectItem value="Marshal">Marshal</SelectItem>
                 <SelectItem value="Club Admin">Club Admin</SelectItem>
                 {isSiteAdmin && <SelectItem value="Site Admin">Site Admin</SelectItem>}
               </SelectContent>
@@ -448,12 +446,6 @@ export default function MembersPage() {
                             onCheckedChange={() => toggleFilter('role', 'Angler')}
                         >
                             Angler
-                        </DropdownMenuCheckboxItem>
-                        <DropdownMenuCheckboxItem
-                            checked={roleFilter.includes('Marshal')}
-                            onCheckedChange={() => toggleFilter('role', 'Marshal')}
-                        >
-                            Marshal
                         </DropdownMenuCheckboxItem>
                         <DropdownMenuCheckboxItem
                             checked={roleFilter.includes('Club Admin')}
