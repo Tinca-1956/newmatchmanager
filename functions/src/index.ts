@@ -1,57 +1,64 @@
 
-import * as functions from "firebase-functions";
-import * as logger from "firebase-functions/logger";
-import {initializeApp, getApps} from "firebase-admin/app";
-import {getAuth} from "firebase-admin/auth";
-import type { User } from "./types";
+'use server';
 
-// Initialize the Admin SDK only if it hasn't been already
+import * as logger from 'firebase-functions/logger';
+import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { initializeApp, getApps } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+import { User } from './types';
+
+// Initialize the Admin SDK if it hasn't been already.
+// This is safe to run everywhere, as it checks for existing apps.
 if (getApps().length === 0) {
   initializeApp();
 }
 
 /**
- * 1st Gen Cloud Function to set a custom user claim (`role`) 
- * whenever a user's document in the `users` collection is created or updated.
- * 1st Gen is used here for its reliability and directness in setting claims,
- * which is critical for the initial user setup and subsequent permission changes.
+ * A 2nd Generation Cloud Function that triggers whenever a document in the 'users'
+ * collection is written to (created or updated). It sets a custom claim 'role'
+ * on the user's authentication token, which is essential for Firestore security rules.
  */
-export const setUserRole = functions.firestore
-    .document("users/{userId}")
-    .onWrite(async (change, context) => {
-        const userId = context.params.userId;
-        const afterData = change.after.data() as User | undefined;
-        const beforeData = change.before.data() as User | undefined;
+export const setUserRole = onDocumentWritten('users/{userId}', async (event) => {
+  const userId = event.params.userId;
 
-        // If document is deleted, do nothing.
-        if (!afterData) {
-            logger.log(`User document for ${userId} deleted. No action taken.`);
-            return null;
-        }
-        
-        const newRole = afterData.role;
-        const oldRole = beforeData?.role;
+  // For document deletion, there's no 'after' data. We just log it and exit.
+  if (!event.data?.after.exists) {
+    logger.log(`User document for ${userId} deleted. No custom claim action taken.`);
+    return null;
+  }
 
-        // Only update claims if the role has actually changed OR if this is a new document.
-        if (newRole === oldRole && change.before.exists) {
-            logger.log(`Role for user ${userId} has not changed. No action taken.`);
-            return null;
-        }
+  // Get the new data from the document.
+  const userDocument = event.data.after.data() as User;
+  const newRole = userDocument.role;
 
-        if (typeof newRole !== "string" || !newRole) {
-            logger.log(`No valid role found for user ${userId}.`);
-            return null;
-        }
+  // If the role is missing or invalid, we can't set a claim.
+  if (typeof newRole !== 'string' || !newRole) {
+    logger.log(`No valid 'role' found for user ${userId}. Claim not set.`);
+    return null;
+  }
 
-        try {
-            await getAuth().setCustomUserClaims(userId, { role: newRole });
-            logger.log(`Custom claim 'role: ${newRole}' set for user ${userId}.`);
-        } catch (error) {
-            logger.error(`Error setting custom claim for user ${userId}:`, error);
-        }
-        
-        return null;
-    });
+  // Get the user's current custom claims to see if an update is needed.
+  const auth = getAuth();
+  try {
+    const userRecord = await auth.getUser(userId);
+    const currentRole = userRecord.customClaims?.['role'];
+
+    // Only set the claim if it's different from the current one.
+    // This prevents unnecessary updates and function invocations.
+    if (newRole === currentRole) {
+      logger.log(`Role for user ${userId} is already '${newRole}'. No update needed.`);
+      return null;
+    }
+
+    // Set the new custom claim.
+    await auth.setCustomUserClaims(userId, { role: newRole });
+    logger.log(`Successfully set custom claim 'role: ${newRole}' for user ${userId}.`);
+  } catch (error) {
+    logger.error(`Error setting custom claim for user ${userId}:`, error);
+  }
+
+  return null;
+});
 
 // Export the image proxy function as well
 export { getClubLogo } from './image-proxy';
