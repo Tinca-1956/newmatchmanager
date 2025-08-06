@@ -56,8 +56,6 @@ This is the most common point of failure. The automated "robots" that build and 
     *   Click **"+ Add Another Role"**.
     *   Search for and add the **`Cloud Build Service Agent`** role. This contains all the necessary permissions for building.
     *   Click **"+ Add Another Role"** again.
-    *   Search for and add the **`Firebase Admin`** role. This allows the build process to interact with your Firebase project.
-    *   Click **"+ Add Another Role"** again.
     *   Search for and add the **`Firebase Extensions API Service Agent`** role. This is required for deployment.
     *   Click **"Save"**.
 
