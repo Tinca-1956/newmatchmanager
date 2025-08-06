@@ -17,17 +17,22 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import type { Club } from '@/lib/types';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Terminal, ArrowLeft } from 'lucide-react';
+import { Terminal, ArrowLeft, CalendarIcon } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const initialClubState: Omit<Club, 'id'> = {
   name: '',
   description: '',
   imageUrl: `https://placehold.co/100x100.png`,
+  subscriptionExpiryDate: new Date(),
 };
 
 export default function CreateClubPage() {
@@ -42,6 +47,12 @@ export default function CreateClubPage() {
     const { name, value } = e.target;
     setNewClub(prev => ({ ...prev, [name]: value }));
   };
+  
+  const handleDateChange = (date: Date | undefined) => {
+    if (date) {
+      setNewClub(prev => ({ ...prev, subscriptionExpiryDate: date }));
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +63,11 @@ export default function CreateClubPage() {
     
     setIsSaving(true);
     try {
-        await addDoc(collection(firestore, 'clubs'), newClub);
+        const clubData = {
+            ...newClub,
+            subscriptionExpiryDate: newClub.subscriptionExpiryDate ? Timestamp.fromDate(newClub.subscriptionExpiryDate as Date) : null
+        };
+        await addDoc(collection(firestore, 'clubs'), clubData);
         toast({ title: 'Success!', description: 'Club created successfully.' });
         router.push('/main/clubs');
     } catch (error) {
@@ -108,7 +123,7 @@ export default function CreateClubPage() {
         <Card className="max-w-2xl">
           <CardHeader>
             <CardTitle>Club Details</CardTitle>
-            <CardDescription>Enter the name and description for the new club.</CardDescription>
+            <CardDescription>Enter the name, description, and expiry date for the new club.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
@@ -131,6 +146,32 @@ export default function CreateClubPage() {
                 onChange={handleInputChange}
                 placeholder="A brief description of the club."
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="expiryDate">Expiry date</Label>
+                <Popover>
+                    <PopoverTrigger asChild>
+                    <Button
+                        id="expiryDate"
+                        variant={"outline"}
+                        className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !newClub.subscriptionExpiryDate && "text-muted-foreground"
+                        )}
+                    >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {newClub.subscriptionExpiryDate ? format(newClub.subscriptionExpiryDate as Date, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                    <Calendar
+                        mode="single"
+                        selected={newClub.subscriptionExpiryDate as Date}
+                        onSelect={handleDateChange}
+                        initialFocus
+                    />
+                    </PopoverContent>
+                </Popover>
             </div>
           </CardContent>
           <CardFooter className="flex justify-end">
