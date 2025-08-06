@@ -1,11 +1,23 @@
 
-'use server';
-
-import * as logger from 'firebase-functions/logger';
+/**
+ * @fileoverview This file exports the Cloud Functions for the application.
+ *
+ * This file is the entry point for Firebase Functions and is responsible for
+ * exporting all the Cloud Functions that will be deployed.
+ *
+ * We are using a 2nd generation function for `setUserRole` because it provides
+ * more reliable event delivery and better performance characteristics. This function
+ * is critical for our security model as it sets custom authentication claims
+ * based on a user's role in the Firestore database.
+ *
+ * The `image-proxy` function is also exported to handle fetching club logos
+ * securely and bypassing CORS issues on the client-side.
+ */
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { User } from './types';
+import * as logger from 'firebase-functions/logger';
+import type { User } from './types';
 
 // Initialize the Admin SDK if it hasn't been already.
 // This is safe to run everywhere, as it checks for existing apps.
