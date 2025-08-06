@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -5,61 +6,42 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
-  CardFooter,
 } from '@/components/ui/card';
-import { Fish } from 'lucide-react';
-
+import Link from 'next/link';
 
 export default function LearnMorePage() {
-
-  const subject = "MATCH MANAGER - ADD NEW CLUB ENQUIRY";
-  const body = `Dear Stuart,
-
-I am interested in learning more about MATCH MANAGER for my club.
-
-Here are my club details:
-
-Club/association name			:	FILL IN DETAILS HERE
-Number of members			:	FILL IN MEMBER NUMBER HERE
-Number of matches per year	:	FILL IN MATCH NUMBER HERE
-Country						:	FILL IN COUNTRY HERE
-State/County/Province			:	FILL IN COUNTY HERE
-
-Warmest regards
-
-YOUR FULL NAME HERE`;
-
-  const mailtoLink = `mailto:stuart@emancium.com.au?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-
+  const mailtoLink = "mailto:stuart@emancium.com.au?subject=MATCH%20MANAGER%20Inquiry";
 
   return (
-    <div className="flex flex-col gap-8 max-w-4xl mx-auto">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">About Match Manager</h1>
-        <p className="text-muted-foreground">Information about the application.</p>
-      </div>
-
+    <div className="container mx-auto max-w-4xl py-12 px-4">
       <Card>
-        <CardHeader className="items-center">
-            <div className="flex justify-center pb-4">
-              <Fish className="h-12 w-12 text-primary" />
-            </div>
-            <CardTitle className="text-center">Match Manager Pro</CardTitle>
-            <CardDescription className="text-center">Version 1.0.0</CardDescription>
+        <CardHeader>
+          <CardTitle className="text-3xl font-bold text-center tracking-tight">
+            MATCH MANAGER
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-            <div className="text-center text-muted-foreground space-y-4">
-                <p>This application is designed to help fishing clubs manage their matches, members, and results with ease.</p>
-                <p>Built with modern technology to provide a seamless and responsive experience for club administrators, marshals, and anglers alike.</p>
-                <p>To start using the app, send your details to <a href={mailtoLink} className="text-blue-600 hover:underline">stuart@emancium.com.au</a>.</p>
-            </div>
-        </CardContent>
-         <CardFooter className="flex-col items-center gap-4 text-center">
-             <p className="pt-4 text-xs text-muted-foreground">
-                Copyright EMANCIUM 2025 - All rights reserved
+        <CardContent className="space-y-8 text-lg">
+          <div className="space-y-3">
+            <h2 className="text-2xl font-semibold">Benefits of Signing Up</h2>
+            <p className="text-muted-foreground leading-relaxed">
+              Registered users can register online for matches with their preferred club. They can also view historical match results and series standings. Registered users can also view WEIGH-IN data in realtime, add and view match related images, and prepare and save PDF versions of angler lists and match results.
             </p>
-        </CardFooter>
+          </div>
+
+          <div className="space-y-3">
+            <h2 className="text-2xl font-semibold">Admin Users</h2>
+            <p className="text-muted-foreground leading-relaxed">
+              Admin users can request full READ/WRITE access from the match manager SITE ADMINISTRATOR. This enables the creation and management of series, matches and anglers.
+            </p>
+          </div>
+          
+          <div className="space-y-3">
+            <h2 className="text-2xl font-semibold">Contact</h2>
+            <p className="text-muted-foreground leading-relaxed">
+              Contact Stuart at <Link href={mailtoLink} className="text-primary underline">stuart@emancium.com.au</Link> for more information about using MATCH MANAGER for your club&apos;s match management.
+            </p>
+          </div>
+        </CardContent>
       </Card>
     </div>
   );
