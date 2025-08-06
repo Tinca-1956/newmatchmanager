@@ -1,3 +1,4 @@
+md
 # Fixing Firebase Deployment Permission Errors
 
 You've encountered `403 Permission Denied` or `Failed Precondition` errors when trying to deploy, even though your user account has the "Owner" role. This is a common issue on new Firebase projects and is almost always caused by one of two things: the project's billing is not enabled, or the required APIs and service account permissions are not activated manually.
