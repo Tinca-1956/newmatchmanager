@@ -65,10 +65,11 @@ export default function ClubsPage() {
   const [selectedClub, setSelectedClub] = useState<Partial<Club>>(initialClubState);
 
   useEffect(() => {
-    if (!firestore || adminLoading) {
-        setIsLoading(adminLoading);
-        return;
+    if (adminLoading) {
+      setIsLoading(true);
+      return;
     }
+    if (!firestore) return;
 
     setIsLoading(true);
     const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
@@ -113,22 +114,22 @@ export default function ClubsPage() {
     setIsSaving(true);
 
     try {
-        if (dialogMode === 'edit' && 'id' in selectedClub && selectedClub.id) {
-            // Logic for editing an existing club
+        if (dialogMode === 'edit' && selectedClub.id) {
             const clubDocRef = doc(firestore, 'clubs', selectedClub.id);
             
-            let dataToUpdate: Partial<Omit<Club, 'id'>>;
-
+            // This is the corrected logic.
+            // For Site Admins, we prepare an object with all editable fields.
+            // For Club Admins, we prepare a very specific object with only the fields they are allowed to change.
+            let dataToUpdate: Partial<Club>;
+            
             if (isClubAdmin && !isSiteAdmin) {
-                // Club Admins can only update description and imageUrl
                 dataToUpdate = {
-                    description: selectedClub.description,
-                    imageUrl: selectedClub.imageUrl,
+                    description: selectedClub.description || '',
+                    imageUrl: selectedClub.imageUrl || '',
                 };
             } else {
-                // Site Admins can update everything
-                const { id, ...rest } = selectedClub;
-                dataToUpdate = rest;
+                const { id, ...restOfClub } = selectedClub;
+                dataToUpdate = restOfClub;
             }
             
             await updateDoc(clubDocRef, dataToUpdate);
@@ -136,8 +137,7 @@ export default function ClubsPage() {
 
         } else if (dialogMode === 'create' && isSiteAdmin) {
             // Logic for creating a new club (only Site Admins can do this)
-            const newClubData = { ...selectedClub };
-            delete newClubData.id;
+            const {id, ...newClubData} = selectedClub;
             await addDoc(collection(firestore, 'clubs'), newClubData);
             toast({ title: 'Success!', description: 'Club created successfully.' });
         }
@@ -182,7 +182,7 @@ export default function ClubsPage() {
     );
   };
   
-  if (adminLoading) {
+  if (isLoading || adminLoading) {
       return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
