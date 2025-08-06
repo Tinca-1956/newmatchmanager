@@ -39,7 +39,7 @@ Now that billing is enabled, we can activate the necessary APIs. The deployment 
     
 5.  **Firebase Extensions API** (Required for the latest function deployments)
     *   **Link:** [https://console.cloud.google.com/apis/library/firebaseextensions.googleapis.com?project=newmatchmanager](https://console.cloud.google.com/apis/library/firebaseextensions.googleapis.com?project=newmatchmanager)
-    *   **Purpose:** Allows functions to interact with other Firebase services.
+    *   **Purpose:** Allows functions to interact with other Firebase services. **This is the step that makes the `Firebase Extensions API Service Agent` role appear.**
 
 ### Step 3: Grant Permissions to the Service Accounts
 
@@ -56,7 +56,7 @@ This is the most common point of failure. The automated "robots" that build and 
     *   Click **"+ Add Another Role"**.
     *   Search for and add the **`Cloud Build Service Agent`** role. This contains all the necessary permissions for building.
     *   Click **"+ Add Another Role"** again.
-    *   Search for and add the **`Firebase Extensions API Service Agent`** role. This is required for deployment.
+    *   Search for and add the **`Firebase Extensions API Service Agent`** role. This is required for deployment and should now be visible.
     *   Click **"Save"**.
 
 3.  **Grant App Hosting Permissions:**
