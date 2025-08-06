@@ -76,8 +76,6 @@ export default function ClubsPage() {
     const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
         let clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
         
-        // If user is a Club Admin but not a Site Admin, they can see all clubs, but can only edit their own.
-        // This remains unchanged as the edit button logic handles the permissions.
         setClubs(clubsData);
         setIsLoading(false);
     }, (error) => {
@@ -113,13 +111,14 @@ export default function ClubsPage() {
     }
     
     setIsSaving(true);
-    let dataToUpdate: Partial<Club> = {};
 
     try {
         if (dialogMode === 'edit' && 'id' in selectedClub && selectedClub.id) {
             // Logic for editing an existing club
             const clubDocRef = doc(firestore, 'clubs', selectedClub.id);
             
+            let dataToUpdate: Partial<Omit<Club, 'id'>>;
+
             if (isClubAdmin && !isSiteAdmin) {
                 // Club Admins can only update description and imageUrl
                 dataToUpdate = {
@@ -128,8 +127,8 @@ export default function ClubsPage() {
                 };
             } else {
                 // Site Admins can update everything
-                dataToUpdate = { ...selectedClub };
-                delete dataToUpdate.id; // Don't try to write the id field back to the document
+                const { id, ...rest } = selectedClub;
+                dataToUpdate = rest;
             }
             
             await updateDoc(clubDocRef, dataToUpdate);
