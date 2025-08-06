@@ -382,7 +382,7 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
         <Card className="lg:col-span-2">
             <CardHeader>
                 <CardTitle>Upcoming Matches</CardTitle>
@@ -439,24 +439,8 @@ export default function DashboardPage() {
                 </CardFooter>
             )}
         </Card>
-
-         <Card className="flex flex-col">
-            <CardHeader>
-                <CardTitle>Recent Photos</CardTitle>
-                {isLoadingResults ? (
-                    <Skeleton className="h-5 w-32" />
-                ) : (
-                    <CardDescription>{recentMatchImages.length > 0 ? "From the last match" : "No recent photos"}</CardDescription>
-                )}
-            </CardHeader>
-            <CardContent className="flex-grow flex items-center justify-center">
-                {renderImageGallery()}
-            </CardContent>
-        </Card>
       </div>
     </div>
     </>
   );
 }
-
-    
