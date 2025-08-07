@@ -70,10 +70,8 @@ export default function WeighInSelectionPage() {
     }
 
     setIsLoading(true);
-    const matchesQuery = query(
-        collection(firestore, 'matches'),
-        where('status', 'in', ['In Progress', 'Weigh-in', 'Completed'])
-    );
+    // Remove the status filter to show all matches
+    const matchesQuery = query(collection(firestore, 'matches'));
     
     const unsubscribe = onSnapshot(matchesQuery, (snapshot) => {
       const matchesData = snapshot.docs.map(doc => {
@@ -90,7 +88,7 @@ export default function WeighInSelectionPage() {
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching matches: ", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches ready for weigh-in.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches.' });
       setIsLoading(false);
     });
 
@@ -131,9 +129,9 @@ export default function WeighInSelectionPage() {
 
         <Card>
             <CardHeader>
-                <CardTitle>Matches Ready for Weigh-in</CardTitle>
+                <CardTitle>All Matches</CardTitle>
                 <CardDescription>
-                    This list shows matches that are currently in progress or ready for weigh-in.
+                    This list shows all matches across all clubs. Select one to proceed to its weigh-in page.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -176,7 +174,7 @@ export default function WeighInSelectionPage() {
                     ) : filteredMatches.length === 0 ? (
                         <TableRow>
                             <TableCell colSpan={5} className="h-24 text-center">
-                                No matches are currently ready for weigh-in.
+                                No matches found.
                             </TableCell>
                         </TableRow>
                     ) : (
