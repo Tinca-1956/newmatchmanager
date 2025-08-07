@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -29,7 +30,7 @@ import { Skeleton } from './ui/skeleton';
 const navItems = [
   { href: '/main/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/main/profile', icon: UserIcon, label: 'Profile' },
-  { href: '/main/clubs', icon: Shield, label: 'Clubs' },
+  { href: '/main/clubs', icon: Shield, label: 'Clubs - Site Admin', siteAdminOnly: true },
   { href: '/main/members', icon: Users, label: 'Members', adminOnly: true },
   { href: '/main/series', icon: Trophy, label: 'Series' },
   { href: '/main/matches', icon: Swords, label: 'Matches' },
