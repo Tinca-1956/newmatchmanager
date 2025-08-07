@@ -349,7 +349,7 @@ export default function MembersClubAdminPage() {
             <Select
               value={member.role}
               onValueChange={(value) => handleRoleChange(member.id, value as UserRole)}
-              disabled={isUpdating}
+              disabled={isUpdating || member.role === 'Site Admin' && !isSiteAdmin}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select role" />
