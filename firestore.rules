@@ -1,61 +1,73 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper Functions
-    function isSiteAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
+    
+    // Helper functions
+    function isSiteAdmin(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role == 'Site Admin';
     }
 
-    function isClubAdminOf(clubId) {
-      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    function isClubAdmin(userId, clubId) {
+      let user = get(/databases/$(database)/documents/users/$(userId)).data;
       return user.role == 'Club Admin' && user.primaryClubId == clubId;
     }
-    
-    function isSignedIn() {
-      return request.auth != null;
+
+    function isMemberOfClub(userId, clubId) {
+       let user = get(/databases/$(database)/documents/users/$(userId)).data;
+       return user.primaryClubId == clubId;
     }
 
-    // Rules for Collections
-    match /users/{userId} {
-      // Site Admins can do anything.
-      // Users can read their own profile.
-      // Users in the same club can read each other's profiles (for angler lists).
-      allow read: if isSiteAdmin() || 
-                    (isSignedIn() && request.auth.uid == userId) ||
-                    (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == resource.data.primaryClubId);
-
-      // Users can update their own name and primary club.
-      // Admins can update status and roles.
-      allow update: if (isSignedIn() && request.auth.uid == userId) || isSiteAdmin() || isClubAdminOf(resource.data.primaryClubId);
-      
-      allow create: if isSiteAdmin();
-      allow delete: if isSiteAdmin();
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
     }
 
-    match /{collection}/{docId} {
-      // Default allow read for signed-in users on most collections.
-      // This covers clubs, series, matches, results.
-      allow read: if isSignedIn();
-
-      // Default allow write for Admins on most collections.
-      // `request.resource.data.clubId` is used because it's the common field.
-      allow write: if isSiteAdmin() || 
-                     (resource.data.keys().has('clubId') && isClubAdminOf(request.resource.data.clubId));
+    // Allow site admins to read/write anything
+    match /{document=**} {
+      allow read, write: if isSiteAdmin(request.auth.uid);
     }
 
+    // Public read access for specific collections
+    match /clubs/{clubId} {
+      allow read: if request.auth != null;
+    }
+     match /series/{seriesId} {
+      allow read: if request.auth != null;
+    }
     match /publicMatches/{matchId} {
-      allow read: if true;
-      allow write: if isSiteAdmin() || 
-                     (resource.data.keys().has('clubId') && isClubAdminOf(request.resource.data.clubId));
+        allow read: if true;
+    }
+     match /publicUpcomingMatches/{matchId} {
+        allow read: if true;
     }
     
-    match /publicUpcomingMatches/{matchId} {
-      allow read: if true;
-      allow write: if isSiteAdmin() || 
-                     (resource.data.keys().has('clubId') && isClubAdminOf(request.resource.data.clubId));
+    // Rules for the 'users' collection
+    match /users/{userId} {
+      allow create: if request.auth.uid == userId;
+      // Allow a user to read their own doc, or an admin of the same club to read it.
+      allow read: if request.auth.uid == userId ||
+                   isClubAdmin(request.auth.uid, get(/databases/$(database)/documents/users/$(userId)).data.primaryClubId);
+      allow update: if request.auth.uid == userId || 
+                       isClubAdmin(request.auth.uid, resource.data.primaryClubId);
+      allow delete: if isSiteAdmin(request.auth.uid);
+    }
+    
+    // Rules for 'matches' collection
+    match /matches/{matchId} {
+        allow read: if request.auth != null;
+        allow write: if isClubAdmin(request.auth.uid, resource.data.clubId);
+    }
+    
+    // Rules for 'results' collection
+    match /results/{resultId} {
+        allow read: if request.auth != null;
+        allow write: if isClubAdmin(request.auth.uid, resource.data.clubId);
+    }
+
+     // Rules for 'publicMatches' collection
+    match /publicMatches/{matchId} {
+      allow write: if isClubAdmin(request.auth.uid, resource.data.clubId);
     }
   }
 }
