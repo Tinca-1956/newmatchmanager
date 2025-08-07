@@ -43,6 +43,7 @@ import type { Series, Club, Match, Result } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
@@ -428,3 +429,4 @@ export default function SeriesAnglerPage() {
     </div>
   );
 }
+
