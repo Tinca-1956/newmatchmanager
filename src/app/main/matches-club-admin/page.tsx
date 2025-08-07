@@ -98,7 +98,6 @@ function MatchesClubAdminPageContent() {
   const seriesIdFilter = searchParams.get('seriesId');
 
   const [matches, setMatches] = useState<Match[]>([]);
-  const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   
   const [isLoading, setIsLoading] = useState(true);
@@ -133,22 +132,10 @@ function MatchesClubAdminPageContent() {
   useEffect(() => {
     if (adminLoading) return;
 
-    if (isSiteAdmin) {
-      if (firestore) {
-        const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
-        const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
-            const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
-            setClubs(clubsData);
-            if (clubsData.length > 0 && !selectedClubId) {
-              setSelectedClubId(clubsData[0].id);
-            }
-        });
-        return () => unsubscribe();
-      }
-    } else if (userProfile?.primaryClubId) {
+    if (userProfile?.primaryClubId) {
         setSelectedClubId(userProfile.primaryClubId);
     }
-  }, [isSiteAdmin, adminLoading, userProfile, selectedClubId]);
+  }, [adminLoading, userProfile]);
 
 
   // Main data fetching effect
@@ -220,13 +207,6 @@ function MatchesClubAdminPageContent() {
       };
     });
   }, [matches]);
-  
-  const handleClubSelectionChange = (clubId: string) => {
-    if (matchIdFilter || seriesIdFilter) {
-        router.push('/main/matches-club-admin');
-    }
-    setSelectedClubId(clubId);
-  };
 
   const canEdit = isSiteAdmin || isClubAdmin;
   const canWeighIn = canEdit || userRole === 'Marshal';
@@ -515,23 +495,6 @@ function MatchesClubAdminPageContent() {
             <p className="text-muted-foreground">Manage your club's matches here.</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-              {isSiteAdmin && (
-                  <div className="flex items-center gap-2">
-                      <Label htmlFor="club-filter" className="text-nowrap">Club</Label>
-                      <Select value={selectedClubId || ''} onValueChange={handleClubSelectionChange} disabled={clubs.length === 0}>
-                          <SelectTrigger id="club-filter" className="w-[180px]">
-                              <SelectValue placeholder="Select a club..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                              {clubs.map((club) => (
-                                  <SelectItem key={club.id} value={club.id}>
-                                      {club.name}
-                                  </SelectItem>
-                              ))}
-                          </SelectContent>
-                      </Select>
-                  </div>
-              )}
               {canEdit && (
                 <Button onClick={() => setIsCreateModalOpen(true)} disabled={!selectedClubId}>
                     <PlusCircle className="mr-2 h-4 w-4" />
