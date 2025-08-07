@@ -134,7 +134,9 @@ export default function WeighInPage() {
             ...doc.data()
         } as AnglerResultData));
         
-        // Ensure we have a result entry for every registered angler
+        // This is the source of truth for who participated.
+        const anglerIdsWithResults = resultsData.map(r => r.userId);
+
         const currentMatchDoc = await getDoc(matchDocRef);
         if (!currentMatchDoc.exists()) {
              setIsLoading(false);
@@ -142,13 +144,16 @@ export default function WeighInPage() {
         }
         const currentMatch = currentMatchDoc.data() as Match;
         
-        if (!currentMatch?.registeredAnglers?.length) {
+        const allRegisteredAnglerIds = new Set(currentMatch?.registeredAnglers || []);
+        anglerIdsWithResults.forEach(id => allRegisteredAnglerIds.add(id));
+        
+        if (allRegisteredAnglerIds.size === 0) {
             setResults([]);
             setIsLoading(false);
             return;
         }
 
-        const userDocsQuery = query(collection(firestore, 'users'), where('__name__', 'in', currentMatch.registeredAnglers));
+        const userDocsQuery = query(collection(firestore, 'users'), where('__name__', 'in', Array.from(allRegisteredAnglerIds)));
         const usersSnapshot = await getDocs(userDocsQuery);
         const usersData = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
 
@@ -638,3 +643,5 @@ export default function WeighInPage() {
     </div>
   );
 }
+
+    
