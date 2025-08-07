@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -29,11 +30,11 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, getDocs, orderBy, addDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, getDocs, orderBy, addDoc, writeBatch } from 'firebase/firestore';
 import type { User, Club, MembershipStatus, UserRole } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { ListFilter, Search, Edit, UserX, Check } from 'lucide-react';
+import { ListFilter, Search, Edit, UserX, Check, UserPlus } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -64,6 +65,14 @@ import { Label } from '@/components/ui/label';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
+
+const sampleUsers = (clubId: string): Omit<User, 'id'>[] => [
+  { firstName: 'John', lastName: 'Angler', email: `john.angler.${Date.now()}@test.com`, role: 'Angler', memberStatus: 'Pending', primaryClubId: clubId },
+  { firstName: 'Peter', lastName: 'Smith', email: `peter.smith.${Date.now()}@test.com`, role: 'Angler', memberStatus: 'Pending', primaryClubId: clubId },
+  { firstName: 'Susan', lastName: 'Reel', email: `susan.reel.${Date.now()}@test.com`, role: 'Angler', memberStatus: 'Pending', primaryClubId: clubId },
+  { firstName: 'Mike', lastName: 'Fisher', email: `mike.fisher.${Date.now()}@test.com`, role: 'Angler', memberStatus: 'Pending', primaryClubId: clubId },
+  { firstName: 'Chloe', lastName: 'Waters', email: `chloe.waters.${Date.now()}@test.com`, role: 'Angler', memberStatus: 'Pending', primaryClubId: clubId },
+];
 
 
 export default function MembersPage() {
@@ -209,6 +218,36 @@ export default function MembersPage() {
       toast({ variant: 'destructive', title: 'Delete Failed', description: 'Could not delete the user.' });
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleAddSampleUsers = async () => {
+    if (!firestore) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Firestore is not initialized.' });
+        return;
+    }
+
+    if (!selectedClubId) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please select a club to add users to.' });
+        return;
+    }
+
+    setIsUpdating(true);
+    try {
+        const usersBatch = writeBatch(firestore);
+        sampleUsers(selectedClubId).forEach(user => {
+            // Note: This doesn't create auth users, just firestore user documents with unique test emails
+            const docRef = doc(collection(firestore, 'users'));
+            usersBatch.set(docRef, user);
+        });
+        await usersBatch.commit();
+        
+        toast({ title: 'Success!', description: `5 sample users have been added to the selected club.` });
+    } catch (error) {
+        console.error('Error seeding data:', error);
+        toast({ variant: 'destructive', title: 'Seed Failed', description: 'Could not add sample users.' });
+    } finally {
+        setIsUpdating(false);
     }
   };
 
@@ -403,6 +442,10 @@ export default function MembersPage() {
                   />
               </div>
               <div className="flex gap-2">
+                <Button onClick={handleAddSampleUsers} variant="outline" disabled={!selectedClubId || isUpdating}>
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Add Anglers
+                </Button>
                 {canEdit && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
