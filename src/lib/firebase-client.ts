@@ -37,8 +37,7 @@ if (typeof window !== 'undefined') {
         auth = getAuth(app);
         firestore = getFirestore(app);
         storage = getStorage(app, firebaseConfig.storageBucket);
-        functions = getFunctions(app);
-
+        
         // This is the correct way to conditionally connect to emulators.
         // It depends on an environment variable and ensures it only runs once.
         if (process.env.NEXT_PUBLIC_USE_EMULATORS === 'true' && !emulatorsConnected) {
@@ -47,7 +46,6 @@ if (typeof window !== 'undefined') {
                 connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
                 connectFirestoreEmulator(firestore, 'localhost', 8080);
                 connectStorageEmulator(storage, 'localhost', 9199);
-                connectFunctionsEmulator(functions!, 'localhost', 5001);
                 emulatorsConnected = true; // Set the flag to prevent reconnecting
             } catch(e) {
                 console.error("Error connecting to emulators. This can happen on hot reloads. It's often safe to ignore.", e);
@@ -56,4 +54,4 @@ if (typeof window !== 'undefined') {
     }
 }
 
-export { app, auth, firestore, storage, functions };
+export { app, auth, firestore, storage };
