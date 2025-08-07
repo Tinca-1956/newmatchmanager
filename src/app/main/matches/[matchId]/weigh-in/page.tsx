@@ -282,7 +282,7 @@ export default function WeighInPage() {
 
         // Update all results with their new positions/ranks
         updatedResultsWithRanks.forEach(res => {
-            const resultToSave = {
+            const resultToSave: Omit<Result, 'id'> = {
                 matchId: match.id,
                 seriesId: match.seriesId,
                 clubId: match.clubId,

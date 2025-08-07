@@ -188,23 +188,27 @@ export default function ClubsPage() {
         const seriesSnapshot = await getDocs(seriesQuery);
         seriesSnapshot.forEach(doc => batch.delete(doc.ref));
 
-        // 3. Delete matches
+        // 3. Find matches to identify results to delete
         const matchesQuery = query(collection(firestore, 'matches'), where('clubId', '==', clubId));
         const matchesSnapshot = await getDocs(matchesQuery);
-        matchesSnapshot.forEach(doc => batch.delete(doc.ref));
-        
-        // 4. Delete results
-        const resultsQuery = query(collection(firestore, 'results'), where('clubId', '==', clubId));
-        const resultsSnapshot = await getDocs(resultsQuery);
-        resultsSnapshot.forEach(doc => batch.delete(doc.ref));
+        const matchIds = matchesSnapshot.docs.map(doc => doc.id);
 
-        // 5. Delete the club itself
+        // 4. Delete results associated with those matches
+        if (matchIds.length > 0) {
+            const resultsQuery = query(collection(firestore, 'results'), where('matchId', 'in', matchIds));
+            const resultsSnapshot = await getDocs(resultsQuery);
+            resultsSnapshot.forEach(doc => batch.delete(doc.ref));
+        }
+        
+        // 5. Delete the matches themselves
+        matchesSnapshot.forEach(doc => batch.delete(doc.ref));
+
+        // 6. Delete the club itself
         batch.delete(doc(firestore, 'clubs', clubId));
 
         await batch.commit();
 
         // --- Storage Deletion ---
-        // This is a best-effort attempt. Deleting folders client-side is complex.
         const clubStorageRef = ref(storage, `clubs/${clubId}`);
         const res = await listAll(clubStorageRef);
         await Promise.all(res.items.map(itemRef => deleteObject(itemRef)));
