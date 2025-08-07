@@ -95,6 +95,7 @@ export interface PublicMatch {
     location: string;
     date: any; // Stored as Timestamp
     status: string;
+    paidPlaces: number;
     results: PublicResult[];
     mediaUrls?: string[];
 }

@@ -115,6 +115,7 @@ export const useMatchActions = () => {
             location: match.location,
             date: match.date, // Keep as Timestamp or Date object
             status: match.status,
+            paidPlaces: match.paidPlaces,
             results: publicResults,
             mediaUrls: match.mediaUrls || [],
         };
