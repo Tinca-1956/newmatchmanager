@@ -58,21 +58,21 @@ interface AnglerResultData {
 }
 
 // Helper function to fetch documents in chunks
-async function getDocsInChunks<T>(ids: string[], collectionName: string): Promise<T[]> {
-    if (!ids.length) return [];
+async function getDocsInChunks<T extends { id: string }>(ids: string[], collectionName: string): Promise<Map<string, T>> {
+    if (!ids.length) return new Map();
     const chunks: string[][] = [];
     for (let i = 0; i < ids.length; i += 30) {
         chunks.push(ids.slice(i, i + 30));
     }
 
-    const results: T[] = [];
+    const resultsMap = new Map<string, T>();
     for (const chunk of chunks) {
         if (chunk.length === 0) continue;
         const q = query(collection(firestore, collectionName), where('__name__', 'in', chunk));
         const snapshot = await getDocs(q);
-        snapshot.forEach(doc => results.push({ id: doc.id, ...doc.data() } as T));
+        snapshot.forEach(doc => resultsMap.set(doc.id, { id: doc.id, ...doc.data() } as T));
     }
-    return results;
+    return resultsMap;
 }
 
 
@@ -127,73 +127,74 @@ export default function WeighInPage() {
   useEffect(() => {
     if (!matchId || !firestore) return;
 
-    // 1. Subscribe to the Match document
     const matchDocRef = doc(firestore, 'matches', matchId);
+    
+    // Subscribe to both the match and its results simultaneously
     const unsubscribeMatch = onSnapshot(matchDocRef, async (matchDoc) => {
-      if (!matchDoc.exists()) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Match not found.' });
-        router.back();
-        return;
-      }
+        if (!matchDoc.exists()) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Match not found.' });
+            router.back();
+            return;
+        }
 
-      setIsLoading(true);
-      const matchData = { id: matchDoc.id, ...matchDoc.data() } as Match;
-      setMatch({ ...matchData, date: (matchData.date as Timestamp).toDate() });
+        setIsLoading(true);
+        const matchData = { id: matchDoc.id, ...matchDoc.data() } as Match;
+        setMatch({ ...matchData, date: (matchData.date as Timestamp).toDate() });
 
-      const registeredAnglerIds = matchData.registeredAnglers || [];
-      if (registeredAnglerIds.length === 0) {
-        setResults([]);
-        setIsLoading(false);
-        return;
-      }
-      
-      try {
-        // 2. Fetch all registered anglers' user data
-        const usersData = await getDocsInChunks<User>(registeredAnglerIds, 'users');
-        const usersMap = new Map(usersData.map(u => [u.id, u]));
+        const registeredAnglerIds = matchData.registeredAnglers || [];
+        if (registeredAnglerIds.length === 0) {
+            setResults([]);
+            setIsLoading(false);
+            return;
+        }
 
-        // 3. Fetch all existing results for this match
-        const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', matchId));
-        const resultsSnapshot = await getDocs(resultsQuery);
-        const existingResultsMap = new Map(resultsSnapshot.docs.map(d => [d.data().userId, { id: d.id, ...d.data() } as Result & {id: string}]));
-        
-        // 4. Combine the data
-        const combinedData: AnglerResultData[] = registeredAnglerIds.map(anglerId => {
-          const user = usersMap.get(anglerId);
-          const result = existingResultsMap.get(anglerId);
-          
-          if (!user) {
-            // This case should be rare if data is consistent
-            return null;
-          }
+        try {
+            // 1. Fetch all registered anglers' user data
+            const usersMap = await getDocsInChunks<User>(registeredAnglerIds, 'users');
 
-          return {
-            userId: anglerId,
-            userName: `${user.firstName} ${user.lastName}`,
-            peg: result?.peg || '',
-            section: result?.section || '',
-            weight: result?.weight ?? 0, // Default to 0 if no result
-            status: result?.status || 'NYW', // Default to 'Not Yet Weighed'
-            position: result?.position || null,
-            resultDocId: result?.id,
-            payout: result?.payout ?? 0,
-          };
-        }).filter((item): item is AnglerResultData => item !== null); // Filter out any nulls if a user wasn't found
+            // 2. Fetch all existing results for this match
+            const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', matchId));
+            const resultsSnapshot = await getDocs(resultsQuery);
+            const existingResultsMap = new Map(resultsSnapshot.docs.map(d => [d.data().userId, { id: d.id, ...d.data() } as Result & { id: string }]));
 
-        // 5. Recalculate ranks and update state
-        const rankedResults = calculateRanks(combinedData);
-        setResults(rankedResults);
+            // 3. Combine the data based on the registered anglers list
+            const combinedData: AnglerResultData[] = registeredAnglerIds.map(anglerId => {
+                const user = usersMap.get(anglerId);
+                const result = existingResultsMap.get(anglerId);
+                
+                if (!user) {
+                    return null;
+                }
 
-      } catch (error) {
-        console.error("Error fetching weigh-in data:", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load weigh-in data.' });
-      } finally {
-        setIsLoading(false);
-      }
+                return {
+                    userId: anglerId,
+                    userName: `${user.firstName} ${user.lastName}`,
+                    peg: result?.peg || '',
+                    section: result?.section || '',
+                    weight: result?.weight ?? 0,
+                    status: result?.status || 'NYW',
+                    position: result?.position || null,
+                    resultDocId: result?.id,
+                    payout: result?.payout ?? 0,
+                };
+            }).filter((item): item is AnglerResultData => item !== null);
+
+            // 4. Recalculate ranks and update state
+            const rankedResults = calculateRanks(combinedData);
+            setResults(rankedResults);
+
+        } catch (error) {
+            console.error("Error fetching weigh-in data:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to load weigh-in data.' });
+        } finally {
+            setIsLoading(false);
+        }
     });
 
-    return () => unsubscribeMatch();
-  }, [matchId, router, toast]);
+    return () => {
+        unsubscribeMatch();
+    };
+}, [matchId, router, toast]);
   
   const calculateRanks = (currentResults: AnglerResultData[]): AnglerResultData[] => {
     // Overall Ranks
