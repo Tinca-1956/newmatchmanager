@@ -80,7 +80,7 @@ type ResultWithSectionRank = Result & { sectionPosition?: number };
 export default function SeriesPage() {
   const { userProfile, loading: authLoading } = useAuth();
   const { toast } = useToast();
-  const { isSiteAdmin, isClubAdmin, loading: adminLoading } from useAdminAuth();
+  const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
   const router = useRouter();
 
 
