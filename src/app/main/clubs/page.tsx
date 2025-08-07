@@ -20,7 +20,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Edit, Upload, Shield, PlusCircle } from 'lucide-react';
+import { Edit, Upload, Shield, PlusCircle, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -29,13 +29,24 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { firestore, storage } from '@/lib/firebase-client';
-import { collection, onSnapshot, doc, updateDoc, query, orderBy } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { collection, onSnapshot, doc, updateDoc, query, orderBy, writeBatch, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject, listAll } from 'firebase/storage';
 import type { Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -155,6 +166,60 @@ export default function ClubsPage() {
     );
   };
   
+  const handleDeleteClub = async (clubId: string) => {
+    if (!firestore || !storage) {
+        toast({ variant: 'destructive', title: 'Error', description: 'System is not ready for this operation.' });
+        return;
+    }
+    setIsSaving(true);
+    toast({ title: 'Deleting...', description: 'Please wait while all club data is being removed.' });
+
+    try {
+        const batch = writeBatch(firestore);
+
+        // --- Firestore Deletions ---
+        // 1. Delete users with primaryClubId
+        const usersQuery = query(collection(firestore, 'users'), where('primaryClubId', '==', clubId));
+        const usersSnapshot = await getDocs(usersQuery);
+        usersSnapshot.forEach(doc => batch.delete(doc.ref));
+        
+        // 2. Delete series
+        const seriesQuery = query(collection(firestore, 'series'), where('clubId', '==', clubId));
+        const seriesSnapshot = await getDocs(seriesQuery);
+        seriesSnapshot.forEach(doc => batch.delete(doc.ref));
+
+        // 3. Delete matches
+        const matchesQuery = query(collection(firestore, 'matches'), where('clubId', '==', clubId));
+        const matchesSnapshot = await getDocs(matchesQuery);
+        matchesSnapshot.forEach(doc => batch.delete(doc.ref));
+        
+        // 4. Delete results
+        const resultsQuery = query(collection(firestore, 'results'), where('clubId', '==', clubId));
+        const resultsSnapshot = await getDocs(resultsQuery);
+        resultsSnapshot.forEach(doc => batch.delete(doc.ref));
+
+        // 5. Delete the club itself
+        batch.delete(doc(firestore, 'clubs', clubId));
+
+        await batch.commit();
+
+        // --- Storage Deletion ---
+        // This is a best-effort attempt. Deleting folders client-side is complex.
+        const clubStorageRef = ref(storage, `clubs/${clubId}`);
+        const res = await listAll(clubStorageRef);
+        await Promise.all(res.items.map(itemRef => deleteObject(itemRef)));
+
+
+        toast({ title: 'Success!', description: 'Club and all associated data have been deleted.' });
+    } catch (error) {
+        console.error("Error deleting club:", error);
+        toast({ variant: 'destructive', title: 'Delete Failed', description: 'Could not delete the club and its data. Check console for details.' });
+    } finally {
+        setIsSaving(false);
+    }
+  }
+
+  
   if (isLoading || adminLoading) {
       return (
         <div className="space-y-4">
@@ -233,6 +298,32 @@ export default function ClubsPage() {
                                 <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(club)}>
                                     <Edit className="h-4 w-4" />
                                 </Button>
+                            )}
+                             {isSiteAdmin && (
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90">
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This action cannot be undone. This will permanently delete the club <span className="font-bold">{club.name}</span>, and all of its associated members, series, matches, and results.
+                                        </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction
+                                            className="bg-destructive hover:bg-destructive/90"
+                                            onClick={() => handleDeleteClub(club.id)}
+                                        >
+                                            Delete
+                                        </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
                             )}
                         </TableCell>
                     </TableRow>
