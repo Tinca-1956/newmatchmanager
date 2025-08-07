@@ -102,30 +102,16 @@ function MatchesPageContent() {
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   
   const [isLoading, setIsLoading] = useState(true);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   
   const {
     isResultsModalOpen,
-    isAnglerListModalOpen,
     isDisplayAnglerListModalOpen,
-    isEditModalOpen,
-    isRemoveAnglerModalOpen,
     selectedMatchForModal,
-    selectedMatchIdForModal,
     handleViewResults,
-    handleEditMatch,
     handleRegister,
     closeResultsModal,
-    closeAnglerListModal,
     closeDisplayAnglerListModal,
-    closeEditModal,
-    closeRemoveAnglerModal,
-    handleManagePegs,
-    handleWeighIn,
-    handleAddAnglers,
-    handleRemoveAnglers,
     handleViewAnglerList,
-    handleManageImages,
     handlePublish,
   } = useMatchActions();
 
@@ -228,9 +214,6 @@ function MatchesPageContent() {
     setSelectedClubId(clubId);
   };
 
-  const canEdit = isSiteAdmin || isClubAdmin;
-  const canWeighIn = canEdit || userRole === 'Marshal';
-
   const renderMatchList = () => {
     if (isLoading) {
       return Array.from({ length: 5 }).map((_, i) => (
@@ -282,67 +265,14 @@ function MatchesPageContent() {
           <TableCell>
               <TooltipProvider>
                   <div className="flex items-center gap-1">
-                      {canEdit && (
-                        <>
-                          <Tooltip>
-                              <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" onClick={() => handleAddAnglers(match.id)}>
-                                      <UserPlus className="h-4 w-4" />
-                                  </Button>
-                              </TooltipTrigger>
-                              <TooltipContent><p>Add anglers to match</p></TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                              <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" onClick={() => handleRemoveAnglers(match)}>
-                                      <UserMinus className="h-4 w-4" />
-                                  </Button>
-                              </TooltipTrigger>
-                              <TooltipContent><p>Remove anglers from match</p></TooltipContent>
-                          </Tooltip>
-                           <Tooltip>
-                              <TooltipTrigger asChild>
-                                   <Button variant="ghost" size="icon" onClick={() => handleManageImages(match.id)}>
-                                      <ImageIcon className="h-4 w-4" />
-                                  </Button>
-                              </TooltipTrigger>
-                              <TooltipContent><p>Manage Images</p></TooltipContent>
-                          </Tooltip>
-                           <Tooltip>
-                              <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" onClick={() => handleEditMatch(match)}>
-                                      <Edit className="h-4 w-4" />
-                                  </Button>
-                              </TooltipTrigger>
-                              <TooltipContent><p>Edit Match</p></TooltipContent>
-                          </Tooltip>
-                           <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" onClick={() => handleWeighIn(match.id)}>
-                                    <Scale className="h-4 w-4" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent><p>Manage Weigh-in</p></TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" onClick={() => handleViewAnglerList(match)}>
-                                  <FileText className="h-4 w-4" />
-                              </Button>
-                          </TooltipTrigger>
-                          <TooltipContent><p>Angler List</p></TooltipContent>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={() => handleViewAnglerList(match)}>
+                                <FileText className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Angler List</p></TooltipContent>
                       </Tooltip>
-                       <Tooltip>
-                          <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" onClick={() => handlePublish(match)}>
-                                  <Globe className="h-4 w-4" />
-                              </Button>
-                          </TooltipTrigger>
-                          <TooltipContent><p>Publish Results</p></TooltipContent>
-                      </Tooltip>
-                        </>
-                      )}
-                      
                       <Tooltip>
                           <TooltipTrigger asChild>
                               <Button variant="ghost" size="icon" onClick={() => handleViewResults(match)}>
@@ -462,38 +392,10 @@ function MatchesPageContent() {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            {canEdit && (
-                                <>
-                                    <DropdownMenuItem onClick={() => handleAddAnglers(match.id)}>
-                                        <UserPlus className="mr-2 h-4 w-4" />
-                                        <span>Add Anglers</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleRemoveAnglers(match)}>
-                                        <UserMinus className="mr-2 h-4 w-4" />
-                                        <span>Remove Anglers</span>
-                                    </DropdownMenuItem>
-                                     <DropdownMenuItem onClick={() => handleManageImages(match.id)}>
-                                        <ImageIcon className="mr-2 h-4 w-4" />
-                                        <span>Manage Images</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleEditMatch(match)}>
-                                        <Edit className="mr-2 h-4 w-4" />
-                                        <span>Edit Match</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleWeighIn(match.id)}>
-                                      <Scale className="mr-2 h-4 w-4" />
-                                      <span>Manage Weigh-in</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleViewAnglerList(match)}>
-                                        <FileText className="mr-2 h-4 w-4" />
-                                        <span>View Angler List</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handlePublish(match)}>
-                                        <Globe className="mr-2 h-4 w-4" />
-                                        <span>Publish Results</span>
-                                    </DropdownMenuItem>
-                                </>
-                            )}
+                            <DropdownMenuItem onClick={() => handleViewAnglerList(match)}>
+                                <FileText className="mr-2 h-4 w-4" />
+                                <span>View Angler List</span>
+                            </DropdownMenuItem>
                              <DropdownMenuItem onClick={() => handleViewResults(match)}>
                                 <Trophy className="mr-2 h-4 w-4" />
                                 <span>View Results</span>
@@ -531,12 +433,6 @@ function MatchesPageContent() {
                           </SelectContent>
                       </Select>
                   </div>
-              )}
-              {canEdit && (
-                <Button onClick={() => setIsCreateModalOpen(true)} disabled={!selectedClubId}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Create Match
-                </Button>
               )}
           </div>
         </div>
@@ -576,12 +472,6 @@ function MatchesPageContent() {
         )}
       </div>
 
-      <CreateMatchModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        clubId={selectedClubId}
-      />
-
       {selectedMatchForModal && (
         <>
           <ResultsModal 
@@ -594,25 +484,7 @@ function MatchesPageContent() {
             onClose={closeDisplayAnglerListModal}
             match={selectedMatchForModal}
           />
-          <EditMatchModal
-            isOpen={isEditModalOpen}
-            onClose={closeEditModal}
-            match={selectedMatchForModal}
-          />
-           <RemoveAnglerModal
-            isOpen={isRemoveAnglerModalOpen}
-            onClose={closeRemoveAnglerModal}
-            match={selectedMatchForModal}
-          />
         </>
-      )}
-
-      {selectedMatchIdForModal && (
-        <AnglerListModal
-          isOpen={isAnglerListModalOpen}
-          onClose={closeAnglerListModal}
-          matchId={selectedMatchIdForModal}
-        />
       )}
     </>
   );
