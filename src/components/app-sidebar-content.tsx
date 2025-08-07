@@ -43,6 +43,7 @@ const navItems = [
   { href: '/main/weigh-in-club-admin', icon: Scale, label: 'Weigh in - Club Admin', adminOnly: true },
   { href: '/main/weigh-in-site-admins', icon: Scale, label: 'Weigh in - Site Admins', siteAdminOnly: true },
   { href: '/main/results', icon: Medal, label: 'Results - Site Admin' },
+  { href: '/main/results', icon: Medal, label: 'Results - Club Admin', clubAdminAndAnglerOnly: true },
   { href: '/main/admin/seed', icon: Beaker, label: 'Add Anglers', adminOnly: true },
   { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users', siteAdminOnly: true },
   { href: '/main/clubs/create', icon: PlusCircle, label: 'Add New Club', siteAdminOnly: true },
@@ -84,6 +85,7 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
   const sortedNavItems = navItems.filter(item => {
       const isSiteAdmin = userProfile?.role === 'Site Admin';
       const isClubAdmin = userProfile?.role === 'Club Admin';
+      const isAngler = userProfile?.role === 'Angler';
 
       if (item.emulatorOnly && !isEmulatorMode) {
           return false;
@@ -96,6 +98,16 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
       if (item.adminOnly && !isSiteAdmin && !isClubAdmin) {
           return false;
       }
+
+      if (item.clubAdminAndAnglerOnly && !isClubAdmin && !isAngler) {
+          return false;
+      }
+
+      // Hide site admin "Results" from non-site-admins
+      if (item.href === '/main/results' && item.label === 'Results - Site Admin' && !isSiteAdmin) {
+          return false;
+      }
+      
       return true;
   }).sort((a, b) => {
       const adminOrder = ['/main/admin/seed', '/main/users/deleted', '/main/emulator', '/main/test-access'];
@@ -133,13 +145,13 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
 
         if (onLinkClick) {
           return (
-            <SheetClose asChild key={item.href}>
+            <SheetClose asChild key={item.href + item.label}>
               {linkContent}
             </SheetClose>
           );
         }
 
-        return <div key={item.href}>{linkContent}</div>;
+        return <div key={item.href + item.label}>{linkContent}</div>;
       })}
     </nav>
   );
