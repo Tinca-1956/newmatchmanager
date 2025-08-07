@@ -68,8 +68,8 @@ export interface Result {
   status?: WeighInStatus;
   peg?: string;
   section?: string;
-  points?: number;
   payout?: number;
+  sectionRank?: number | null;
 }
 
 
