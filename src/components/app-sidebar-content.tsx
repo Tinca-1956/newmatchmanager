@@ -36,7 +36,7 @@ const navItems = [
   { href: '/main/members', icon: Users, label: 'Members - Site Admin', siteAdminOnly: true },
   { href: '/main/members-club-admin', icon: Users, label: 'Members - Club Admin', clubAdminOnly: true },
   { href: '/main/series-angler', icon: Trophy, label: 'Series - Angler', anglerOnly: true },
-  { href: '/main/series', icon: Trophy, label: 'Series - Admin', adminOnly: true },
+  { href: '/main/series', icon: Trophy, label: 'Series - Club Admin', adminOnly: true },
   { href: '/main/matches-angler', icon: Swords, label: 'Matches - Angler', anglerOnly: true },
   { href: '/main/matches-club-admin', icon: Swords, label: 'Matches - Club Admin', adminOnly: true },
   { href: '/main/matches', icon: Swords, label: 'Matches - Site Admin', siteAdminOnly: true },
