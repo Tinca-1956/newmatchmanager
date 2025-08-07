@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, getDocs, doc, getDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, writeBatch, arrayUnion, increment } from 'firebase/firestore';
 import type { Match, User } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { ChevronRight, XIcon } from 'lucide-react';
@@ -104,8 +104,8 @@ export function AnglerListModal({ isOpen, onClose, matchId }: AnglerListModalPro
       const anglerIdsToAdd = anglersToAssign.map(a => a.id);
       
       batch.update(matchDocRef, {
-        registeredAnglers: [...(match.registeredAnglers || []), ...anglerIdsToAdd],
-        registeredCount: newTotal
+        registeredAnglers: arrayUnion(...anglerIdsToAdd),
+        registeredCount: increment(anglersToAssign.length)
       });
 
       await batch.commit();
