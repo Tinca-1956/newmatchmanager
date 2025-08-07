@@ -4,8 +4,6 @@ import * as logger from "firebase-functions/logger";
 import {initializeApp, getApps} from "firebase-admin/app";
 import {getAuth} from "firebase-admin/auth";
 import type { User } from "./types";
-import { getFirestore } from "firebase-admin/firestore";
-import * as admin from "firebase-admin";
 
 
 // Initialize the Admin SDK only if it hasn't been already
