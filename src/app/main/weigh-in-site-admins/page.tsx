@@ -30,6 +30,8 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function WeighInSelectionPage() {
   const { isSiteAdmin, loading: adminLoading } = useAdminAuth();
@@ -38,26 +40,46 @@ export default function WeighInSelectionPage() {
   const router = useRouter();
 
   const [matches, setMatches] = useState<Match[]>([]);
-  const [clubName, setClubName] = useState<string>('');
+  const [allClubs, setAllClubs] = useState<Club[]>([]);
+  const [selectedClubId, setSelectedClubId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch matches for the user's primary club
+  // Effect to fetch all clubs for Site Admin dropdown
   useEffect(() => {
-    if (!firestore || !userProfile?.primaryClubId) {
-      setIsLoading(false);
+    if (!isSiteAdmin || !firestore) {
+        setIsLoading(false);
+        return;
+    }
+
+    const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
+    const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
+        const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+        setAllClubs(clubsData);
+        if (!selectedClubId && userProfile?.primaryClubId && clubsData.some(c => c.id === userProfile.primaryClubId)) {
+            setSelectedClubId(userProfile.primaryClubId);
+        } else if (!selectedClubId && clubsData.length > 0) {
+            setSelectedClubId(clubsData[0].id);
+        }
+    }, (error) => {
+        console.error("Error fetching clubs:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not load clubs.' });
+    });
+
+    return () => unsubscribe();
+  }, [isSiteAdmin, firestore, toast, userProfile, selectedClubId]);
+
+
+  // Fetch matches for the selected club
+  useEffect(() => {
+    if (!firestore || !selectedClubId) {
+      setMatches([]);
+      setIsLoading(true);
       return;
     }
 
     setIsLoading(true);
 
-    const clubDocRef = doc(firestore, 'clubs', userProfile.primaryClubId);
-    getDoc(clubDocRef).then(doc => {
-      if (doc.exists()) {
-        setClubName(doc.data().name);
-      }
-    });
-
-    const matchesQuery = query(collection(firestore, 'matches'), where('clubId', '==', userProfile.primaryClubId));
+    const matchesQuery = query(collection(firestore, 'matches'), where('clubId', '==', selectedClubId));
     
     const unsubscribe = onSnapshot(matchesQuery, (snapshot) => {
       const matchesData = snapshot.docs.map(doc => {
@@ -73,12 +95,12 @@ export default function WeighInSelectionPage() {
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching matches: ", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches for your primary club.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches for the selected club.' });
       setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, [userProfile, toast]);
+  }, [selectedClubId, toast]);
 
   const handleGoToWeighIn = (matchId: string) => {
     router.push(`/main/matches/${matchId}/weigh-in`);
@@ -100,18 +122,37 @@ export default function WeighInSelectionPage() {
     );
   }
 
+  const selectedClubName = allClubs.find(c => c.id === selectedClubId)?.name || 'Selected Club';
+
   return (
     <div className="flex flex-col gap-8">
-        <div>
-            <h1 className="text-3xl font-bold tracking-tight">Weigh-in Selection</h1>
-            <p className="text-muted-foreground">Select a match to manage its weigh-in.</p>
+        <div className="flex items-center justify-between">
+            <div>
+                <h1 className="text-3xl font-bold tracking-tight">Weigh-in Selection</h1>
+                <p className="text-muted-foreground">Select a match to manage its weigh-in.</p>
+            </div>
+             <div className="flex items-center gap-2">
+                <Label htmlFor="club-filter" className="text-nowrap">Club</Label>
+                <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={allClubs.length === 0}>
+                    <SelectTrigger id="club-filter" className="w-[180px]">
+                        <SelectValue placeholder="Select a club..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {allClubs.map((club) => (
+                            <SelectItem key={club.id} value={club.id}>
+                                {club.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
         </div>
 
         <Card>
             <CardHeader>
-                <CardTitle>Matches for {clubName || 'Your Club'}</CardTitle>
+                <CardTitle>Matches for {selectedClubName}</CardTitle>
                 <CardDescription>
-                    This list shows all matches for your primary club.
+                    This list shows all matches for the selected club.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -139,7 +180,7 @@ export default function WeighInSelectionPage() {
                     ) : matches.length === 0 ? (
                         <TableRow>
                             <TableCell colSpan={5} className="h-24 text-center">
-                                No matches found for your primary club.
+                                No matches found for this club.
                             </TableCell>
                         </TableRow>
                     ) : (
