@@ -424,78 +424,76 @@ export default function MembersClubAdminPage() {
                       onChange={(e) => setSearchTerm(e.target.value)}
                   />
               </div>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
                  <Button onClick={handleAddSampleUsers} variant="outline" disabled={!selectedClubId || isUpdating}>
                     <UserPlus className="mr-2 h-4 w-4" />
                     Add Anglers
                 </Button>
-                {canEdit && (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="ml-auto">
-                            <ListFilter className="mr-2 h-4 w-4" />
-                            Filter
-                        </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuCheckboxItem
-                            checked={statusFilter.includes('Unverified')}
-                            onCheckedChange={() => toggleFilter('status', 'Unverified')}
-                        >
-                            Unverified
-                        </DropdownMenuCheckboxItem>
-                        <DropdownMenuCheckboxItem
-                            checked={statusFilter.includes('Pending')}
-                            onCheckedChange={() => toggleFilter('status', 'Pending')}
-                        >
-                            Pending
-                        </DropdownMenuCheckboxItem>
-                        <DropdownMenuCheckboxItem
-                            checked={statusFilter.includes('Member')}
-                            onCheckedChange={() => toggleFilter('status', 'Member')}
-                        >
-                            Member
-                        </DropdownMenuCheckboxItem>
-                        <DropdownMenuCheckboxItem
-                            checked={statusFilter.includes('Suspended')}
-                            onCheckedChange={() => toggleFilter('status', 'Suspended')}
-                        >
-                            Suspended
-                        </DropdownMenuCheckboxItem>
-                        <DropdownMenuCheckboxItem
-                            checked={statusFilter.includes('Blocked')}
-                            onCheckedChange={() => toggleFilter('status', 'Blocked')}
-                        >
-                            Blocked
-                        </DropdownMenuCheckboxItem>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="ml-auto">
+                        <ListFilter className="mr-2 h-4 w-4" />
+                        Filter
+                    </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuCheckboxItem
+                        checked={statusFilter.includes('Unverified')}
+                        onCheckedChange={() => toggleFilter('status', 'Unverified')}
+                    >
+                        Unverified
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                        checked={statusFilter.includes('Pending')}
+                        onCheckedChange={() => toggleFilter('status', 'Pending')}
+                    >
+                        Pending
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                        checked={statusFilter.includes('Member')}
+                        onCheckedChange={() => toggleFilter('status', 'Member')}
+                    >
+                        Member
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                        checked={statusFilter.includes('Suspended')}
+                        onCheckedChange={() => toggleFilter('status', 'Suspended')}
+                    >
+                        Suspended
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                        checked={statusFilter.includes('Blocked')}
+                        onCheckedChange={() => toggleFilter('status', 'Blocked')}
+                    >
+                        Blocked
+                    </DropdownMenuCheckboxItem>
 
-                        <DropdownMenuLabel>Filter by Role</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
+                    <DropdownMenuLabel>Filter by Role</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuCheckboxItem
+                        checked={roleFilter.includes('Angler')}
+                        onCheckedChange={() => toggleFilter('role', 'Angler')}
+                    >
+                        Angler
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                        checked={roleFilter.includes('Club Admin')}
+                        onCheckedChange={() => toggleFilter('role', 'Club Admin')}
+                    >
+                        Club Admin
+                    </DropdownMenuCheckboxItem>
+                    {isSiteAdmin && (
                         <DropdownMenuCheckboxItem
-                            checked={roleFilter.includes('Angler')}
-                            onCheckedChange={() => toggleFilter('role', 'Angler')}
+                            checked={roleFilter.includes('Site Admin')}
+                            onCheckedChange={() => toggleFilter('role', 'Site Admin')}
                         >
-                            Angler
+                            Site Admin
                         </DropdownMenuCheckboxItem>
-                        <DropdownMenuCheckboxItem
-                            checked={roleFilter.includes('Club Admin')}
-                            onCheckedChange={() => toggleFilter('role', 'Club Admin')}
-                        >
-                            Club Admin
-                        </DropdownMenuCheckboxItem>
-                        {isSiteAdmin && (
-                            <DropdownMenuCheckboxItem
-                                checked={roleFilter.includes('Site Admin')}
-                                onCheckedChange={() => toggleFilter('role', 'Site Admin')}
-                            >
-                                Site Admin
-                            </DropdownMenuCheckboxItem>
-                        )}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                )}
+                    )}
+                    </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
             <Table>
