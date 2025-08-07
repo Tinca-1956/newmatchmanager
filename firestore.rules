@@ -4,61 +4,94 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
   
-    function isSiteAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
+    // Helper function to check if a user has a specific role
+    function hasRole(role) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
     }
     
+    // Helper function to check if a user is a site admin
+    function isSiteAdmin() {
+      return hasRole('Site Admin');
+    }
+
+    // Helper function to check if user is a club admin for a specific club
     function isClubAdmin(clubId) {
       let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       return user.role == 'Club Admin' && user.primaryClubId == clubId;
     }
     
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-    
-    // PUBLIC collections are read-only for everyone
-    match /publicMatches/{matchId} {
-      allow read: if true;
-      allow write: if false;
+    // Helper function to check if user is an angler member of a specific club
+    function isMemberOf(clubId) {
+       let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+       return user.primaryClubId == clubId && user.memberStatus == 'Member';
     }
 
-    match /publicUpcomingMatches/{matchId} {
-      allow read: if true;
-      allow write: if false;
-    }
+    // --- Collection Rules ---
 
-    // MAIN APP collections
+    // USERS
+    // Site admins can read/write all user docs.
+    // Club admins can read/write users in their own club.
+    // Users can read/write their own document.
     match /users/{userId} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null; // For registration and first-time club selection
-      allow update: if isOwner(userId) || isSiteAdmin();
-      allow delete: if isSiteAdmin(); // Only Site Admins can delete users
+      allow create: if request.auth != null;
+      allow update: if request.auth.uid == userId 
+                    || isSiteAdmin()
+                    || isClubAdmin(resource.data.primaryClubId);
+      allow delete: if isSiteAdmin();
     }
-
+    
+    // CLUBS
+    // All authenticated users can read club info.
+    // Site admins can create/update/delete any club.
+    // Club admins can update their own club's description/imageUrl.
     match /clubs/{clubId} {
       allow read: if request.auth != null;
       allow create: if isSiteAdmin();
-      // Club Admins can only edit specific fields of their own club
       allow update: if isSiteAdmin() || 
-                    (isClubAdmin(clubId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['description', 'imageUrl']));
-      allow delete: if isSiteAdmin(); // Only Site Admins can delete clubs
-    }
-
-    match /series/{seriesId} {
-      allow read: if request.auth != null;
-      allow create, update, delete: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
-    }
-
-    match /matches/{matchId} {
-      allow read: if request.auth != null;
-      allow create, update, delete: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
+                     (isClubAdmin(clubId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['description', 'imageUrl']));
+      allow delete: if isSiteAdmin();
     }
     
-    match /results/{resultId} {
-      allow read: if request.auth != null;
-      // Writing/deleting results is tied to being an admin of the club the result belongs to
-      allow create, update, delete: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
+    // SERIES
+    // Users in a club can read the series for that club.
+    // Admins of a club can create/update/delete series for that club.
+    match /series/{seriesId} {
+      allow read: if request.auth != null && isMemberOf(resource.data.clubId);
+      allow create, update: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
+      allow delete: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
     }
+    
+    // MATCHES
+    // Users in a club can read the matches for that club.
+    // Admins of a club can create/update/delete matches for that club.
+    // Registered anglers can also read the match they are in.
+    match /matches/{matchId} {
+      allow read: if request.auth != null && (isMemberOf(resource.data.clubId) || request.auth.uid in resource.data.registeredAnglers);
+      allow create, update: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
+      allow delete: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
+    }
+    
+    // RESULTS
+    // Users in a club can read results for matches in that club.
+    // Admins of a club can create/update/delete results for that club.
+    match /results/{resultId} {
+      allow read: if request.auth != null && isMemberOf(resource.data.clubId);
+      allow create, update: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
+      allow delete: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
+    }
+
+    // PUBLIC COLLECTIONS
+    // These are read-only for anyone, including unauthenticated users.
+    match /publicMatches/{matchId} {
+      allow read: if true;
+      allow write: if false; // No client-side writes allowed
+    }
+
+    match /publicUpcomingMatches/{matchId} {
+        allow read: if true;
+        allow write: if isSiteAdmin(); // Allow Site Admins to sync data
+    }
+
   }
 }
