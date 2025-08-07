@@ -105,20 +105,25 @@ export default function ClubsClubAdminPage() {
     try {
         const clubDocRef = doc(firestore, 'clubs', selectedClub.id);
         
-        let dataToUpdate: Partial<Club>;
+        let dataToUpdate: Partial<Club> = {};
+
         if (isSiteAdmin) {
             const { id, ...restOfClub } = selectedClub;
             dataToUpdate = restOfClub;
-        } else {
+        } else if (isClubAdmin) {
              dataToUpdate = {
                 description: selectedClub.description || '',
                 imageUrl: selectedClub.imageUrl || '',
             };
         }
         
-        await updateDoc(clubDocRef, dataToUpdate as any);
-        toast({ title: 'Success!', description: 'Club updated successfully.' });
-        setIsDialogOpen(false);
+        if (Object.keys(dataToUpdate).length > 0) {
+          await updateDoc(clubDocRef, dataToUpdate as any);
+          toast({ title: 'Success!', description: 'Club updated successfully.' });
+          setIsDialogOpen(false);
+        } else {
+          toast({ variant: 'destructive', title: 'No changes', description: 'There was nothing to save.' });
+        }
 
     } catch (error) {
         console.error('Error saving club:', error);
