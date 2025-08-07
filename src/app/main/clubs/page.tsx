@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Card,
   CardContent,
@@ -19,7 +20,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Edit, Upload, Shield } from 'lucide-react';
+import { Edit, Upload, Shield, PlusCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -47,6 +48,7 @@ export default function ClubsPage() {
   const { userProfile } = useAuth();
   const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   const [clubs, setClubs] = useState<Club[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -161,6 +163,7 @@ export default function ClubsPage() {
                     <Skeleton className="h-8 w-48" />
                     <Skeleton className="h-4 w-72" />
                 </div>
+                 <Skeleton className="h-10 w-40" />
             </div>
             <Card>
                 <CardHeader><Skeleton className="h-6 w-40" /></CardHeader>
@@ -178,6 +181,12 @@ export default function ClubsPage() {
             <h1 className="text-3xl font-bold tracking-tight">Clubs</h1>
             <p className="text-muted-foreground">View and manage all clubs in the system.</p>
           </div>
+           {isSiteAdmin && (
+              <Button onClick={() => router.push('/main/clubs/create')}>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Create New Club
+              </Button>
+            )}
         </div>
         
         <Card>
