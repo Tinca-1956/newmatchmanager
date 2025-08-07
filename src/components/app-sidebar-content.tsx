@@ -44,7 +44,7 @@ const navItems = [
   { href: '/main/weigh-in-site-admins', icon: Scale, label: 'Weigh in - Site Admins', siteAdminOnly: true },
   { href: '/main/results', icon: Medal, label: 'Results - Site Admin' },
   { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users - Site Admin', siteAdminOnly: true },
-  { href: '/main/test-access', icon: TestTube, label: 'Test Access', siteAdminOnly: true },
+  { href: '/main/test-access', icon: TestTube, label: 'Test Access - Site Admin', siteAdminOnly: true },
   { href: '/main/emulator', icon: FlaskConical, label: 'Emulator', adminOnly: true, emulatorOnly: true },
   { href: '/main/about', icon: Info, label: 'About' },
 ];
