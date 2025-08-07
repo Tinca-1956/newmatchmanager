@@ -45,14 +45,28 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { firestore, storage } from '@/lib/firebase-client';
-import { collection, onSnapshot, doc, updateDoc, query, orderBy, writeBatch, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, query, orderBy, writeBatch, where, getDocs, deleteDoc, Timestamp } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject, listAll } from 'firebase/storage';
-import type { Club } from '@/lib/types';
+import type { Club, ClubStatus } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import Image from 'next/image';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/use-auth';
+import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
+
+const getClubStatus = (club: Club): ClubStatus => {
+  if (club.subscriptionExpiryDate) {
+    const expiryDate = club.subscriptionExpiryDate instanceof Timestamp 
+      ? club.subscriptionExpiryDate.toDate() 
+      : club.subscriptionExpiryDate;
+    if (new Date() > expiryDate) {
+      return 'Suspended';
+    }
+  }
+  return 'Active';
+}
 
 export default function ClubsPage() {
   const { toast } = useToast();
@@ -81,7 +95,14 @@ export default function ClubsPage() {
     const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
 
     const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
-        let clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+        let clubsData = snapshot.docs.map(doc => {
+            const data = doc.data() as Omit<Club, 'id'>;
+            return {
+                id: doc.id,
+                ...data,
+                status: getClubStatus(data as Club),
+            } as Club;
+        });
         
         setClubs(clubsData);
         setIsLoading(false);
@@ -195,9 +216,19 @@ export default function ClubsPage() {
 
         // 4. Delete results associated with those matches
         if (matchIds.length > 0) {
-            const resultsQuery = query(collection(firestore, 'results'), where('matchId', 'in', matchIds));
-            const resultsSnapshot = await getDocs(resultsQuery);
-            resultsSnapshot.forEach(doc => batch.delete(doc.ref));
+            // Firestore 'in' queries are limited to 30 items.
+            // We need to chunk the deletions if there are many matches.
+            const chunkArray = <T>(arr: T[], size: number) =>
+                Array.from({ length: Math.ceil(arr.length / size) }, (v, i) =>
+                    arr.slice(i * size, i * size + size)
+                );
+
+            const matchIdChunks = chunkArray(matchIds, 30);
+            for (const chunk of matchIdChunks) {
+                const resultsQuery = query(collection(firestore, 'results'), where('matchId', 'in', chunk));
+                const resultsSnapshot = await getDocs(resultsQuery);
+                resultsSnapshot.forEach(doc => batch.delete(doc.ref));
+            }
         }
         
         // 5. Delete the matches themselves
@@ -270,6 +301,8 @@ export default function ClubsPage() {
                   <TableHead className="w-16">Logo</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Description</TableHead>
+                  <TableHead>Expiry</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -279,7 +312,9 @@ export default function ClubsPage() {
                         <TableRow key={i}>
                         <TableCell><Skeleton className="h-10 w-10 rounded-full" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-64" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-20" /></TableCell>
                         <TableCell className="text-right"><Skeleton className="h-8 w-8 rounded-md" /></TableCell>
                         </TableRow>
                     ))
@@ -297,6 +332,12 @@ export default function ClubsPage() {
                         </TableCell>
                         <TableCell className="font-medium">{club.name}</TableCell>
                         <TableCell>{club.description}</TableCell>
+                        <TableCell>
+                           {club.subscriptionExpiryDate ? format((club.subscriptionExpiryDate as Timestamp).toDate(), 'dd/MM/yyyy') : 'N/A'}
+                        </TableCell>
+                        <TableCell>
+                            <Badge variant={club.status === 'Active' ? 'default' : 'destructive'}>{club.status}</Badge>
+                        </TableCell>
                         <TableCell className="text-right">
                            {(isSiteAdmin || (isClubAdmin && club.id === userProfile?.primaryClubId)) && (
                                 <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(club)}>

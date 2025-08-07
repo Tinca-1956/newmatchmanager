@@ -1,9 +1,11 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
 export type UserRole = 'Site Admin' | 'Club Admin' | 'Angler';
 export type MembershipStatus = 'Pending' | 'Member' | 'Suspended' | 'Blocked' | 'Deleted' | 'Unverified';
 export type MatchStatus = 'Upcoming' | 'In Progress' | 'Completed' | 'Cancelled' | 'Weigh-in';
 export type WeighInStatus = 'NYW' | 'OK' | 'DNF' | 'DNW' | 'DSQ';
+export type ClubStatus = 'Active' | 'Suspended';
 
 export interface User {
   id: string;
@@ -24,6 +26,7 @@ export interface Club {
   country?: string;
   state?: string;
   subscriptionExpiryDate?: Date | Timestamp;
+  status?: ClubStatus;
 }
 
 export interface Series {
