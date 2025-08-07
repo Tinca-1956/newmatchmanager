@@ -43,6 +43,7 @@ const navItems = [
   { href: '/main/weigh-in-club-admin', icon: Scale, label: 'Weigh in - Club Admin', adminOnly: true },
   { href: '/main/weigh-in-site-admins', icon: Scale, label: 'Weigh in - Site Admins', siteAdminOnly: true },
   { href: '/main/results', icon: Medal, label: 'Results' },
+  { href: '/main/results-site-admin', icon: Medal, label: 'Results - Site Admin', siteAdminOnly: true },
   { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users - Site Admin', siteAdminOnly: true },
   { href: '/main/test-access', icon: TestTube, label: 'Test Access - Site Admin', siteAdminOnly: true },
   { href: '/main/emulator', icon: FlaskConical, label: 'Emulator', adminOnly: true, emulatorOnly: true },
@@ -96,11 +97,6 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
       }
 
       if (item.adminOnly && !isSiteAdmin && !isClubAdmin) {
-          return false;
-      }
-      
-      // Hide site admin "Results" from non-site-admins
-      if (item.href === '/main/results' && item.label === 'Results - Site Admin' && !isSiteAdmin) {
           return false;
       }
       
