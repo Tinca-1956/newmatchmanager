@@ -62,6 +62,8 @@ import Link from 'next/link';
 import { Checkbox } from '@/components/ui/checkbox';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Terminal } from 'lucide-react';
 
 interface SeriesWithMatchCount extends Series {
     matchCount: number;
@@ -78,7 +80,7 @@ type ResultWithSectionRank = Result & { sectionPosition?: number };
 export default function SeriesPage() {
   const { userProfile, loading: authLoading } = useAuth();
   const { toast } = useToast();
-  const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
+  const { isSiteAdmin, isClubAdmin, loading: adminLoading } from useAdminAuth();
   const router = useRouter();
 
 
@@ -539,11 +541,23 @@ export default function SeriesPage() {
     </div>
   }
 
+  if (!isSiteAdmin && !isClubAdmin) {
+    return (
+        <Alert variant="destructive">
+            <Terminal className="h-4 w-4" />
+            <AlertTitle>Access Denied</AlertTitle>
+            <AlertDescription>
+                You do not have permission to view this page.
+            </AlertDescription>
+        </Alert>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Series</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Series - Admin</h1>
           <p className="text-muted-foreground">Manage your match series here.</p>
         </div>
         <div className="flex items-center gap-4">
