@@ -316,14 +316,6 @@ function MatchesSiteAdminPageContent() {
                               </TooltipTrigger>
                               <TooltipContent><p>Edit Match</p></TooltipContent>
                           </Tooltip>
-                           <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" onClick={() => handleWeighIn(match.id)}>
-                                    <Scale className="h-4 w-4" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent><p>Manage Weigh-in</p></TooltipContent>
-                        </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
                               <Button variant="ghost" size="icon" onClick={() => handleViewAnglerList(match)}>
@@ -479,10 +471,6 @@ function MatchesSiteAdminPageContent() {
                                     <DropdownMenuItem onClick={() => handleEditMatch(match)}>
                                         <Edit className="mr-2 h-4 w-4" />
                                         <span>Edit Match</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleWeighIn(match.id)}>
-                                      <Scale className="mr-2 h-4 w-4" />
-                                      <span>Manage Weigh-in</span>
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => handleViewAnglerList(match)}>
                                         <FileText className="mr-2 h-4 w-4" />
