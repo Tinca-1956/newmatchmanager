@@ -98,8 +98,9 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
       if (item.adminOnly && !isSiteAdmin && !isClubAdmin) {
           return false;
       }
-
-      if (item.clubAdminAndAnglerOnly && !isClubAdmin && !isAngler) {
+      
+      // Updated this rule
+      if (item.clubAdminAndAnglerOnly && !isSiteAdmin && !isClubAdmin && !isAngler) {
           return false;
       }
 
