@@ -45,7 +45,6 @@ const navItems = [
   { href: '/main/results', icon: Medal, label: 'Results - Site Admin' },
   { href: '/main/admin/seed', icon: Beaker, label: 'Add Anglers', adminOnly: true },
   { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users', siteAdminOnly: true },
-  { href: '/main/clubs/create', icon: PlusCircle, label: 'Add New Club', siteAdminOnly: true },
   { href: '/main/test-access', icon: TestTube, label: 'Test Access', siteAdminOnly: true },
   { href: '/main/emulator', icon: FlaskConical, label: 'Emulator', adminOnly: true, emulatorOnly: true },
   { href: '/main/about', icon: Info, label: 'About' },
