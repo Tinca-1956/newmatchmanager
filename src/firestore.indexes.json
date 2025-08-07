@@ -8,6 +8,16 @@
         {
           "fieldPath": "clubId",
           "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "matches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "clubId",
+          "order": "ASCENDING"
         },
         {
           "fieldPath": "status",

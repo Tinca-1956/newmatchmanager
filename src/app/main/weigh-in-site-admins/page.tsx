@@ -20,18 +20,10 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Scale, ArrowRight, Terminal } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, onSnapshot, query, where, getDocs, orderBy, Timestamp, limit } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, getDocs, orderBy, Timestamp, doc, getDoc } from 'firebase/firestore';
 import type { Match, Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -41,37 +33,31 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 export default function WeighInSelectionPage() {
   const { isSiteAdmin, loading: adminLoading } = useAdminAuth();
+  const { userProfile } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
 
   const [matches, setMatches] = useState<Match[]>([]);
-  const [clubs, setClubs] = useState<Club[]>([]);
-  const [selectedClubId, setSelectedClubId] = useState<string>('all');
-  
+  const [clubName, setClubName] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch all clubs for the filter dropdown
+  // Fetch matches for the user's primary club
   useEffect(() => {
-    if (!isSiteAdmin || !firestore) return;
-
-    const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
-    const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
-        const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
-        setClubs(clubsData);
-    });
-    return () => unsubscribe();
-  }, [isSiteAdmin]);
-
-  // Fetch all weigh-in ready matches
-  useEffect(() => {
-    if (!firestore || !isSiteAdmin) {
+    if (!firestore || !userProfile?.primaryClubId) {
       setIsLoading(false);
       return;
     }
 
     setIsLoading(true);
-    // Add ordering and a limit to the query to satisfy security rules and improve performance
-    const matchesQuery = query(collection(firestore, 'matches'), orderBy('date', 'desc'), limit(50));
+
+    const clubDocRef = doc(firestore, 'clubs', userProfile.primaryClubId);
+    getDoc(clubDocRef).then(doc => {
+      if (doc.exists()) {
+        setClubName(doc.data().name);
+      }
+    });
+
+    const matchesQuery = query(collection(firestore, 'matches'), where('clubId', '==', userProfile.primaryClubId));
     
     const unsubscribe = onSnapshot(matchesQuery, (snapshot) => {
       const matchesData = snapshot.docs.map(doc => {
@@ -83,22 +69,16 @@ export default function WeighInSelectionPage() {
         } as Match;
       });
 
-      // Data is already sorted by date desc from the query
       setMatches(matchesData);
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching matches: ", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch matches for your primary club.' });
       setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, [isSiteAdmin, toast]);
-
-  const filteredMatches = matches.filter(match => {
-      if (selectedClubId === 'all') return true;
-      return match.clubId === selectedClubId;
-  });
+  }, [userProfile, toast]);
 
   const handleGoToWeighIn = (matchId: string) => {
     router.push(`/main/matches/${matchId}/weigh-in`);
@@ -129,27 +109,12 @@ export default function WeighInSelectionPage() {
 
         <Card>
             <CardHeader>
-                <CardTitle>All Matches</CardTitle>
+                <CardTitle>Matches for {clubName || 'Your Club'}</CardTitle>
                 <CardDescription>
-                    This list shows the 50 most recent matches across all clubs. Select one to proceed to its weigh-in page.
+                    This list shows all matches for your primary club.
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="mb-4">
-                    <Label htmlFor="club-filter">Filter by Club</Label>
-                    <Select value={selectedClubId} onValueChange={setSelectedClubId}>
-                        <SelectTrigger id="club-filter" className="w-[280px]">
-                            <SelectValue placeholder="Select a club..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Clubs</SelectItem>
-                            {clubs.map(club => (
-                                <SelectItem key={club.id} value={club.id}>{club.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-
                 <Table>
                 <TableHeader>
                     <TableRow>
@@ -171,14 +136,14 @@ export default function WeighInSelectionPage() {
                                 <TableCell className="text-right"><Skeleton className="h-10 w-28" /></TableCell>
                             </TableRow>
                         ))
-                    ) : filteredMatches.length === 0 ? (
+                    ) : matches.length === 0 ? (
                         <TableRow>
                             <TableCell colSpan={5} className="h-24 text-center">
-                                No matches found.
+                                No matches found for your primary club.
                             </TableCell>
                         </TableRow>
                     ) : (
-                        filteredMatches.map(match => (
+                        matches.map(match => (
                             <TableRow key={match.id}>
                                 <TableCell>{format(match.date, 'PPP')}</TableCell>
                                 <TableCell>{match.seriesName}</TableCell>
@@ -186,7 +151,7 @@ export default function WeighInSelectionPage() {
                                 <TableCell><Badge variant="outline">{match.status}</Badge></TableCell>
                                 <TableCell className="text-right">
                                     <Button onClick={() => handleGoToWeighIn(match.id)}>
-                                        <Scale className="mr-2" />
+                                        <Scale className="mr-2 h-4 w-4" />
                                         Go to Weigh-in
                                     </Button>
                                 </TableCell>
