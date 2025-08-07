@@ -2,58 +2,63 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper functions
-    function isSiteAdmin() {
-      return request.auth.token.isSiteAdmin == true;
+  
+    // --- Helper Functions ---
+    function isSignedIn() {
+      return request.auth != null;
     }
     
-    function isClubAdmin() {
-      return request.auth.token.isClubAdmin == true;
+    function isSiteAdmin() {
+      return request.auth.token.role == 'Site Admin';
     }
 
-    function isSameClub(clubId) {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
+    function isClubAdmin() {
+        return request.auth.token.role == 'Club Admin';
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isMemberOfSameClub(userDoc) {
+        return request.auth.token.primaryClubId == userDoc.primaryClubId;
+    }
+
+    // --- Collections ---
+    match /users/{userId} {
+      allow read: if isSignedIn() && (isSiteAdmin() || isOwner(userId) || isMemberOfSameClub(resource.data));
+      allow create: if isSignedIn();
+      allow update: if isSiteAdmin() || isOwner(userId);
+      allow delete: if isSiteAdmin();
     }
     
     match /clubs/{clubId} {
-      allow read: if request.auth != null;
-      allow create: if isSiteAdmin();
-      allow update: if isSiteAdmin() || (isClubAdmin() && isSameClub(clubId));
-      allow delete: if isSiteAdmin();
+        allow read: if isSignedIn();
+        allow create, update: if isSiteAdmin() || (isClubAdmin() && request.auth.token.primaryClubId == clubId);
+        allow delete: if isSiteAdmin();
     }
 
-    match /users/{userId} {
-      allow read: if request.auth != null && (isSiteAdmin() || get(/databases/$(database)/documents/users/$(userId)).data.primaryClubId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId);
-      allow create: if isSiteAdmin();
-      allow update: if request.auth.uid == userId || isSiteAdmin();
-      allow delete: if isSiteAdmin();
-    }
-    
     match /series/{seriesId} {
-      allow read: if request.auth != null;
-      allow create: if isSiteAdmin() || isClubAdmin();
-      allow update, delete: if isSiteAdmin() || isClubAdmin();
+        allow read: if isSignedIn();
+        allow create, update, delete: if isSiteAdmin() || isClubAdmin();
     }
-    
+
     match /matches/{matchId} {
-      allow read: if request.auth != null;
-      allow create, update: if isSiteAdmin() || isClubAdmin();
-      allow delete: if isSiteAdmin();
+        allow read: if isSignedIn();
+        allow create, update, delete: if isSiteAdmin() || isClubAdmin();
     }
 
     match /results/{resultId} {
-      allow read: if request.auth != null;
+      allow read: if isSignedIn();
       allow create, update, delete: if isSiteAdmin() || isClubAdmin();
     }
-
-    // Public collections
-    match /publicMatches/{matchId} {
+    
+    match /publicUpcomingMatches/{matchId} {
         allow read: if true;
-        allow write: if isSiteAdmin() || isClubAdmin(); // Should only be written via trusted backend/functions
+        allow write: if isSiteAdmin() || isClubAdmin();
     }
 
-    match /publicUpcomingMatches/{matchId} {
+    match /publicMatches/{matchId} {
         allow read: if true;
         allow write: if isSiteAdmin() || isClubAdmin();
     }
