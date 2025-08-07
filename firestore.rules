@@ -2,58 +2,56 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Function to check if the requesting user has a specific role in their user profile
-    function hasRole(role) {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+
+    // Helper function to check if a user is a site admin
+    function isSiteAdmin(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role == 'Site Admin';
     }
 
-    // Site Admins can do anything
-    match /{document=**} {
-      allow read, write: if hasRole('Site Admin');
-    }
-
-    match /users/{userId} {
-      // Users can read and update their own profile
-      allow read, update: if request.auth.uid == userId;
-
-      // Club Admins can read and update users in their own club.
-      // This rule allows the "members-club-admin" page to function correctly.
-      allow read, update: if hasRole('Club Admin') 
-                        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == resource.data.primaryClubId;
+    // Helper function to check if a user is an admin of a specific club
+    function isClubAdmin(userId, clubId) {
+      let user = get(/databases/$(database)/documents/users/$(userId)).data;
+      return user.role == 'Club Admin' && user.primaryClubId == clubId;
     }
     
+    // Default deny all reads and writes
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Users can read their own profile
+    match /users/{userId} {
+      allow read: if request.auth.uid == userId;
+      // Allow Club Admins to update users in their own club
+      allow update: if isClubAdmin(request.auth.uid, resource.data.primaryClubId) || isSiteAdmin(request.auth.uid);
+    }
+    
+    // Allow authenticated users to read clubs, series, and matches
     match /clubs/{clubId} {
-      // Any authenticated user can read club details (for selection lists)
       allow read: if request.auth != null;
     }
 
     match /series/{seriesId} {
-      // Let authenticated users read series info.
       allow read: if request.auth != null;
     }
 
     match /matches/{matchId} {
-        // Any authenticated user can read match details
-        allow read: if request.auth != null;
-
-        // Allow authenticated users to register/unregister by updating the registeredAnglers array
-        allow update: if request.auth != null;
-    }
-    
-     match /results/{resultId} {
-      // Any authenticated user can read results
       allow read: if request.auth != null;
     }
     
-    match /publicUpcomingMatches/{matchId} {
-      // Allow anyone to read public match data, even unauthenticated users
-      allow get, list: if true;
+    match /results/{resultId} {
+        allow read: if request.auth != null;
     }
 
+    // Public collections are readable by anyone
     match /publicMatches/{matchId} {
-        // Allow anyone to read public results data, even unauthenticated users
-        allow get, list: if true;
+      allow read: if true;
+      // Allow write if the user is a Site Admin OR a Club Admin for the match's club
+      allow write: if isSiteAdmin(request.auth.uid) || isClubAdmin(request.auth.uid, request.resource.data.clubId);
+    }
+    
+    match /publicUpcomingMatches/{matchId} {
+      allow read: if true;
     }
   }
 }
