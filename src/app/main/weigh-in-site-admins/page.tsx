@@ -31,7 +31,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, onSnapshot, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, getDocs, orderBy, Timestamp, limit } from 'firebase/firestore';
 import type { Match, Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -70,8 +70,8 @@ export default function WeighInSelectionPage() {
     }
 
     setIsLoading(true);
-    // Remove the status filter to show all matches
-    const matchesQuery = query(collection(firestore, 'matches'));
+    // Add ordering and a limit to the query to satisfy security rules and improve performance
+    const matchesQuery = query(collection(firestore, 'matches'), orderBy('date', 'desc'), limit(50));
     
     const unsubscribe = onSnapshot(matchesQuery, (snapshot) => {
       const matchesData = snapshot.docs.map(doc => {
@@ -83,7 +83,7 @@ export default function WeighInSelectionPage() {
         } as Match;
       });
 
-      matchesData.sort((a, b) => (b.date as Date).getTime() - (a.date as Date).getTime());
+      // Data is already sorted by date desc from the query
       setMatches(matchesData);
       setIsLoading(false);
     }, (error) => {
@@ -131,7 +131,7 @@ export default function WeighInSelectionPage() {
             <CardHeader>
                 <CardTitle>All Matches</CardTitle>
                 <CardDescription>
-                    This list shows all matches across all clubs. Select one to proceed to its weigh-in page.
+                    This list shows the 50 most recent matches across all clubs. Select one to proceed to its weigh-in page.
                 </CardDescription>
             </CardHeader>
             <CardContent>
