@@ -33,7 +33,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { firestore, storage } from '@/lib/firebase-client';
-import { collection, onSnapshot, doc, updateDoc, query, orderBy } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import type { Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -42,13 +42,13 @@ import Image from 'next/image';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/use-auth';
 
-export default function ClubsPage() {
+export default function ClubsClubAdminPage() {
   const { toast } = useToast();
-  const { userProfile } = useAuth();
+  const { userProfile, loading: authLoading } = useAuth();
   const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [clubs, setClubs] = useState<Club[]>([]);
+  const [club, setClub] = useState<Club | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -58,31 +58,36 @@ export default function ClubsPage() {
   const [selectedClub, setSelectedClub] = useState<Partial<Club> | null>(null);
 
   useEffect(() => {
-    if (adminLoading) {
+    if (authLoading || adminLoading) {
       setIsLoading(true);
       return;
     }
-    if (!firestore) return;
+    if (!firestore || !userProfile?.primaryClubId) {
+        setIsLoading(false);
+        return;
+    };
 
     setIsLoading(true);
-    const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
+    const clubDocRef = doc(firestore, 'clubs', userProfile.primaryClubId);
 
-    const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
-        let clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
-        
-        setClubs(clubsData);
+    const unsubscribe = onSnapshot(clubDocRef, (doc) => {
+        if (doc.exists()) {
+            setClub({ id: doc.id, ...doc.data() } as Club);
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: 'Primary club not found.' });
+        }
         setIsLoading(false);
     }, (error) => {
-        console.error("Error fetching clubs: ", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch clubs.' });
+        console.error("Error fetching club: ", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch your club.' });
         setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, [toast, adminLoading]);
+  }, [toast, userProfile, authLoading, adminLoading]);
 
-  const handleOpenDialog = (club: Club) => {
-    setSelectedClub(club);
+  const handleOpenDialog = (clubToEdit: Club) => {
+    setSelectedClub(clubToEdit);
     setUploadProgress(0);
     setIsDialogOpen(true);
   };
@@ -94,7 +99,7 @@ export default function ClubsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedClub?.id) return;
+    if (!selectedClub?.id || !firestore) return;
     
     setIsSaving(true);
     try {
@@ -111,7 +116,7 @@ export default function ClubsPage() {
             };
         }
         
-        await updateDoc(clubDocRef, dataToUpdate as any); // Use 'as any' to bypass strict type checking on the partial object.
+        await updateDoc(clubDocRef, dataToUpdate as any);
         toast({ title: 'Success!', description: 'Club updated successfully.' });
         setIsDialogOpen(false);
 
@@ -175,15 +180,15 @@ export default function ClubsPage() {
       <div className="flex flex-col gap-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Clubs</h1>
-            <p className="text-muted-foreground">View and manage all clubs in the system.</p>
+            <h1 className="text-3xl font-bold tracking-tight">My Club</h1>
+            <p className="text-muted-foreground">View and manage your primary club.</p>
           </div>
         </div>
         
         <Card>
           <CardHeader>
-            <CardTitle>All Clubs</CardTitle>
-            <CardDescription>A list of all registered fishing clubs.</CardDescription>
+            <CardTitle>Club Details</CardTitle>
+            <CardDescription>Details for your primary club.</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -197,16 +202,13 @@ export default function ClubsPage() {
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                    Array.from({ length: 4 }).map((_, i) => (
-                        <TableRow key={i}>
-                        <TableCell><Skeleton className="h-10 w-10 rounded-full" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-64" /></TableCell>
-                        <TableCell className="text-right"><Skeleton className="h-8 w-8 rounded-md" /></TableCell>
-                        </TableRow>
-                    ))
-                ) : (
-                    clubs.map(club => (
+                    <TableRow>
+                    <TableCell><Skeleton className="h-10 w-10 rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-64" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-8 w-8 rounded-md" /></TableCell>
+                    </TableRow>
+                ) : club ? (
                     <TableRow key={club.id}>
                         <TableCell>
                             {club.imageUrl ? (
@@ -220,25 +222,23 @@ export default function ClubsPage() {
                         <TableCell className="font-medium">{club.name}</TableCell>
                         <TableCell>{club.description}</TableCell>
                         <TableCell className="text-right">
-                           {(isSiteAdmin || (isClubAdmin && club.id === userProfile?.primaryClubId)) && (
+                           {(isSiteAdmin || isClubAdmin) && (
                                 <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(club)}>
                                     <Edit className="h-4 w-4" />
                                 </Button>
                             )}
                         </TableCell>
                     </TableRow>
-                    ))
+                ) : (
+                    <TableRow>
+                        <TableCell colSpan={4} className="h-24 text-center">
+                            No primary club found. Please set one in your profile.
+                        </TableCell>
+                    </TableRow>
                 )}
               </TableBody>
             </Table>
           </CardContent>
-           {clubs.length > 5 && (
-            <CardFooter>
-                <p className="text-xs text-muted-foreground">
-                    Showing {clubs.length} of {clubs.length} clubs.
-                </p>
-            </CardFooter>
-          )}
         </Card>
       </div>
 
