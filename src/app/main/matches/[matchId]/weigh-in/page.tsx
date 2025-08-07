@@ -216,6 +216,8 @@ export default function WeighInPage() {
             position = positionMap.get(r.userId) || null;
         } else if (['DNW', 'DNF', 'DSQ'].includes(r.status)) {
             position = didNotWeighRank;
+        } else if (r.status === 'OK' && r.weight === 0) {
+            position = didNotWeighRank;
         }
         return { ...r, position };
     });
@@ -248,6 +250,8 @@ export default function WeighInPage() {
                     const rank = sectionSortedByWeight.findIndex(r => r.userId === result.userId);
                     sectionRank = rank !== -1 ? rank + 1 : null;
                 } else if (['DNW', 'DNF', 'DSQ'].includes(result.status || '')) {
+                    sectionRank = dnwSectionRank;
+                } else if (result.status === 'OK' && result.weight === 0) {
                     sectionRank = dnwSectionRank;
                 }
                  resultsWithRanks[originalIndex].sectionRank = sectionRank;
@@ -649,3 +653,4 @@ export default function WeighInPage() {
     </div>
   );
 }
+
