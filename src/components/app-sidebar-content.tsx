@@ -36,6 +36,7 @@ const navItems = [
   { href: '/main/members-club-admin', icon: Users, label: 'Members - Club Admin', adminOnly: true },
   { href: '/main/series-angler', icon: Trophy, label: 'Series - Angler' },
   { href: '/main/series', icon: Trophy, label: 'Series - Admin', adminOnly: true },
+  { href: '/main/matches-angler', icon: Swords, label: 'Matches - Angler' },
   { href: '/main/matches', icon: Swords, label: 'Matches - Admin', adminOnly: true },
   { href: '/main/results', icon: Medal, label: 'Results' },
   { href: '/main/admin/seed', icon: Beaker, label: 'Add Anglers', adminOnly: true },
