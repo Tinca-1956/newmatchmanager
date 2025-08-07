@@ -46,6 +46,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { Badge } from '@/components/ui/badge';
 
 interface SeriesWithMatchCount extends Series {
     matchCount: number;
@@ -429,4 +430,3 @@ export default function SeriesAnglerPage() {
     </div>
   );
 }
-
