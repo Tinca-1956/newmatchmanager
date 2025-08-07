@@ -19,6 +19,7 @@ import {
   TestTube,
   PlusCircle,
   Trash2,
+  Scale,
 } from 'lucide-react';
 import { SheetClose } from './ui/sheet';
 import { useAuth } from '@/hooks/use-auth';
@@ -39,6 +40,7 @@ const navItems = [
   { href: '/main/matches-angler', icon: Swords, label: 'Matches - Angler' },
   { href: '/main/matches-club-admin', icon: Swords, label: 'Matches - Club Admin', adminOnly: true },
   { href: '/main/matches', icon: Swords, label: 'Matches - Site Admin', siteAdminOnly: true },
+  { href: '/main/weigh-in-site-admins', icon: Scale, label: 'Weigh in - Site Admins', siteAdminOnly: true },
   { href: '/main/results', icon: Medal, label: 'Results' },
   { href: '/main/admin/seed', icon: Beaker, label: 'Add Anglers', adminOnly: true },
   { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users', siteAdminOnly: true },
