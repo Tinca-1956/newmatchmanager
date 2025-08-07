@@ -87,7 +87,7 @@ const getCalculatedStatus = (match: Match): MatchStatus => {
   return 'Upcoming';
 };
 
-function MatchesSiteAdminPageContent() {
+function MatchesClubAdminPageContent() {
   const { user, userProfile, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const { isSiteAdmin, isClubAdmin, userRole, loading: adminLoading } = useAdminAuth();
@@ -223,7 +223,7 @@ function MatchesSiteAdminPageContent() {
   
   const handleClubSelectionChange = (clubId: string) => {
     if (matchIdFilter || seriesIdFilter) {
-        router.push('/main/matches');
+        router.push('/main/matches-club-admin');
     }
     setSelectedClubId(clubId);
   };
@@ -511,7 +511,7 @@ function MatchesSiteAdminPageContent() {
       <div className="flex flex-col gap-8">
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Matches - Site Admin</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Matches - Club Admin</h1>
             <p className="text-muted-foreground">Manage your club's matches here.</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -618,10 +618,10 @@ function MatchesSiteAdminPageContent() {
   );
 }
 
-export default function MatchesSiteAdminPage() {
+export default function MatchesClubAdminPage() {
     return (
         <Suspense fallback={<div>Loading...</div>}>
-            <MatchesSiteAdminPageContent />
+            <MatchesClubAdminPageContent />
         </Suspense>
     )
 }
