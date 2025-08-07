@@ -296,14 +296,6 @@ function MatchesClubAdminPageContent() {
                               </TooltipTrigger>
                               <TooltipContent><p>Edit Match</p></TooltipContent>
                           </Tooltip>
-                           <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" onClick={() => handleWeighIn(match.id)}>
-                                    <Scale className="h-4 w-4" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent><p>Manage Weigh-in</p></TooltipContent>
-                        </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
                               <Button variant="ghost" size="icon" onClick={() => handleViewAnglerList(match)}>
