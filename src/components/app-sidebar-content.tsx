@@ -42,7 +42,7 @@ const navItems = [
   { href: '/main/matches', icon: Swords, label: 'Matches - Site Admin', siteAdminOnly: true },
   { href: '/main/weigh-in-club-admin', icon: Scale, label: 'Weigh in - Club Admin', adminOnly: true },
   { href: '/main/weigh-in-site-admins', icon: Scale, label: 'Weigh in - Site Admins', siteAdminOnly: true },
-  { href: '/main/results', icon: Medal, label: 'Results' },
+  { href: '/main/results', icon: Medal, label: 'Results - Site Admin' },
   { href: '/main/admin/seed', icon: Beaker, label: 'Add Anglers', adminOnly: true },
   { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users', siteAdminOnly: true },
   { href: '/main/clubs/create', icon: PlusCircle, label: 'Add New Club', siteAdminOnly: true },
