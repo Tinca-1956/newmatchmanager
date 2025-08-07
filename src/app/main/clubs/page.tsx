@@ -19,7 +19,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Edit, Upload, Shield, PlusCircle } from 'lucide-react';
+import { Edit, Upload, Shield, PlusCircle, Trash2, CalendarIcon } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -28,14 +28,25 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { firestore, storage } from '@/lib/firebase-client';
-import { collection, onSnapshot, doc, updateDoc, query, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, query, orderBy, Timestamp, getDocs, writeBatch, deleteDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import type { Club, ClubStatus } from '@/lib/types';
+import type { Club, ClubStatus, Result } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import Image from 'next/image';
@@ -43,6 +54,9 @@ import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 
 const getClubStatus = (club: Club): ClubStatus => {
   if (club.subscriptionExpiryDate) {
@@ -104,7 +118,14 @@ export default function ClubsPage() {
   }, [toast, adminLoading]);
 
   const handleOpenDialog = (club: Club) => {
-    setSelectedClub(club);
+    // Ensure the date is a JS Date object for the calendar component
+    const clubToEdit = {
+        ...club,
+        subscriptionExpiryDate: club.subscriptionExpiryDate instanceof Timestamp
+            ? club.subscriptionExpiryDate.toDate()
+            : club.subscriptionExpiryDate,
+    };
+    setSelectedClub(clubToEdit);
     setUploadProgress(0);
     setIsDialogOpen(true);
   };
@@ -112,6 +133,12 @@ export default function ClubsPage() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setSelectedClub(prev => (prev ? { ...prev, [name]: value } : null));
+  };
+  
+  const handleDateChange = (date: Date | undefined) => {
+    if (date) {
+        setSelectedClub(prev => (prev ? { ...prev, subscriptionExpiryDate: date } : null));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -122,10 +149,16 @@ export default function ClubsPage() {
     try {
         const clubDocRef = doc(firestore, 'clubs', selectedClub.id);
         
-        let dataToUpdate: Partial<Club>;
+        let dataToUpdate: any; // Use 'any' to handle mixed types
         if (isSiteAdmin) {
-            const { id, ...restOfClub } = selectedClub;
-            dataToUpdate = restOfClub;
+            const { id, status, ...restOfClub } = selectedClub; // Exclude status from update
+            dataToUpdate = {
+                ...restOfClub,
+                // Convert JS Date back to Firestore Timestamp for storage
+                subscriptionExpiryDate: selectedClub.subscriptionExpiryDate 
+                    ? Timestamp.fromDate(selectedClub.subscriptionExpiryDate as Date) 
+                    : null
+            };
         } else {
              dataToUpdate = {
                 description: selectedClub.description || '',
@@ -133,7 +166,7 @@ export default function ClubsPage() {
             };
         }
         
-        await updateDoc(clubDocRef, dataToUpdate as any); // Use 'as any' to bypass strict type checking on the partial object.
+        await updateDoc(clubDocRef, dataToUpdate);
         toast({ title: 'Success!', description: 'Club updated successfully.' });
         setIsDialogOpen(false);
 
@@ -173,6 +206,54 @@ export default function ClubsPage() {
         toast({ title: 'Success!', description: 'Logo uploaded. Remember to save your changes.' });
       }
     );
+  };
+  
+  const handleDeleteClub = async (clubId: string) => {
+    if (!firestore) return;
+    
+    toast({ title: "Deleting Club...", description: "This may take a moment." });
+    setIsSaving(true);
+    try {
+        const batch = writeBatch(firestore);
+
+        // 1. Find all matches in the club
+        const matchesQuery = query(collection(firestore, 'matches'), where('clubId', '==', clubId));
+        const matchesSnapshot = await getDocs(matchesQuery);
+        const matchIds = matchesSnapshot.docs.map(d => d.id);
+
+        // 2. Find and delete all results for those matches
+        if (matchIds.length > 0) {
+            const resultsQuery = query(collection(firestore, 'results'), where('matchId', 'in', matchIds));
+            const resultsSnapshot = await getDocs(resultsQuery);
+            resultsSnapshot.docs.forEach(d => batch.delete(d.ref));
+        }
+        
+        // 3. Delete matches
+        matchesSnapshot.docs.forEach(d => batch.delete(d.ref));
+        
+        // 4. Delete all series in the club
+        const seriesQuery = query(collection(firestore, 'series'), where('clubId', '==', clubId));
+        const seriesSnapshot = await getDocs(seriesQuery);
+        seriesSnapshot.docs.forEach(d => batch.delete(d.ref));
+        
+        // 5. Delete all users primarily associated with the club
+        const usersQuery = query(collection(firestore, 'users'), where('primaryClubId', '==', clubId));
+        const usersSnapshot = await getDocs(usersQuery);
+        usersSnapshot.docs.forEach(d => batch.delete(d.ref));
+        
+        // 6. Delete the club document itself
+        const clubDocRef = doc(firestore, 'clubs', clubId);
+        batch.delete(clubDocRef);
+
+        await batch.commit();
+
+        toast({ title: 'Success!', description: `Club and all its associated data have been deleted.` });
+    } catch (error) {
+        console.error('Error deleting club:', error);
+        toast({ variant: 'destructive', title: 'Delete Failed', description: 'Could not delete the club and its data. Check console for details.' });
+    } finally {
+        setIsSaving(false);
+    }
   };
   
   if (isLoading || adminLoading) {
@@ -258,11 +339,37 @@ export default function ClubsPage() {
                         <TableCell>
                             <Badge variant={club.status === 'Active' ? 'default' : 'destructive'}>{club.status}</Badge>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right space-x-1">
                            {(isSiteAdmin || (isClubAdmin && club.id === userProfile?.primaryClubId)) && (
                                 <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(club)}>
                                     <Edit className="h-4 w-4" />
                                 </Button>
+                            )}
+                            {isSiteAdmin && (
+                               <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This action cannot be undone. This will permanently delete the <span className="font-bold">{club.name}</span> club, and all of its associated members, series, matches, and results.
+                                        </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction
+                                            className="bg-destructive hover:bg-destructive/90"
+                                            onClick={() => handleDeleteClub(club.id)}
+                                        >
+                                            Confirm Delete
+                                        </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
                             )}
                         </TableCell>
                     </TableRow>
@@ -283,7 +390,7 @@ export default function ClubsPage() {
 
       {selectedClub && (
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-md">
               <form onSubmit={handleSubmit}>
                   <DialogHeader>
                       <DialogTitle>Edit Club</DialogTitle>
@@ -292,39 +399,63 @@ export default function ClubsPage() {
                       </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="name" className="text-right">Name</Label>
+                      <div className="space-y-2">
+                          <Label htmlFor="name">Name</Label>
                           <Input 
                               id="name" 
                               name="name" 
                               value={selectedClub.name || ''} 
                               onChange={handleInputChange} 
-                              className="col-span-3" 
                               required 
                               disabled={!isSiteAdmin}
                           />
                       </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="description" className="text-right">Description</Label>
-                          <Textarea id="description" name="description" value={selectedClub.description || ''} onChange={handleInputChange} className="col-span-3" />
+                      <div className="space-y-2">
+                          <Label htmlFor="description">Description</Label>
+                          <Textarea id="description" name="description" value={selectedClub.description || ''} onChange={handleInputChange} />
                       </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="logo" className="text-right">Logo</Label>
-                        <div className="col-span-3 space-y-2">
-                          <input type="file" ref={fileInputRef} onChange={handleLogoUpload} className="hidden" accept="image/*" />
-                          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-                            <Upload className="mr-2 h-4 w-4" />
-                            {isUploading ? 'Uploading...' : 'Upload Logo'}
-                          </Button>
-                          {isUploading && <Progress value={uploadProgress} className="w-full h-2" />}
-                          {selectedClub.imageUrl && (
-                            <div className="mt-2 flex items-center gap-4">
-                               <p className="text-xs text-muted-foreground">Current:</p>
-                               <Image src={selectedClub.imageUrl} alt="Current logo" width={40} height={40} className="rounded-md" />
-                            </div>
-                          )}
-                        </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="logo">Logo</Label>
+                          <div className="flex items-center gap-4">
+                            <input type="file" ref={fileInputRef} onChange={handleLogoUpload} className="hidden" accept="image/*" />
+                            <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                              <Upload className="mr-2 h-4 w-4" />
+                              {isUploading ? 'Uploading...' : 'Upload'}
+                            </Button>
+                            {selectedClub.imageUrl && (
+                                <Image src={selectedClub.imageUrl} alt="Current logo" width={40} height={40} className="rounded-md" />
+                            )}
+                          </div>
+                          {isUploading && <Progress value={uploadProgress} className="w-full h-2 mt-2" />}
                       </div>
+                       {isSiteAdmin && (
+                          <div className="space-y-2">
+                            <Label htmlFor="expiryDate">Subscription Expiry</Label>
+                             <Popover>
+                                <PopoverTrigger asChild>
+                                <Button
+                                    id="expiryDate"
+                                    variant={"outline"}
+                                    className={cn(
+                                    "w-full justify-start text-left font-normal",
+                                    !selectedClub.subscriptionExpiryDate && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {selectedClub.subscriptionExpiryDate ? format(selectedClub.subscriptionExpiryDate as Date, "PPP") : <span>Pick a date</span>}
+                                </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                    mode="single"
+                                    selected={selectedClub.subscriptionExpiryDate as Date | undefined}
+                                    onSelect={handleDateChange}
+                                    initialFocus
+                                />
+                                </PopoverContent>
+                            </Popover>
+                          </div>
+                       )}
                   </div>
                   <DialogFooter>
                       <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
