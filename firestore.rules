@@ -1,71 +1,88 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
-    function isAuth() {
-      return request.auth != null;
+    // Helper function to get user's role from their user document
+    function getUserRole(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role;
     }
 
-    function isSiteAdmin() {
-      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
-    }
-
-    function isClubAdmin() {
-        return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin';
+    // Helper function to get user's primary club ID
+    function getPrimaryClubId(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.primaryClubId;
     }
     
-    function isOwner(userId) {
-        return isAuth() && request.auth.uid == userId;
+    // Helper function to check if a user is a Site Admin
+    function isSiteAdmin(userId) {
+      return getUserRole(userId) == 'Site Admin';
     }
 
-    // Rules for 'clubs' collection
-    match /clubs/{clubId} {
-      allow read: if true;
-      allow create: if isSiteAdmin();
-      allow update: if isSiteAdmin() || (isClubAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId);
-      allow delete: if isSiteAdmin();
+    // Helper function to check if a user is a Club Admin for a specific club
+    function isClubAdmin(userId, clubId) {
+      return getUserRole(userId) == 'Club Admin' && getPrimaryClubId(userId) == clubId;
     }
 
-    // Rules for 'users' collection
+    // Rules for the 'users' collection
     match /users/{userId} {
-      allow read: if isOwner(userId) || isSiteAdmin() || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == resource.data.primaryClubId;
-      allow create: if isAuth(); // Allow any authenticated user to create their own user doc.
-      allow update: if isOwner(userId) || isSiteAdmin();
-      allow list: if isSiteAdmin() || (isClubAdmin() && request.query.where.primaryClubId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId);
-    }
-    
-    // Rules for 'series' collection
-    match /series/{seriesId} {
-        allow read: if isAuth();
-        allow list: if isAuth();
-        allow create, update, delete: if isSiteAdmin() || isClubAdmin();
+      // Allow users to read their own profile
+      // Allow Site Admins to read any profile
+      // Allow Club Admins to read profiles of users in their club
+      allow read: if request.auth != null && (
+        request.auth.uid == userId ||
+        isSiteAdmin(request.auth.uid) ||
+        isClubAdmin(request.auth.uid, resource.data.primaryClubId)
+      );
+
+      // Allow users to update their own profile (firstName, lastName, primaryClubId)
+      // Allow Site Admins to update any profile
+      // Allow Club Admins to update profiles of users in their club
+      allow update: if request.auth != null && (
+        request.auth.uid == userId ||
+        isSiteAdmin(request.auth.uid) ||
+        isClubAdmin(request.auth.uid, resource.data.primaryClubId)
+      );
+      
+      // Only Site Admins can delete user documents
+      allow delete: if request.auth != null && isSiteAdmin(request.auth.uid);
+      
+      // Anyone authenticated can create their own user document
+      allow create: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Rules for 'matches' collection
-    match /matches/{matchId} {
-      allow read: if isAuth();
-      allow create, update, delete: if isSiteAdmin() || isClubAdmin();
-      allow list: if isAuth(); // Should be constrained further by query
-    }
-    
-    // Rules for 'results' collection
-    match /results/{resultId} {
-        allow read: if isAuth();
-        allow list: if isAuth();
-        allow create, update, delete: if isSiteAdmin() || isClubAdmin();
+    // Rules for the 'clubs' collection
+    match /clubs/{clubId} {
+      // Any authenticated user can read club details
+      allow read: if request.auth != null;
+      
+      // Only Site Admins can create or delete clubs
+      allow create, delete: if request.auth != null && isSiteAdmin(request.auth.uid);
+
+      // Site Admins and Club Admins of that specific club can update it
+      allow update: if request.auth != null && (
+        isSiteAdmin(request.auth.uid) ||
+        isClubAdmin(request.auth.uid, clubId)
+      );
     }
 
-    // Rules for public collections
-    match /publicMatches/{matchId} {
-        allow read: if true;
-        allow write: if isSiteAdmin() || isClubAdmin();
-    }
-    
-     match /publicUpcomingMatches/{matchId} {
-        allow read: if true;
-        allow write: if isSiteAdmin() || isClubAdmin();
+    // Rules for 'series', 'matches', and 'results' follow a similar pattern
+    match /{collection}/{docId} {
+       // Allow anyone to read public collections
+      allow read: if collection == 'publicMatches' || collection == 'publicUpcomingMatches';
+      
+      // Authenticated users can read private data if they belong to the club
+      allow read: if request.auth != null && (
+        isSiteAdmin(request.auth.uid) ||
+        isClubAdmin(request.auth.uid, resource.data.clubId) ||
+        getPrimaryClubId(request.auth.uid) == resource.data.clubId
+      );
+
+      // Only Admins can create/update/delete these documents
+      allow write: if request.auth != null && (
+        isSiteAdmin(request.auth.uid) ||
+        isClubAdmin(request.auth.uid, resource.data.clubId)
+      );
     }
   }
 }
