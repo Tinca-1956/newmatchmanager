@@ -65,14 +65,13 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 
-
-export default function MembersPage() {
+export default function MembersClubAdminPage() {
   const { user, userProfile } = useAuth();
   const { toast } = useToast();
   const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
   
   const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [clubs, setClubs] = useState<Club[]>([]);
+  const [clubName, setClubName] = useState<string>('');
   
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
@@ -89,36 +88,24 @@ export default function MembersPage() {
   useEffect(() => {
     if (adminLoading || !firestore) return;
 
-    if (isSiteAdmin) {
-      // Site Admin: Fetch all clubs for the dropdown
-      const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
-      const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
-        const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
-        setClubs(clubsData);
-        // Set selected club to user's primary, or first in the list, or empty
-        if (userProfile?.primaryClubId) {
-          setSelectedClubId(userProfile.primaryClubId);
-        } else if (clubsData.length > 0) {
-          setSelectedClubId(clubsData[0].id);
-        } else {
-          setIsLoading(false);
-        }
-      }, (error) => {
-        console.error("Error fetching clubs for admin:", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not load clubs.' });
-        setIsLoading(false);
-      });
-      return () => unsubscribe();
+    if (userProfile?.primaryClubId) {
+        setSelectedClubId(userProfile.primaryClubId);
+        const clubDocRef = doc(firestore, 'clubs', userProfile.primaryClubId);
+        getDoc(clubDocRef).then(docSnap => {
+          if (docSnap.exists()) {
+            setClubName(docSnap.data().name);
+          }
+        });
     } else {
         setIsLoading(false);
     }
-  }, [isSiteAdmin, adminLoading, userProfile, firestore, toast]);
+  }, [adminLoading, userProfile, firestore, toast]);
 
   
   useEffect(() => {
     if (!selectedClubId || !firestore) {
-      setAllUsers([]); // Clear users if no club is selected
-      if (!adminLoading) setIsLoading(false); // Stop loading if we're not waiting on auth
+      setAllUsers([]);
+      if (!adminLoading) setIsLoading(false);
       return;
     }
     
@@ -139,7 +126,7 @@ export default function MembersPage() {
   }, [selectedClubId, toast, adminLoading, firestore]);
   
   const handleEditClick = (userToEdit: User) => {
-    setSelectedUser({ ...userToEdit }); // Create a copy to edit
+    setSelectedUser({ ...userToEdit });
     setIsEditDialogOpen(true);
   };
   
@@ -201,7 +188,6 @@ export default function MembersPage() {
     if (!firestore) return;
     try {
       const memberDocRef = doc(firestore, 'users', memberId);
-      // Soft delete by changing status
       await updateDoc(memberDocRef, { memberStatus: 'Deleted' });
       toast({ title: "User Deleted", description: "The user's status has been set to 'Deleted'. They can be managed from the 'Deleted Users' page." });
     } catch (error) {
@@ -229,24 +215,38 @@ export default function MembersPage() {
   };
 
   const filteredMembers = allUsers.filter(member => {
-    const clubMatch = !selectedClubId || member.primaryClubId === selectedClubId;
     const fullName = `${member.firstName} ${member.lastName}`.toLowerCase();
     const matchesSearch = fullName.includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter.length === 0 || statusFilter.includes(member.memberStatus);
     const matchesRole = roleFilter.length === 0 || roleFilter.includes(member.role);
     const notDeleted = member.memberStatus !== 'Deleted';
-    return clubMatch && matchesSearch && matchesStatus && matchesRole && notDeleted;
+    return matchesSearch && matchesStatus && matchesRole && notDeleted;
   });
 
-  const canEdit = isSiteAdmin;
+  const canEdit = isSiteAdmin || isClubAdmin;
   const canViewEmail = canEdit;
-
-  if(adminLoading) {
-    return <Skeleton className="h-64 w-full" />;
-  }
   
-  if(!isSiteAdmin) {
+  if (adminLoading) {
     return (
+        <div className="space-y-4">
+            <Skeleton className="h-10 w-1/2" />
+            <Skeleton className="h-8 w-3/4" />
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-8 w-1/4" />
+                    <Skeleton className="h-6 w-1/2" />
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                </CardContent>
+            </Card>
+        </div>
+    );
+  }
+
+  if (!canEdit) {
+     return (
         <Alert variant="destructive">
             <Terminal className="h-4 w-4" />
             <AlertTitle>Access Denied</AlertTitle>
@@ -363,35 +363,17 @@ export default function MembersPage() {
     <>
       <div className="flex flex-col gap-8">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Members</h1>
-          <p className="text-muted-foreground">View and manage club members.</p>
+          <h1 className="text-3xl font-bold tracking-tight">Club Members</h1>
+          <p className="text-muted-foreground">View and manage your club members.</p>
         </div>
         
         <Card>
           <CardHeader>
-            <CardTitle>Member List</CardTitle>
-            <CardDescription>A list of all members in the selected club.</CardDescription>
+            <CardTitle>{clubName} Member List</CardTitle>
+            <CardDescription>A list of all members in your club.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap items-center gap-4 mb-4">
-               {isSiteAdmin ? (
-                <Select value={selectedClubId} onValueChange={setSelectedClubId} disabled={clubs.length === 0}>
-                    <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Select a club..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {clubs.map((club) => (
-                            <SelectItem key={club.id} value={club.id}>
-                                {club.name}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-              ) : (
-                <div className="w-48 h-10 flex items-center px-3 text-sm font-medium border rounded-md bg-muted">
-                    {clubs.length > 0 ? clubs[0].name : 'Your Club'}
-                </div>
-              )}
               <div className="relative flex-1">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
