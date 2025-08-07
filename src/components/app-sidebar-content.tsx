@@ -43,7 +43,6 @@ const navItems = [
   { href: '/main/weigh-in-club-admin', icon: Scale, label: 'Weigh in - Club Admin', adminOnly: true },
   { href: '/main/weigh-in-site-admins', icon: Scale, label: 'Weigh in - Site Admins', siteAdminOnly: true },
   { href: '/main/results', icon: Medal, label: 'Results - Site Admin' },
-  { href: '/main/results', icon: Medal, label: 'Results - Club Admin', clubAdminAndAnglerOnly: true },
   { href: '/main/admin/seed', icon: Beaker, label: 'Add Anglers', adminOnly: true },
   { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users', siteAdminOnly: true },
   { href: '/main/clubs/create', icon: PlusCircle, label: 'Add New Club', siteAdminOnly: true },
@@ -99,11 +98,6 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
           return false;
       }
       
-      // Updated this rule
-      if (item.clubAdminAndAnglerOnly && !isSiteAdmin && !isClubAdmin && !isAngler) {
-          return false;
-      }
-
       // Hide site admin "Results" from non-site-admins
       if (item.href === '/main/results' && item.label === 'Results - Site Admin' && !isSiteAdmin) {
           return false;
