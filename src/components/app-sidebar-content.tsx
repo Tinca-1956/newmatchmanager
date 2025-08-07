@@ -34,7 +34,7 @@ const navItems = [
   { href: '/main/clubs', icon: Shield, label: 'Clubs - Site Admin', siteAdminOnly: true },
   { href: '/main/clubs-club-admin', icon: Shield, label: 'Clubs - Club Admin', adminOnly: true },
   { href: '/main/members', icon: Users, label: 'Members - Site Admin', siteAdminOnly: true },
-  { href: '/main/members-club-admin', icon: Users, label: 'Members - Club Admin', adminOnly: true },
+  { href: '/main/members-club-admin', icon: Users, label: 'Members - Club Admin', clubAdminOnly: true },
   { href: '/main/series-angler', icon: Trophy, label: 'Series - Angler' },
   { href: '/main/series', icon: Trophy, label: 'Series - Admin', adminOnly: true },
   { href: '/main/matches-angler', icon: Swords, label: 'Matches - Angler' },
@@ -79,10 +79,9 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
     );
   }
 
-  const sortedNavItems = navItems.filter(item => {
+  const sortedNavItems = navItems.filter((item: any) => {
       const isSiteAdmin = userProfile?.role === 'Site Admin';
       const isClubAdmin = userProfile?.role === 'Club Admin';
-      const isAngler = userProfile?.role === 'Angler';
 
       if (item.emulatorOnly && !isEmulatorMode) {
           return false;
@@ -90,6 +89,10 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
       
       if (item.siteAdminOnly && !isSiteAdmin) {
           return false;
+      }
+      
+      if (item.clubAdminOnly && !isClubAdmin) {
+        return false;
       }
 
       if (item.adminOnly && !isSiteAdmin && !isClubAdmin) {
