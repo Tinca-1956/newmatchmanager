@@ -40,7 +40,7 @@ import {
 import { format } from 'date-fns';
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const { toast } = useToast();
 
   const [profile, setProfile] = useState<User | null>(null);
@@ -130,17 +130,33 @@ export default function ProfilePage() {
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !profile || !firestore) return;
+    if (!user || !profile || !userProfile || !firestore) return;
 
     setIsSaving(true);
     try {
       const userDocRef = doc(firestore, 'users', user.uid);
-      await updateDoc(userDocRef, {
+      
+      const hasClubChanged = profile.primaryClubId !== userProfile.primaryClubId;
+      
+      const dataToUpdate: Partial<User> = {
         firstName: profile.firstName,
         lastName: profile.lastName,
         primaryClubId: profile.primaryClubId,
-      });
-      toast({ title: 'Success!', description: 'Your profile has been updated.' });
+      };
+
+      if (hasClubChanged) {
+        dataToUpdate.role = 'Angler';
+        dataToUpdate.memberStatus = 'Pending';
+      }
+
+      await updateDoc(userDocRef, dataToUpdate);
+
+      let successMessage = 'Your profile has been updated.';
+      if (hasClubChanged) {
+        successMessage = "Your primary club has changed. Your role has been reset to 'Angler' and membership status to 'Pending' for the new club.";
+      }
+      
+      toast({ title: 'Success!', description: successMessage });
     } catch (error) {
       console.error('Error updating profile:', error);
       toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not update your profile.' });
