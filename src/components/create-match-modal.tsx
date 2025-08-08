@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, getDocs, Timestamp, writeBatch } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp, writeBatch, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Match, Series, PublicUpcomingMatch } from '@/lib/types';
 import { format } from 'date-fns';
@@ -105,8 +105,7 @@ export function CreateMatchModal({ isOpen, onClose, clubId }: CreateMatchModalPr
     setIsSaving(true);
     try {
         const batch = writeBatch(firestore);
-        const matchesCollection = collection(firestore, 'matches');
-        const newMatchRef = doc(matchesCollection); // Auto-generate ID
+        const newMatchRef = doc(collection(firestore, 'matches')); // Correctly generate a new doc ref
 
         const selectedSeries = seriesList.find(s => s.id === newMatch.seriesId);
         const matchDate = Timestamp.fromDate(newMatch.date);
