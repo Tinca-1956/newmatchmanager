@@ -23,6 +23,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PlusCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { sendWelcomeEmail } from '@/lib/send-email';
 
 export default function SelectClubPage() {
   const { user, loading: authLoading } = useAuth();
@@ -99,6 +100,18 @@ export default function SelectClubPage() {
 
       // Set the document. This will trigger the cloud function to set custom claims.
       await setDoc(userDocRef, userProfileData, { merge: true });
+
+      // Send welcome email after profile creation
+      if (user.email && user.displayName) {
+        const selectedClub = clubs.find(c => c.id === selectedClubId);
+        await sendWelcomeEmail(
+          user.email,
+          user.displayName,
+          selectedClub?.name || 'Your New Club',
+          userProfileData.role,
+          userProfileData.memberStatus
+        );
+      }
 
       toast({
         title: 'Success!',

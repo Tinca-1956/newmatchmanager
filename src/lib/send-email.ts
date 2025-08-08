@@ -38,6 +38,26 @@ const createTestEmailBody = (name: string): string => {
   `;
 };
 
+const createWelcomeEmailBody = (name: string, clubName: string, role: string, status: string): string => {
+  return `
+    Hello ${name},
+
+    Welcome to Match Manager!
+
+    Your profile has been successfully created with the following details:
+    
+    Primary Club: ${clubName}
+    Your Role: ${role}
+    Membership Status: ${status}
+
+    You can now log in to the dashboard to view matches and manage your profile.
+    If your status is 'Pending', a club administrator will review your application soon.
+
+    Thanks,
+    The Match Manager Team
+  `;
+}
+
 
 export const sendVerificationEmail = async (email: string, name: string, verificationLink: string) => {
   try {
@@ -81,3 +101,23 @@ export const sendTestEmail = async (email: string, name: string) => {
         throw error;
     }
 };
+
+export const sendWelcomeEmail = async (email: string, name: string, clubName: string, role: string, status: string) => {
+    try {
+        const { data, error } = await resend.emails.send({
+            from: `Match Manager <${fromEmail}>`,
+            to: [email],
+            subject: 'Welcome to Match Manager!',
+            text: createWelcomeEmailBody(name, clubName, role, status),
+        });
+
+        if (error) {
+            console.error('Resend error:', error);
+            throw new Error('Failed to send welcome email.');
+        }
+        return data;
+    } catch (error) {
+        console.error('Error in sendWelcomeEmail:', error);
+        throw error;
+    }
+}
