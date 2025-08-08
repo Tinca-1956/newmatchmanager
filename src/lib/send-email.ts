@@ -102,11 +102,12 @@ export const sendTestEmail = async (email: string, name: string) => {
     }
 };
 
-export const sendWelcomeEmail = async (email: string, name: string, clubName: string, role: string, status: string) => {
+export const sendWelcomeEmail = async (email: string, name: string, clubName: string, role: string, status: string, ccEmails: string[] = []) => {
     try {
         const { data, error } = await resend.emails.send({
             from: `Match Manager <${fromEmail}>`,
             to: [email],
+            cc: ccEmails,
             subject: 'Welcome to Match Manager!',
             text: createWelcomeEmailBody(name, clubName, role, status),
         });

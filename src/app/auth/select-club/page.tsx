@@ -17,8 +17,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
-import { collection, onSnapshot, doc, setDoc, addDoc, getDoc } from 'firebase/firestore';
-import type { Club } from '@/lib/types';
+import { collection, onSnapshot, doc, setDoc, addDoc, getDoc, query, where, getDocs } from 'firebase/firestore';
+import type { Club, User } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlusCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -98,18 +98,28 @@ export default function SelectClubPage() {
         memberStatus: isSiteAdmin ? 'Member' : 'Pending',
       };
 
-      // Set the document. This will trigger the cloud function to set custom claims.
       await setDoc(userDocRef, userProfileData, { merge: true });
 
-      // Send welcome email after profile creation
+      // After profile creation, find admins to CC them on the welcome email.
       if (user.email && user.displayName) {
         const selectedClub = clubs.find(c => c.id === selectedClubId);
+        
+        // Find club admins
+        const adminsQuery = query(
+          collection(firestore, 'users'), 
+          where('primaryClubId', '==', selectedClubId), 
+          where('role', '==', 'Club Admin')
+        );
+        const adminSnapshot = await getDocs(adminsQuery);
+        const adminEmails = adminSnapshot.docs.map(doc => (doc.data() as User).email);
+
         await sendWelcomeEmail(
           user.email,
           user.displayName,
           selectedClub?.name || 'Your New Club',
           userProfileData.role,
-          userProfileData.memberStatus
+          userProfileData.memberStatus,
+          adminEmails // Pass the admin emails to be CC'd
         );
       }
 
