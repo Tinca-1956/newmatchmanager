@@ -1,49 +1,75 @@
 
 'use client';
 
-import PublicHeader from '@/components/public-header';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  CardDescription,
+  CardFooter,
 } from '@/components/ui/card';
+import { Fish } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 export default function LearnMorePage() {
+  const subject = "MATCH MANAGER - ADD NEW CLUB ENQUIRY";
+  const body = `Dear Stuart,
+
+I am interested in learning more about MATCH MANAGER for my club.
+
+Here are my club details:
+
+Club/association name			:	FILL IN DETAILS HERE
+Number of members			:	FILL IN MEMBER NUMBER HERE
+Number of matches per year	:	FILL IN MATCH NUMBER HERE
+Country						:	FILL IN COUNTRY HERE
+State/County/Province			:	FILL IN COUNTY HERE
+
+Warmest regards
+
+YOUR FULL NAME HERE`;
+
+  const mailtoLink = `mailto:stuart@emancium.com.au?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
   return (
-    <div className="flex flex-col min-h-screen bg-muted/40">
-      <PublicHeader />
-      <main className="flex-1 p-4 sm:p-6 md:p-8">
-        <div className="max-w-4xl mx-auto">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-3xl font-bold tracking-tight text-center">MATCH MANAGER</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6 text-lg">
-              <div className="space-y-2">
-                <h2 className="text-2xl font-semibold">BENEFITS OF SIGNING UP</h2>
-                <p className="text-muted-foreground">
-                  Registered users can register online for matches with their preferred club. They can also view historical match results and series standings.
-                  Registered users can also view WEIGH-IN data in realtime, add and view match related images, and prepare and save PDF versions of angler lists and match results.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <h2 className="text-2xl font-semibold">ADMIN USERS</h2>
-                <p className="text-muted-foreground">
-                  Match secretaries can request full READ/WRITE access from the match manager SITE ADMINISTRATOR. This enables the creation and management of series, matches and anglers.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <h2 className="text-2xl font-semibold">CONTACT</h2>
-                <p className="text-muted-foreground">
-                  Contact Stuart at stuart@emancium.com.au for more information about using MATCH MANAGER for your club&apos;s match management.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+    <div className="max-w-4xl mx-auto flex flex-col gap-8">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold tracking-tight">About Match Manager</h1>
+        <p className="text-lg text-muted-foreground mt-2">The ultimate solution for managing your fishing club's events.</p>
+      </div>
+
+      <Card>
+        <CardHeader className="items-center text-center">
+            <div className="flex justify-center pb-4">
+              <Fish className="h-16 w-16 text-primary" />
+            </div>
+            <CardTitle className="text-3xl">Match Manager Pro</CardTitle>
+            <CardDescription>Version 1.0.0</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <div className="text-center text-muted-foreground space-y-4 max-w-2xl mx-auto">
+                <p>This application is designed to help fishing clubs manage their matches, members, and results with ease.</p>
+                <p>Built with modern technology to provide a seamless and responsive experience for club administrators, marshals, and anglers alike.</p>
+                <p className="font-semibold text-foreground">Interested in getting your club on board?</p>
+                <p>To start using the app for your club, send your details via email. Click the button below to open a pre-filled email template.</p>
+            </div>
+        </CardContent>
+         <CardFooter className="flex-col items-center gap-4 text-center">
+            <Button asChild size="lg">
+                <a href={mailtoLink}>Contact Us To Get Started</a>
+            </Button>
+            <p className="pt-4 text-xs text-muted-foreground">
+                We'll get back to you to set up your club profile.
+            </p>
+        </CardFooter>
+      </Card>
+       <div className="text-center">
+          <Button asChild variant="link">
+            <Link href="/public/dashboard">Return to Dashboard</Link>
+          </Button>
         </div>
-      </main>
     </div>
   );
 }
