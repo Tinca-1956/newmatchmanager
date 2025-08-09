@@ -22,7 +22,7 @@ export default function HelpPage() {
         <CardHeader>
           <CardTitle>Watch these short videos to guide you through MATCH MANAGER</CardTitle>
           <CardDescription>
-            This section will be updated with common questions and answers.
+            Instructional videos and documents for MATCH MANAGER
           </CardDescription>
         </CardHeader>
         <CardContent>
