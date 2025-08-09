@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, getDocs, Timestamp, doc, getDoc, addDoc, writeBatch, setDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp, doc, getDoc, addDoc, writeBatch, setDoc, updateDoc, arrayUnion, increment } from 'firebase/firestore';
 import type { User, Match, Club, PublicUpcomingMatch, Series } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -18,7 +18,7 @@ import NextImage from 'next/image';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 export default function TestAccessPage() {
-  const { userProfile, loading: authLoading } = useAuth();
+  const { user, userProfile, loading: authLoading } = useAuth();
   const { isSiteAdmin, loading: adminLoading } = useAdminAuth();
   const { toast } = useToast();
   
@@ -41,6 +41,7 @@ export default function TestAccessPage() {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isCreatingAngler, setIsCreatingAngler] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
 
 
   const handleGetAnglers = async () => {
@@ -296,6 +297,37 @@ export default function TestAccessPage() {
     }
   };
 
+  const handleTestRegistration = async () => {
+    if (!firestore || !user) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Firestore or user not available.' });
+        return;
+    }
+    const testMatchId = 'dwoFy4YJJVzLWwQqFow1'; // Use a known, existing match ID
+    setIsRegistering(true);
+
+    try {
+        const matchDocRef = doc(firestore, 'matches', testMatchId);
+        
+        // This is the core operation that is failing
+        await updateDoc(matchDocRef, {
+            registeredAnglers: arrayUnion(user.uid),
+            registeredCount: increment(1)
+        });
+
+        toast({ title: 'SUCCESS!', description: `Successfully registered for test match ${testMatchId}.` });
+    } catch (e: any) {
+        console.error("Test Registration Failed:", e);
+        toast({
+            variant: 'destructive',
+            title: 'Test Registration FAILED',
+            description: e.message,
+            duration: 10000,
+        });
+    } finally {
+        setIsRegistering(false);
+    }
+  };
+
   const renderCurrentUserInfo = () => {
       if (authLoading) {
           return (
@@ -356,9 +388,19 @@ export default function TestAccessPage() {
              <h3 className="font-semibold mb-2">Step 1: Read Your User Profile</h3>
              {renderCurrentUserInfo()}
           </div>
+          
+           <div className="space-y-2 rounded-md border p-4">
+                <h3 className="font-semibold mb-2">Step 2: Test Match Registration</h3>
+                <p className="text-sm text-muted-foreground pb-4">
+                    This is the critical test. Click to attempt to register for a specific, hardcoded match.
+                </p>
+                <Button onClick={handleTestRegistration} disabled={isRegistering || authLoading || !userProfile}>
+                    {isRegistering ? 'Registering...' : 'Run Registration Test'}
+                </Button>
+           </div>
 
            <div className="space-y-2 rounded-md border p-4">
-                <h3 className="font-semibold mb-2">Step 2: Query for Users in Your Club</h3>
+                <h3 className="font-semibold mb-2">Query for Users in Your Club</h3>
                 <p className="text-sm text-muted-foreground pb-4">
                     Click to test fetching users in your primary club.
                 </p>
@@ -395,7 +437,7 @@ export default function TestAccessPage() {
            </div>
 
            <div className="space-y-2 rounded-md border p-4">
-                <h3 className="font-semibold mb-2">Step 3: Query for Series in Your Club</h3>
+                <h3 className="font-semibold mb-2">Query for Series in Your Club</h3>
                 <p className="text-sm text-muted-foreground pb-4">
                     Click to test fetching series in your primary club.
                 </p>
@@ -432,7 +474,7 @@ export default function TestAccessPage() {
            </div>
 
             <div className="space-y-2 rounded-md border p-4">
-                <h3 className="font-semibold mb-2">Step 4: Query for Matches in Your Club</h3>
+                <h3 className="font-semibold mb-2">Query for Matches in Your Club</h3>
                 <p className="text-sm text-muted-foreground pb-4">
                     This is the critical test. Click to run the same query the Matches page uses.
                 </p>
@@ -469,7 +511,7 @@ export default function TestAccessPage() {
            </div>
            
            <div className="space-y-2 rounded-md border p-4">
-                <h3 className="font-semibold mb-2">Step 5: Query for a Single Match Document</h3>
+                <h3 className="font-semibold mb-2">Query for a Single Match Document</h3>
                 <p className="text-sm text-muted-foreground pb-4">
                     This tests direct document access. Click to fetch a specific match.
                 </p>
@@ -504,7 +546,7 @@ export default function TestAccessPage() {
            </div>
 
            <div className="space-y-2 rounded-md border p-4">
-                <h3 className="font-semibold mb-2">Step 6: Send a Test Email</h3>
+                <h3 className="font-semibold mb-2">Send a Test Email</h3>
                 <p className="text-sm text-muted-foreground pb-4">
                     Click this button to send a test email to yourself to verify the Resend integration.
                 </p>
@@ -514,7 +556,7 @@ export default function TestAccessPage() {
             </div>
 
             <div className="space-y-2 rounded-md border p-4">
-                <h3 className="font-semibold mb-2">Step 7: Create an Unverified Angler (Test)</h3>
+                <h3 className="font-semibold mb-2">Create an Unverified Angler (Test)</h3>
                  <p className="text-sm text-muted-foreground pb-4">
                     This uses the same logic as the Seed Data page to try and add a new user.
                 </p>
