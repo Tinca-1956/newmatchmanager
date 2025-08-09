@@ -249,7 +249,7 @@ export default function HelpPage() {
                 />
             </div>
             <div className="space-y-2">
-                <Label htmlFor="file-upload">File (Video or PDF)</Label>
+                <Label htmlFor="file-upload" className="block mb-2">File (Video or PDF)</Label>
                 <input
                     type="file"
                     accept="video/*,application/pdf"
@@ -259,7 +259,7 @@ export default function HelpPage() {
                     id="file-upload"
                     disabled={isUploading}
                 />
-                <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading || !description.trim()} className="mt-2">
+                <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading || !description.trim()}>
                   <Upload className="mr-2 h-4 w-4" />
                   {isUploading ? `Uploading...` : 'Select & Upload File'}
                 </Button>
