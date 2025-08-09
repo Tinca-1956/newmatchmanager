@@ -142,11 +142,21 @@ export default function HelpPage() {
     if (!firestore || !storage) return;
 
     try {
-        // Delete from Storage
-        const fileRef = ref(storage, fileToDelete.url);
-        await deleteObject(fileRef);
+        // Attempt to delete from Storage first
+        try {
+            const fileRef = ref(storage, fileToDelete.url);
+            await deleteObject(fileRef);
+        } catch (error: any) {
+            // If the file doesn't exist in storage, that's okay.
+            // We still want to delete the Firestore document.
+            if (error.code !== 'storage/object-not-found') {
+                // If it's a different error (e.g., permissions), throw it
+                throw error;
+            }
+            console.log("File not found in Storage, proceeding to delete Firestore reference.");
+        }
 
-        // Delete from Firestore
+        // Always delete from Firestore
         await deleteDoc(doc(firestore, 'helpDocuments', fileToDelete.id));
 
         toast({ title: 'Success', description: `${fileToDelete.fileName} has been deleted.` });
