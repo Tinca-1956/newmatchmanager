@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -10,7 +11,6 @@ import {
   CardFooter,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Upload, Trash2, FileText, Video } from 'lucide-react';
@@ -111,7 +111,7 @@ export default function HelpPage() {
         },
         (error) => {
             console.error('Upload failed:', error);
-            toast({ variant: 'destructive', title: 'Upload failed', description: 'Could not upload the file.' });
+            toast({ variant: 'destructive', title: 'Upload failed', description: 'Could not upload the file. Check storage rules.' });
             setIsUploading(false);
         },
         async () => {
