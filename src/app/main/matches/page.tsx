@@ -343,7 +343,7 @@ function MatchesSiteAdminPageContent() {
                           </TooltipTrigger>
                           <TooltipContent><p>View Results</p></TooltipContent>
                       </Tooltip>
-                      {status !== 'Completed' && (
+                      {status !== 'Completed' && userProfile?.memberStatus === 'Member' && (
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <div className="inline-block"> {/* Wrapper for tooltip on disabled */}
@@ -425,7 +425,7 @@ function MatchesSiteAdminPageContent() {
                     </div>
                 </CardContent>
                 <CardFooter className="flex justify-between items-center">
-                    {status !== 'Completed' ? (
+                    {status !== 'Completed' && userProfile?.memberStatus === 'Member' ? (
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
