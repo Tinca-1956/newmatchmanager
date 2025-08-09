@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -19,7 +20,7 @@ export default function HelpPage() {
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Frequently Asked Questions</CardTitle>
+          <CardTitle>Watch these short videos to guide you through MATCH MANAGER</CardTitle>
           <CardDescription>
             This section will be updated with common questions and answers.
           </CardDescription>
