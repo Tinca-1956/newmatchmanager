@@ -263,13 +263,18 @@ export default function WeighInPage() {
   };
   
   const handleFieldChange = (userId: string, field: keyof AnglerResultData, value: string | number) => {
-    setResults(prev => 
-        prev.map(r => {
-            if (r.userId === userId) {
-                return {...r, [field]: value };
-            }
-            return r;
-        })
+    setResults(prev =>
+      prev.map(r => {
+        if (r.userId === userId) {
+          const updatedResult = { ...r, [field]: value };
+          // If status is changed to a non-weighing status, set weight to 0
+          if (field === 'status' && ['NYW', 'DNW', 'DNF', 'DSQ'].includes(value as string)) {
+            updatedResult.weight = 0;
+          }
+          return updatedResult;
+        }
+        return r;
+      })
     );
   };
   
