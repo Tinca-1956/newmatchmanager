@@ -259,7 +259,7 @@ export default function HelpPage() {
                     id="file-upload"
                     disabled={isUploading}
                 />
-                <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading || !description.trim()}>
+                <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading || !description.trim()} className="mt-2">
                   <Upload className="mr-2 h-4 w-4" />
                   {isUploading ? `Uploading...` : 'Select & Upload File'}
                 </Button>
