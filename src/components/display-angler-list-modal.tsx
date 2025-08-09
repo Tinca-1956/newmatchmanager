@@ -41,6 +41,27 @@ interface AnglerDetails {
     lastName: string;
 }
 
+// Helper function to fetch documents in chunks for security rule compliance
+async function getDocsInChunks<T extends { id: string }>(ids: string[], collectionName: string): Promise<Map<string, T>> {
+    if (!ids.length) return new Map();
+    const chunks: string[][] = [];
+    for (let i = 0; i < ids.length; i += 30) {
+        chunks.push(ids.slice(i, i + 30));
+    }
+
+    const resultsMap = new Map<string, T>();
+    for (const chunk of chunks) {
+        if (chunk.length === 0) continue;
+        // Use a direct 'in' query which is more likely to be allowed for authenticated users
+        // than a broad query with a 'where' clause on a different field.
+        const q = query(collection(firestore, collectionName), where('__name__', 'in', chunk));
+        const snapshot = await getDocs(q);
+        snapshot.forEach(doc => resultsMap.set(doc.id, { id: doc.id, ...doc.data() } as T));
+    }
+    return resultsMap;
+}
+
+
 export function DisplayAnglerListModal({ isOpen, onClose, match }: DisplayAnglerListModalProps) {
   const [anglerDetails, setAnglerDetails] = useState<AnglerDetails[]>([]);
   const [club, setClub] = useState<Club | null>(null);
@@ -65,15 +86,10 @@ export function DisplayAnglerListModal({ isOpen, onClose, match }: DisplayAngler
             setClub({ id: clubDoc.id, ...clubDoc.data() } as Club);
           }
 
-          // Fetch all users in the club, just like the working "Add Anglers" modal
-          const usersQuery = query(collection(firestore, 'users'), where('primaryClubId', '==', match.clubId));
-          const usersSnapshot = await getDocs(usersQuery);
-          const allClubUsers = usersSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as User));
+          // Fetch only the registered user documents using their IDs
+          const usersMap = await getDocsInChunks<User>(match.registeredAnglers, 'users');
+          const registeredUsers = match.registeredAnglers.map(id => usersMap.get(id)).filter((u): u is User => !!u);
           
-          // Filter the full list to get only the registered anglers
-          const registeredAnglerIds = new Set(match.registeredAnglers);
-          const registeredUsers = allClubUsers.filter(user => registeredAnglerIds.has(user.id));
-
           const combinedDetails = registeredUsers.map(user => ({
             id: user.id,
             firstName: user.firstName,
