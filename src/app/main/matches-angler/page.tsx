@@ -281,7 +281,7 @@ function MatchesPageContent() {
                           </TooltipTrigger>
                           <TooltipContent><p>View Results</p></TooltipContent>
                       </Tooltip>
-                      {status !== 'Completed' && userProfile?.memberStatus === 'Member' && (
+                      {status !== 'Completed' && (
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <div className="inline-block"> {/* Wrapper for tooltip on disabled */}
@@ -363,7 +363,7 @@ function MatchesPageContent() {
                     </div>
                 </CardContent>
                 <CardFooter className="flex justify-between items-center">
-                    {status !== 'Completed' && userProfile?.memberStatus === 'Member' ? (
+                    {status !== 'Completed' ? (
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
