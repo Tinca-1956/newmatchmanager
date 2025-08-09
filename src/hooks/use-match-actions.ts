@@ -137,15 +137,6 @@ export const useMatchActions = () => {
         toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to register.' });
         return;
      }
-     
-     if (userProfile.memberStatus !== 'Member') {
-        toast({
-            variant: 'destructive',
-            title: 'Cannot register for match',
-            description: `Your status is ${userProfile.memberStatus}. Only 'Member' status can register.`,
-        });
-        return;
-     }
 
      if (match.registeredCount >= match.capacity) {
         toast({ variant: 'destructive', title: 'Match Full', description: 'This match has reached its capacity.' });
