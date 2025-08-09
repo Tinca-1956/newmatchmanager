@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -48,6 +49,7 @@ const navItems = [
   { href: '/main/test-access', icon: TestTube, label: 'Test Access - Site Admin', siteAdminOnly: true },
   { href: '/main/emulator', icon: FlaskConical, label: 'Emulator', adminOnly: true, emulatorOnly: true },
   { href: '/main/help', icon: HelpCircle, label: 'Help - Site Admin', siteAdminOnly: true },
+  { href: '/main/help-user', icon: HelpCircle, label: 'Help' },
   { href: '/main/about', icon: Info, label: 'About' },
 ];
 
