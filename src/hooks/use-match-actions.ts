@@ -133,8 +133,17 @@ export const useMatchActions = () => {
   };
 
   const handleRegister = async (match: Match) => {
-     if (!user || !firestore) {
+     if (!user || !userProfile || !firestore) {
         toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to register.' });
+        return;
+     }
+     
+     if (userProfile.memberStatus !== 'Member') {
+        toast({
+            variant: 'destructive',
+            title: 'Cannot register for match',
+            description: `Your status is ${userProfile.memberStatus}. Only 'Member' status can register.`,
+        });
         return;
      }
 
