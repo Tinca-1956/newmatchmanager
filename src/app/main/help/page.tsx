@@ -31,6 +31,7 @@ import {
   uploadBytesResumable,
   getDownloadURL,
   deleteObject,
+  type UploadMetadata,
 } from 'firebase/storage';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -102,7 +103,14 @@ export default function HelpPage() {
 
     const fileType = file.type.includes('pdf') ? 'pdf' : 'video';
     const storageRef = ref(storage, `help_documents/${Date.now()}-${file.name}`);
-    const uploadTask = uploadBytesResumable(storageRef, file);
+    
+    // Set metadata to allow inline viewing
+    const metadata: UploadMetadata = {
+      contentType: file.type,
+      contentDisposition: 'inline',
+    };
+    
+    const uploadTask = uploadBytesResumable(storageRef, file, metadata);
 
     uploadTask.on('state_changed',
         (snapshot) => {
