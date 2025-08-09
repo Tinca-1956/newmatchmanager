@@ -18,7 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trophy, HelpCircle, Trash2, ArrowRight, Download, Globe } from 'lucide-react';
+import { PlusCircle, Edit, Trophy, HelpCircle, Trash2, ArrowRight, Download } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -490,14 +490,6 @@ export default function SeriesPage() {
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent side="left"><p>Edit series</p></TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" onClick={() => toast({ title: 'Publish action triggered for ' + series.name })}>
-                                    <Globe className="h-4 w-4" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent><p>Publish</p></TooltipContent>
                         </Tooltip>
                         <AlertDialog>
                             <Tooltip>
