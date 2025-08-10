@@ -45,7 +45,7 @@ const navItems = [
   { href: '/main/matches-club-admin', icon: Swords, label: 'Matches - Club Admin', adminOnly: true },
   { href: '/main/matches', icon: Swords, label: 'Matches - Site Admin', siteAdminOnly: true },
   { href: '/main/gallery', icon: ImageIcon, label: 'Image gallery' },
-  { href: '/main/register', icon: LogIn, label: 'Register', anglerOnly: true},
+  { href: '/main/register', icon: LogIn, label: 'Register' },
   { href: '/main/weigh-in-club-admin', icon: Scale, label: 'Weigh in - Club Admin', adminOnly: true },
   { href: '/main/weigh-in-site-admins', icon: Scale, label: 'Weigh in - Site Admins', siteAdminOnly: true },
   { href: '/main/results', icon: Medal, label: 'Results' },
