@@ -90,9 +90,15 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
   }
 
   const sortedNavItems = navItems.filter((item: any) => {
-      const isSiteAdmin = userProfile?.role === 'Site Admin';
-      const isClubAdmin = userProfile?.role === 'Club Admin';
-      const isAngler = userProfile?.role === 'Angler';
+      if (!userProfile) return false; // Don't show any items if profile is not loaded
+
+      const isSiteAdmin = userProfile.role === 'Site Admin';
+      const isClubAdmin = userProfile.role === 'Club Admin';
+      const isAngler = userProfile.role === 'Angler';
+
+      if (item.href === '/main/contact') {
+          return true; // Always show Contact item to any logged in user
+      }
 
       if (item.emulatorOnly && !isEmulatorMode) {
           return false;
