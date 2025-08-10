@@ -22,6 +22,7 @@ import {
   Scale,
   HelpCircle,
   LogIn,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { SheetClose } from './ui/sheet';
 import { useAuth } from '@/hooks/use-auth';
@@ -42,6 +43,7 @@ const navItems = [
   { href: '/main/matches-angler', icon: Swords, label: 'Matches - Angler', anglerOnly: true },
   { href: '/main/matches-club-admin', icon: Swords, label: 'Matches - Club Admin', adminOnly: true },
   { href: '/main/matches', icon: Swords, label: 'Matches - Site Admin', siteAdminOnly: true },
+  { href: '/main/gallery', icon: ImageIcon, label: 'Image gallery' },
   { href: '/main/register', icon: LogIn, label: 'Register', anglerOnly: true},
   { href: '/main/weigh-in-club-admin', icon: Scale, label: 'Weigh in - Club Admin', adminOnly: true },
   { href: '/main/weigh-in-site-admins', icon: Scale, label: 'Weigh in - Site Admins', siteAdminOnly: true },
