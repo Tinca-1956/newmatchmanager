@@ -114,14 +114,8 @@ export default function RegisterPage() {
             registeredCount: increment(1)
         });
         
-        // Update local state to reflect the registration
-        setUpcomingMatches(prevMatches =>
-            prevMatches.map(m =>
-                m.id === match.id
-                    ? { ...m, registeredAnglers: [...m.registeredAnglers, user.uid], registeredCount: m.registeredCount + 1 }
-                    : m
-            )
-        );
+        // The onSnapshot listener will automatically update the UI.
+        // No need to manually set state here.
 
         toast({ title: 'Success!', description: `You have been registered for ${match.name}.` });
     } catch (error) {
