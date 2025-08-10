@@ -2,7 +2,7 @@
 'use server';
 
 import { Resend } from 'resend';
-import { firestoreAdmin } from '@/lib/firebase-admin';
+import { getFirestoreAdmin } from '@/lib/firebase-admin';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import type { User } from './types';
 
@@ -146,6 +146,8 @@ export const sendWelcomeEmail = async (email: string, name: string, clubName: st
 }
 
 export const sendContactEmailToClubAdmins = async (clubId: string, subject: string, message: string, fromUserEmail: string) => {
+  const firestoreAdmin = getFirestoreAdmin();
+  
   // 1. Find all club admins for the given clubId
   const adminsQuery = query(
     collection(firestoreAdmin, 'users'),
