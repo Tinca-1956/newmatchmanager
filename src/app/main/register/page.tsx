@@ -228,17 +228,21 @@ export default function RegisterPage() {
       ));
     }
     
-    if (upcomingMatches.length === 0) {
+    const availableMatches = upcomingMatches.filter(match => 
+        !user || !match.registeredAnglers.includes(user.uid)
+    );
+
+    if (availableMatches.length === 0) {
         return (
              <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center">
-                    No upcoming matches found for your primary club.
+                    No upcoming matches available to register for in your primary club.
                 </TableCell>
             </TableRow>
         )
     }
 
-    return upcomingMatches.map(match => {
+    return availableMatches.map(match => {
         const isRegistered = user ? match.registeredAnglers.includes(user.id) : false;
         const isFull = match.registeredCount >= match.capacity;
         
@@ -286,7 +290,12 @@ export default function RegisterPage() {
              <Card>
                 <CardHeader>
                     <CardTitle>Upcoming Matches</CardTitle>
-                    <CardDescription>Below is a list of upcoming matches for {clubName}.</CardDescription>
+                    <CardDescription>
+                        Below is a list of upcoming matches for {clubName}.
+                        <span className="block pt-2 text-xs">
+                            See your PROFILE page to see a list of all matches you have registered for, and to UNREGISTER if you decide you cannot attend.
+                        </span>
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Table>
