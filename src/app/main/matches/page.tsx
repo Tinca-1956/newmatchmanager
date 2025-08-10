@@ -316,7 +316,7 @@ function MatchesSiteAdminPageContent() {
                               </TooltipTrigger>
                               <TooltipContent><p>Edit Match</p></TooltipContent>
                           </Tooltip>
-                          <Tooltip>
+                           <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button variant="ghost" size="icon" onClick={() => handlePublish(match)} disabled={status !== 'Completed'}>
                                     <Globe className="h-4 w-4" />
@@ -433,7 +433,7 @@ function MatchesSiteAdminPageContent() {
                                         <Edit className="mr-2 h-4 w-4" />
                                         <span>Edit Match</span>
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handlePublish(match)} disabled={status !== 'Completed'}>
+                                     <DropdownMenuItem onClick={() => handlePublish(match)} disabled={status !== 'Completed'}>
                                         <Globe className="mr-2 h-4 w-4" />
                                         <span>Publish Results</span>
                                     </DropdownMenuItem>
