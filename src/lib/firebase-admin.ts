@@ -1,21 +1,21 @@
 
-'use server';
-
 import * as admin from 'firebase-admin';
 
 let firestoreAdmin: admin.firestore.Firestore;
+let initialized = false;
 
 const initializeFirebaseAdmin = () => {
-  if (admin.apps.length > 0) {
-    return admin.app();
+  if (initialized || admin.apps.length > 0) {
+    if (admin.apps.length > 0) {
+      initialized = true;
+    }
+    return;
   }
 
   // Ensure environment variables are present before attempting to initialize.
   if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || !process.env.FIREBASE_CLIENT_EMAIL || !process.env.FIREBASE_PRIVATE_KEY) {
       console.error("Firebase Admin SDK environment variables are not set. Skipping initialization.");
-      // In a real production scenario, you might want to throw an error here
-      // if the admin SDK is critical for the application's function.
-      return null;
+      return;
   }
 
   try {
@@ -25,22 +25,23 @@ const initializeFirebaseAdmin = () => {
       privateKey: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
     };
     
-    return admin.initializeApp({
+    admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     });
+
+    firestoreAdmin = admin.firestore();
+    initialized = true;
+
   } catch (error: any) {
-    console.error('Firebase admin initialization error:', error);
-    // Don't rethrow, to prevent crashing server components that import this.
-    // The calling function will need to handle the uninitialized state.
-    return null;
+    if (error.code !== 'auth/invalid-credential') {
+        console.error('Firebase admin initialization error:', error);
+    }
   }
 };
 
-const app = initializeFirebaseAdmin();
+initializeFirebaseAdmin();
 
-if (app) {
-    firestoreAdmin = admin.firestore();
-} else {
+if (!initialized) {
     // If initialization fails, we create a mock/dummy object that will cause
     // any subsequent database calls to fail gracefully without crashing the app.
     // This makes it clear that the issue is with the connection/setup.
