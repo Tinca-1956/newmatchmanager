@@ -2,81 +2,101 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    function isUserAuthenticated() {
-      return request.auth != null;
-    }
-
+    
+    // Helper Functions
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
-
-    function isSiteAdmin() {
-      return isUserAuthenticated() && getUserData().role == 'Site Admin';
-    }
-
-    function isClubAdmin() {
-      return isUserAuthenticated() && getUserData().role == 'Club Admin';
-    }
-
-    // Rules for the 'users' collection
-    match /users/{userId} {
-      allow read: if isUserAuthenticated();
-      allow create: if isUserAuthenticated();
-      allow update: if isUserAuthenticated() && (request.auth.uid == userId || isSiteAdmin());
-      allow delete: if isSiteAdmin();
-    }
     
-    // Rules for the 'clubs' collection
-    match /clubs/{clubId} {
-      allow read: if isUserAuthenticated();
-      allow create: if isSiteAdmin();
-      allow update: if isUserAuthenticated() && 
-                     (isSiteAdmin() || (isClubAdmin() && getUserData().primaryClubId == clubId));
-      allow delete: if isSiteAdmin();
-    }
-    
-    // Rules for the 'series' collection
-    match /series/{seriesId} {
-        allow read: if isUserAuthenticated();
-        allow create, update, delete: if isSiteAdmin() || isClubAdmin();
-    }
-
-    // Rules for the 'matches' collection
-    match /matches/{matchId} {
-      allow read: if isUserAuthenticated();
-      allow create, update: if isSiteAdmin() || isClubAdmin();
-      allow delete: if isSiteAdmin();
-    }
-    
-    // Rules for the 'results' collection
-    match /results/{resultId} {
-        allow read: if isUserAuthenticated();
-        allow create, update, delete: if isSiteAdmin() || isClubAdmin();
-    }
-
-    // Public collections are readable by anyone, but writable only by admins
+    // PUBLIC-FACING collections can be read by anyone, but not written to.
     match /publicMatches/{matchId} {
       allow read: if true;
-      allow write: if isSiteAdmin() || isClubAdmin();
+      allow write: if false;
     }
-
     match /publicUpcomingMatches/{matchId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // AUTHENTICATED collections require a signed-in user.
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+    
+    match /users/{userId} {
+      // Allow a user to read their own document.
+      allow get: if request.auth.uid == userId;
+
+      // Allow a user to update their own profile information.
+      allow update: if request.auth.uid == userId;
+      
+      // Allow Site Admins or Club Admins to read user data for their club.
+      allow list: if request.auth.uid != null &&
+                      (getUserData().role == 'Site Admin' ||
+                       (getUserData().role == 'Club Admin' && getUserData().primaryClubId == resource.data.primaryClubId));
+
+      // Allow Site Admins or Club Admins to update user data for their club.
+      allow update: if request.auth.uid != null &&
+                      (getUserData().role == 'Site Admin' ||
+                       (getUserData().role == 'Club Admin' && getUserData().primaryClubId == resource.data.primaryClubId));
+                       
+      // Only Site Admins can create or delete users.
+      allow create, delete: if request.auth.uid != null && getUserData().role == 'Site Admin';
+    }
+
+    match /clubs/{clubId} {
+        // Anyone can read club data.
         allow read: if true;
-        allow write: if isSite-Admin() || isClubAdmin();
+        
+        // Only Site Admins can create clubs.
+        allow create: if request.auth.uid != null && getUserData().role == 'Site Admin';
+
+        // Site Admins can update any club.
+        // Club Admins can update their own club.
+        allow update: if request.auth.uid != null &&
+                        (getUserData().role == 'Site Admin' ||
+                         (getUserData().role == 'Club Admin' && getUserData().primaryClubId == resource.id));
+                         
+        // Only Site Admins can delete clubs.
+        allow delete: if request.auth.uid != null && getUserData().role == 'Site Admin';
     }
 
-    // Allow site admins to manage help documents
+    match /series/{seriesId} {
+      // Allow read if user is a member of the club.
+      allow read: if request.auth.uid != null;
+      
+      // Allow create/update/delete if user is a Club Admin or Site Admin for that club.
+      allow write: if request.auth.uid != null &&
+                    (getUserData().role == 'Site Admin' || 
+                     (getUserData().role == 'Club Admin' && getUserData().primaryClubId == request.resource.data.clubId));
+    }
+    
+    match /matches/{matchId} {
+        // Allow read if user is a member of the club.
+        allow read: if request.auth.uid != null;
+        
+        // Allow users to register (update) if they are a member of the club.
+        allow update: if request.auth.uid != null && getUserData().memberStatus == 'Member';
+
+        // Allow create/delete if user is a Club Admin or Site Admin for that club.
+        allow create, delete: if request.auth.uid != null &&
+                        (getUserData().role == 'Site Admin' ||
+                         (getUserData().role == 'Club Admin' && getUserData().primaryClubId == request.resource.data.clubId));
+    }
+
+    match /results/{resultId} {
+      // Allow read if user is a member of the club.
+      allow read: if request.auth.uid != null;
+      
+      // Allow write if user is a Club Admin or Site Admin for that club.
+      allow write: if request.auth.uid != null &&
+                    (getUserData().role == 'Site Admin' || 
+                     (getUserData().role == 'Club Admin' && getUserData().primaryClubId == request.resource.data.clubId));
+    }
+
     match /helpDocuments/{docId} {
-        allow read: if isUserAuthenticated();
-        allow create, delete: if isSiteAdmin();
-    }
-
-    // Allow Club Admins to read members of their own club
-    match /databases/{database}/documents {
-      match /users/{userId} {
-        allow list: if isClubAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == resource.data.primaryClubId;
-      }
+        allow read: if true;
+        allow write: if request.auth.uid != null && getUserData().role == 'Site Admin';
     }
   }
 }
