@@ -2,7 +2,7 @@
 'use server';
 
 import { Resend } from 'resend';
-import { getFirestoreAdmin } from '@/lib/firebase-admin';
+import { firestore } from '@/lib/firebase-client';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import type { User } from './types';
 
@@ -62,24 +62,6 @@ const createWelcomeEmailBody = (name: string, clubName: string, role: string, st
   `;
 }
 
-const createContactEmailBody = (subject: string, message: string, fromUserEmail: string): string => {
-  return `
-    You have received a new message from a club member via the Match Manager contact form.
-
-    From: ${fromUserEmail}
-    Subject: ${subject}
-
-    --------------------------------
-    
-    Message:
-    ${message}
-
-    --------------------------------
-
-    Please reply to the user directly at their email address.
-  `;
-}
-
 
 export const sendVerificationEmail = async (email: string, name: string, verificationLink: string) => {
   try {
@@ -125,6 +107,9 @@ export const sendTestEmail = async (email: string, name: string) => {
 };
 
 export const sendWelcomeEmail = async (email: string, name: string, clubName: string, role: string, status: string, ccEmails: string[] = []) => {
+    if (!firestore) {
+        throw new Error('Firestore is not initialized');
+    }
     try {
         const { data, error } = await resend.emails.send({
             from: `Match Manager <${fromEmail}>`,
@@ -143,60 +128,4 @@ export const sendWelcomeEmail = async (email: string, name: string, clubName: st
         console.error('Error in sendWelcomeEmail:', error);
         throw error;
     }
-}
-
-export const sendContactEmailToClubAdmins = async (clubId: string, subject: string, message: string, fromUserEmail: string) => {
-  try {
-    const firestoreAdmin = getFirestoreAdmin();
-    
-    // 1. Find all club admins for the given clubId
-    const adminsQuery = query(
-      collection(firestoreAdmin, 'users'),
-      where('primaryClubId', '==', clubId),
-      where('role', '==', 'Club Admin')
-    );
-    const adminSnapshot = await getDocs(adminsQuery);
-    
-    let adminEmails: string[] = [];
-
-    if (adminSnapshot.empty) {
-      // Also check for Site Admins as a fallback
-      const siteAdminsQuery = query(collection(firestoreAdmin, 'users'), where('role', '==', 'Site Admin'));
-      const siteAdminSnapshot = await getDocs(siteAdminsQuery);
-      if (siteAdminSnapshot.empty) {
-        throw new Error('No club administrators or site administrators found to send the message to.');
-      }
-      adminEmails = siteAdminSnapshot.docs.map(doc => (doc.data() as User).email).filter(email => email);
-    } else {
-       adminEmails = adminSnapshot.docs.map(doc => (doc.data() as User).email).filter(email => email);
-    }
-
-    if (adminEmails.length === 0) {
-      throw new Error('No administrator email addresses found.');
-    }
-
-    // 2. Send the email using Resend
-    const { data, error } = await resend.emails.send({
-      from: `Match Manager Contact Form <${fromEmail}>`,
-      to: adminEmails,
-      subject: `[Match Manager Contact] ${subject}`,
-      text: createContactEmailBody(subject, message, fromUserEmail),
-      reply_to: fromUserEmail,
-    });
-
-    if (error) {
-      console.error('Resend error:', error);
-      throw new Error('Failed to send contact email.');
-    }
-
-    return data;
-  } catch (e) {
-     if (e instanceof Error) {
-        console.error(`Error in sendContactEmailToClubAdmins: ${e.message}`);
-        // Re-throw the original error to be caught by the client
-        throw e;
-     }
-     console.error('An unknown error occurred in sendContactEmailToClubAdmins');
-     throw new Error('An unknown error occurred while sending the contact email.');
-  }
 }

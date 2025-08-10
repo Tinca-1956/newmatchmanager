@@ -3,13 +3,12 @@ import { initializeApp, getApps, getApp, type FirebaseOptions } from 'firebase/a
 import { getAuth, type Auth, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, type Firestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage, connectStorageEmulator } from 'firebase/storage';
-import { getFunctions, type Functions, connectFunctionsEmulator } from 'firebase/functions';
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 
 let app;
 let auth: Auth | null = null;
 let firestore: Firestore | null = null;
 let storage: FirebaseStorage | null = null;
-let functions: Functions | null = null;
 
 // A flag to ensure emulator connection only happens once.
 let emulatorsConnected = false;
@@ -18,7 +17,7 @@ const firebaseConfig: FirebaseOptions = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
     authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
     projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_Bucket,
     messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
@@ -36,9 +35,10 @@ if (typeof window !== 'undefined') {
         
         auth = getAuth(app);
         firestore = getFirestore(app);
+        // Correctly initialize storage with the bucket URL
         storage = getStorage(app, firebaseConfig.storageBucket);
-        functions = getFunctions(app);
-        
+        const functions = getFunctions(app);
+
         // This is the correct way to conditionally connect to emulators.
         // It depends on an environment variable and ensures it only runs once.
         if (process.env.NEXT_PUBLIC_USE_EMULATORS === 'true' && !emulatorsConnected) {
@@ -47,9 +47,7 @@ if (typeof window !== 'undefined') {
                 connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
                 connectFirestoreEmulator(firestore, 'localhost', 8080);
                 connectStorageEmulator(storage, 'localhost', 9199);
-                if (functions) {
-                    connectFunctionsEmulator(functions, 'localhost', 5001);
-                }
+                connectFunctionsEmulator(functions, 'localhost', 5001);
                 emulatorsConnected = true; // Set the flag to prevent reconnecting
             } catch(e) {
                 console.error("Error connecting to emulators. This can happen on hot reloads. It's often safe to ignore.", e);
