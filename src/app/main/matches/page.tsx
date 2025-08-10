@@ -343,23 +343,6 @@ function MatchesSiteAdminPageContent() {
                           </TooltipTrigger>
                           <TooltipContent><p>View Results</p></TooltipContent>
                       </Tooltip>
-                      {status !== 'Completed' && (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <div className="inline-block"> {/* Wrapper for tooltip on disabled */}
-                                    <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    onClick={() => handleRegister(match)}
-                                    disabled={isUserRegistered}
-                                    >
-                                        <LogIn className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </TooltipTrigger>
-                            <TooltipContent><p>{isUserRegistered ? "Go to your profile page to un-register" : "Register for Match"}</p></TooltipContent>
-                        </Tooltip>
-                      )}
                   </div>
               </TooltipProvider>
           </TableCell>
@@ -424,29 +407,7 @@ function MatchesSiteAdminPageContent() {
                         <span className="font-medium">{match.registeredCount} / {match.capacity}</span>
                     </div>
                 </CardContent>
-                <CardFooter className="flex justify-between items-center">
-                    {status !== 'Completed' ? (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="inline-block"> {/* Wrapper for tooltip on disabled */}
-                                <Button 
-                                    onClick={() => handleRegister(match)}
-                                    disabled={isUserRegistered}
-                                    size="sm"
-                                >
-                                    <LogIn className="mr-2 h-4 w-4" />
-                                    {isUserRegistered ? 'Registered' : 'Register'}
-                                </Button>
-                            </div>
-                          </TooltipTrigger>
-                           <TooltipContent><p>{isUserRegistered ? "Go to your profile page to un-register" : "Register for Match"}</p></TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    ) : (
-                        <Button size="sm" disabled>Registration Closed</Button>
-                    )}
-
+                <CardFooter className="flex justify-end items-center">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon">
