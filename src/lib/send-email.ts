@@ -146,60 +146,57 @@ export const sendWelcomeEmail = async (email: string, name: string, clubName: st
 }
 
 export const sendContactEmailToClubAdmins = async (clubId: string, subject: string, message: string, fromUserEmail: string) => {
-  const firestoreAdmin = getFirestoreAdmin();
-  
-  // 1. Find all club admins for the given clubId
-  const adminsQuery = query(
-    collection(firestoreAdmin, 'users'),
-    where('primaryClubId', '==', clubId),
-    where('role', '==', 'Club Admin')
-  );
-  const adminSnapshot = await getDocs(adminsQuery);
-  
-  if (adminSnapshot.empty) {
-    // Also check for Site Admins as a fallback
-    const siteAdminsQuery = query(collection(firestoreAdmin, 'users'), where('role', '==', 'Site Admin'));
-    const siteAdminSnapshot = await getDocs(siteAdminsQuery);
-    if (siteAdminSnapshot.empty) {
-      throw new Error('No club administrators or site administrators found to send the message to.');
+  try {
+    const firestoreAdmin = getFirestoreAdmin();
+    
+    // 1. Find all club admins for the given clubId
+    const adminsQuery = query(
+      collection(firestoreAdmin, 'users'),
+      where('primaryClubId', '==', clubId),
+      where('role', '==', 'Club Admin')
+    );
+    const adminSnapshot = await getDocs(adminsQuery);
+    
+    let adminEmails: string[] = [];
+
+    if (adminSnapshot.empty) {
+      // Also check for Site Admins as a fallback
+      const siteAdminsQuery = query(collection(firestoreAdmin, 'users'), where('role', '==', 'Site Admin'));
+      const siteAdminSnapshot = await getDocs(siteAdminsQuery);
+      if (siteAdminSnapshot.empty) {
+        throw new Error('No club administrators or site administrators found to send the message to.');
+      }
+      adminEmails = siteAdminSnapshot.docs.map(doc => (doc.data() as User).email).filter(email => email);
+    } else {
+       adminEmails = adminSnapshot.docs.map(doc => (doc.data() as User).email).filter(email => email);
     }
-    const adminEmails = siteAdminSnapshot.docs.map(doc => (doc.data() as User).email);
-     if (adminEmails.length === 0) {
+
+    if (adminEmails.length === 0) {
       throw new Error('No administrator email addresses found.');
     }
-    // Sending to site admins
+
+    // 2. Send the email using Resend
     const { data, error } = await resend.emails.send({
-        from: `Match Manager Contact Form <${fromEmail}>`,
-        to: adminEmails,
-        subject: `[Match Manager Contact] ${subject}`,
-        text: createContactEmailBody(subject, message, fromUserEmail),
+      from: `Match Manager Contact Form <${fromEmail}>`,
+      to: adminEmails,
+      subject: `[Match Manager Contact] ${subject}`,
+      text: createContactEmailBody(subject, message, fromUserEmail),
+      reply_to: fromUserEmail,
     });
-     if (error) {
-        console.error('Resend error:', error);
-        throw new Error('Failed to send contact email to site admins.');
+
+    if (error) {
+      console.error('Resend error:', error);
+      throw new Error('Failed to send contact email.');
     }
+
     return data;
+  } catch (e) {
+     if (e instanceof Error) {
+        console.error(`Error in sendContactEmailToClubAdmins: ${e.message}`);
+        // Re-throw the original error to be caught by the client
+        throw e;
+     }
+     console.error('An unknown error occurred in sendContactEmailToClubAdmins');
+     throw new Error('An unknown error occurred while sending the contact email.');
   }
-  
-  const adminEmails = adminSnapshot.docs.map(doc => (doc.data() as User).email).filter(email => email);
-
-  if (adminEmails.length === 0) {
-    throw new Error('Club administrators found, but they do not have email addresses.');
-  }
-
-  // 2. Send the email using Resend
-  const { data, error } = await resend.emails.send({
-    from: `Match Manager Contact Form <${fromEmail}>`,
-    to: adminEmails,
-    subject: `[Match Manager Contact] ${subject}`,
-    text: createContactEmailBody(subject, message, fromUserEmail),
-    reply_to: fromUserEmail,
-  });
-
-  if (error) {
-    console.error('Resend error:', error);
-    throw new Error('Failed to send contact email.');
-  }
-
-  return data;
 }
