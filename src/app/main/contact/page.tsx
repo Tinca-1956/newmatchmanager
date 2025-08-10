@@ -81,10 +81,11 @@ export default function ContactPage() {
 
     } catch (error) {
       console.error('Error sending contact email:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
       toast({
         variant: 'destructive',
         title: 'Send Failed',
-        description: 'Could not send your message. Please try again later.'
+        description: `Could not send your message. Error: ${errorMessage}`
       });
     } finally {
       setIsSending(false);

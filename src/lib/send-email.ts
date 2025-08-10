@@ -2,7 +2,7 @@
 'use server';
 
 import { Resend } from 'resend';
-import { firestore } from '@/lib/firebase-client';
+import { firestoreAdmin } from '@/lib/firebase-admin';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import type { User } from './types';
 
@@ -146,13 +146,9 @@ export const sendWelcomeEmail = async (email: string, name: string, clubName: st
 }
 
 export const sendContactEmailToClubAdmins = async (clubId: string, subject: string, message: string, fromUserEmail: string) => {
-  if (!firestore) {
-    throw new Error('Firestore is not initialized');
-  }
-
   // 1. Find all club admins for the given clubId
   const adminsQuery = query(
-    collection(firestore, 'users'),
+    collection(firestoreAdmin, 'users'),
     where('primaryClubId', '==', clubId),
     where('role', '==', 'Club Admin')
   );
@@ -160,7 +156,7 @@ export const sendContactEmailToClubAdmins = async (clubId: string, subject: stri
   
   if (adminSnapshot.empty) {
     // Also check for Site Admins as a fallback
-    const siteAdminsQuery = query(collection(firestore, 'users'), where('role', '==', 'Site Admin'));
+    const siteAdminsQuery = query(collection(firestoreAdmin, 'users'), where('role', '==', 'Site Admin'));
     const siteAdminSnapshot = await getDocs(siteAdminsQuery);
     if (siteAdminSnapshot.empty) {
       throw new Error('No club administrators or site administrators found to send the message to.');
