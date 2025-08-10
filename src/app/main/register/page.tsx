@@ -114,8 +114,8 @@ export default function RegisterPage() {
             registeredCount: increment(1)
         });
         
-        // The onSnapshot listener will automatically update the UI.
-        // No need to manually set state here.
+        // Immediately remove the match from the local state to hide it
+        setUpcomingMatches(prevMatches => prevMatches.filter(m => m.id !== match.id));
 
         toast({ title: 'Success!', description: `You have been registered for ${match.name}.` });
     } catch (error) {
