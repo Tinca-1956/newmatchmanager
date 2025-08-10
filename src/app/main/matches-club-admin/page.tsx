@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -125,7 +124,6 @@ function MatchesClubAdminPageContent() {
     handleRemoveAnglers,
     handleViewAnglerList,
     handleManageImages,
-    handlePublish,
   } = useMatchActions();
 
   // Effect to set the initial club for fetching matches
@@ -304,14 +302,6 @@ function MatchesClubAdminPageContent() {
                           </TooltipTrigger>
                           <TooltipContent><p>Angler List</p></TooltipContent>
                       </Tooltip>
-                       <Tooltip>
-                          <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" onClick={() => handlePublish(match)}>
-                                  <Globe className="h-4 w-4" />
-                              </Button>
-                          </TooltipTrigger>
-                          <TooltipContent><p>Publish Results</p></TooltipContent>
-                      </Tooltip>
                         </>
                       )}
                       
@@ -416,10 +406,6 @@ function MatchesClubAdminPageContent() {
                                     <DropdownMenuItem onClick={() => handleViewAnglerList(match)}>
                                         <FileText className="mr-2 h-4 w-4" />
                                         <span>View Angler List</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handlePublish(match)}>
-                                        <Globe className="mr-2 h-4 w-4" />
-                                        <span>Publish Results</span>
                                     </DropdownMenuItem>
                                 </>
                             )}

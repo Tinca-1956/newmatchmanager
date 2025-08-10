@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -112,7 +111,6 @@ function MatchesPageContent() {
     closeResultsModal,
     closeDisplayAnglerListModal,
     handleViewAnglerList,
-    handlePublish,
   } = useMatchActions();
 
   // Effect to set the initial club for fetching matches
