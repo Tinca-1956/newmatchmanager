@@ -113,6 +113,16 @@ export default function RegisterPage() {
             registeredAnglers: arrayUnion(user.uid),
             registeredCount: increment(1)
         });
+        
+        // Update local state to reflect the registration
+        setUpcomingMatches(prevMatches =>
+            prevMatches.map(m =>
+                m.id === match.id
+                    ? { ...m, registeredAnglers: [...m.registeredAnglers, user.uid], registeredCount: m.registeredCount + 1 }
+                    : m
+            )
+        );
+
         toast({ title: 'Success!', description: `You have been registered for ${match.name}.` });
     } catch (error) {
         console.error("Error registering for match: ", error);
