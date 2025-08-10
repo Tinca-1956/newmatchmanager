@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -125,6 +126,7 @@ function MatchesSiteAdminPageContent() {
     handleRemoveAnglers,
     handleViewAnglerList,
     handleManageImages,
+    handlePublish,
   } = useMatchActions();
 
   // Effect to set the initial club for fetching matches
@@ -314,6 +316,14 @@ function MatchesSiteAdminPageContent() {
                               </TooltipTrigger>
                               <TooltipContent><p>Edit Match</p></TooltipContent>
                           </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" onClick={() => handlePublish(match)} disabled={status !== 'Completed'}>
+                                    <Globe className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Publish results to public dashboard</p></TooltipContent>
+                          </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
                               <Button variant="ghost" size="icon" onClick={() => handleViewAnglerList(match)}>
@@ -422,6 +432,10 @@ function MatchesSiteAdminPageContent() {
                                     <DropdownMenuItem onClick={() => handleEditMatch(match)}>
                                         <Edit className="mr-2 h-4 w-4" />
                                         <span>Edit Match</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handlePublish(match)} disabled={status !== 'Completed'}>
+                                        <Globe className="mr-2 h-4 w-4" />
+                                        <span>Publish Results</span>
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => handleViewAnglerList(match)}>
                                         <FileText className="mr-2 h-4 w-4" />
