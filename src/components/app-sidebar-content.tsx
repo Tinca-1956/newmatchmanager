@@ -23,6 +23,7 @@ import {
   HelpCircle,
   LogIn,
   Image as ImageIcon,
+  MessageSquare,
 } from 'lucide-react';
 import { SheetClose } from './ui/sheet';
 import { useAuth } from '@/hooks/use-auth';
@@ -50,6 +51,7 @@ const navItems = [
   { href: '/main/results', icon: Medal, label: 'Results' },
   { href: '/main/results-site-admin', icon: Medal, label: 'Results - Site Admin', siteAdminOnly: true },
   { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users - Site Admin', siteAdminOnly: true },
+  { href: '/main/contact', icon: MessageSquare, label: 'Contact' },
   { href: '/main/test-access', icon: TestTube, label: 'Test Access - Site Admin', siteAdminOnly: true },
   { href: '/main/emulator', icon: FlaskConical, label: 'Emulator', adminOnly: true, emulatorOnly: true },
   { href: '/main/help', icon: HelpCircle, label: 'Help - Site Admin', siteAdminOnly: true },

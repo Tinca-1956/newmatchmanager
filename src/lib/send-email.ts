@@ -2,10 +2,6 @@
 'use server';
 
 import { Resend } from 'resend';
-import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import type { User } from './types';
-
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -62,6 +58,21 @@ const createWelcomeEmailBody = (name: string, clubName: string, role: string, st
   `;
 }
 
+const createContactAdminEmailBody = (message: string, fromUserEmail: string): string => {
+  return `
+    You have received a new message from a club member.
+
+    From: ${fromUserEmail}
+    --------------------------------
+    Message:
+    
+    ${message}
+    --------------------------------
+
+    You can reply directly to the user at their email address.
+  `;
+}
+
 
 export const sendVerificationEmail = async (email: string, name: string, verificationLink: string) => {
   try {
@@ -107,9 +118,6 @@ export const sendTestEmail = async (email: string, name: string) => {
 };
 
 export const sendWelcomeEmail = async (email: string, name: string, clubName: string, role: string, status: string, ccEmails: string[] = []) => {
-    if (!firestore) {
-        throw new Error('Firestore is not initialized');
-    }
     try {
         const { data, error } = await resend.emails.send({
             from: `Match Manager <${fromEmail}>`,
@@ -129,3 +137,25 @@ export const sendWelcomeEmail = async (email: string, name: string, clubName: st
         throw error;
     }
 }
+
+export const sendContactEmailToClubAdmins = async (toEmail: string, subject: string, message: string, fromUserEmail: string) => {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: `Match Manager <${fromEmail}>`,
+      to: [toEmail],
+      reply_to: fromUserEmail,
+      subject: `[Match Manager Contact] ${subject}`,
+      text: createContactAdminEmailBody(message, fromUserEmail),
+    });
+
+     if (error) {
+      console.error('Resend error:', error);
+      throw new Error('Failed to send contact email.');
+    }
+    return data;
+
+  } catch (error) {
+    console.error('Error in sendContactEmailToClubAdmins:', error);
+    throw error;
+  }
+};
