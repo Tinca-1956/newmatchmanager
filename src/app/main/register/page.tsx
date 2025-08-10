@@ -8,17 +8,27 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { doc, getDoc } from 'firebase/firestore';
-import type { Club } from '@/lib/types';
+import { doc, getDoc, collection, query, where, onSnapshot, Timestamp, updateDoc, arrayUnion, increment } from 'firebase/firestore';
+import type { Club, Match } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, XCircle } from 'lucide-react';
+import { CheckCircle2, XCircle, LogIn } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHeader, TableHead, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
 
 export default function RegisterPage() {
-  const { userProfile, loading: authLoading } = useAuth();
+  const { user, userProfile, loading: authLoading } = useAuth();
+  const { toast } = useToast();
+
   const [clubName, setClubName] = useState<string>('');
   const [isClubLoading, setIsClubLoading] = useState(true);
 
+  const [upcomingMatches, setUpcomingMatches] = useState<Match[]>([]);
+  const [isMatchesLoading, setIsMatchesLoading] = useState(true);
+  const [isRegistering, setIsRegistering] = useState<string | null>(null); // Store match ID being registered for
+
+  // Fetch Club Name
   useEffect(() => {
     const fetchClubName = async () => {
       if (userProfile?.primaryClubId && firestore) {
@@ -45,6 +55,73 @@ export default function RegisterPage() {
       fetchClubName();
     }
   }, [userProfile, authLoading]);
+
+  // Fetch Upcoming Matches
+  useEffect(() => {
+    if (!userProfile?.primaryClubId || !firestore) {
+      setIsMatchesLoading(false);
+      return;
+    }
+
+    setIsMatchesLoading(true);
+    const matchesQuery = query(
+      collection(firestore, 'matches'),
+      where('clubId', '==', userProfile.primaryClubId),
+      where('status', '==', 'Upcoming')
+    );
+
+    const unsubscribe = onSnapshot(matchesQuery, (snapshot) => {
+      const matchesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        date: (doc.data().date as Timestamp).toDate(),
+      } as Match));
+      
+      matchesData.sort((a, b) => (a.date as Date).getTime() - (b.date as Date).getTime());
+
+      setUpcomingMatches(matchesData);
+      setIsMatchesLoading(false);
+    }, (error) => {
+      console.error("Error fetching upcoming matches:", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch upcoming matches.' });
+      setIsMatchesLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [userProfile?.primaryClubId, toast]);
+  
+  const handleRegister = async (match: Match) => {
+    if (!user || !userProfile || !firestore) {
+       toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to register.' });
+       return;
+    }
+    
+     if (userProfile.memberStatus !== 'Member') {
+        toast({ variant: 'destructive', title: 'Cannot Register', description: `Your membership status is '${userProfile.memberStatus}'. You must be an active 'Member' to register.` });
+        return;
+    }
+
+     if (match.registeredCount >= match.capacity) {
+        toast({ variant: 'destructive', title: 'Match Full', description: 'This match has reached its capacity.' });
+        return;
+     }
+
+    setIsRegistering(match.id);
+    try {
+        const matchDocRef = doc(firestore, 'matches', match.id);
+        await updateDoc(matchDocRef, {
+            registeredAnglers: arrayUnion(user.uid),
+            registeredCount: increment(1)
+        });
+        toast({ title: 'Success!', description: `You have been registered for ${match.name}.` });
+    } catch (error) {
+        console.error("Error registering for match: ", error);
+        toast({ variant: 'destructive', title: 'Registration Failed', description: 'Could not register you for the match.' });
+    } finally {
+        setIsRegistering(null);
+    }
+  };
+
 
   const isLoading = authLoading || isClubLoading;
   const canRegister = userProfile?.memberStatus === 'Member';
@@ -133,7 +210,55 @@ export default function RegisterPage() {
             </AlertDescription>
         </Alert>
     );
+  };
+
+   const renderUpcomingMatches = () => {
+    if (isMatchesLoading) {
+      return Array.from({ length: 3 }).map((_, i) => (
+        <TableRow key={i}>
+          <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+          <TableCell className="text-right"><Skeleton className="h-10 w-24" /></TableCell>
+        </TableRow>
+      ));
+    }
+    
+    if (upcomingMatches.length === 0) {
+        return (
+             <TableRow>
+                <TableCell colSpan={5} className="h-24 text-center">
+                    No upcoming matches found for your primary club.
+                </TableCell>
+            </TableRow>
+        )
+    }
+
+    return upcomingMatches.map(match => {
+        const isRegistered = user ? match.registeredAnglers.includes(user.id) : false;
+        const isFull = match.registeredCount >= match.capacity;
+        
+        return (
+            <TableRow key={match.id}>
+                <TableCell className="font-medium">{format(match.date, 'PPP')}</TableCell>
+                <TableCell>{match.seriesName}</TableCell>
+                <TableCell>{match.name}</TableCell>
+                <TableCell>{match.location}</TableCell>
+                <TableCell className="text-right">
+                    <Button 
+                        size="sm" 
+                        onClick={() => handleRegister(match)}
+                        disabled={!canRegister || isRegistered || isFull || isRegistering === match.id}
+                    >
+                       <LogIn className="mr-2 h-4 w-4" />
+                       {isRegistering === match.id ? 'Registering...' : (isRegistered ? 'Registered' : (isFull ? 'Full' : 'Register'))}
+                    </Button>
+                </TableCell>
+            </TableRow>
+        )
+    })
   }
+
 
   return (
     <div className="flex flex-col gap-8">
@@ -152,6 +277,31 @@ export default function RegisterPage() {
                {renderEligibilityAlert()}
             </CardContent>
         </Card>
+
+        {canRegister && (
+             <Card>
+                <CardHeader>
+                    <CardTitle>Upcoming Matches</CardTitle>
+                    <CardDescription>Below is a list of upcoming matches for {clubName}.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Series</TableHead>
+                                <TableHead>Match</TableHead>
+                                <TableHead>Location</TableHead>
+                                <TableHead className="text-right">Action</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {renderUpcomingMatches()}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        )}
     </div>
   );
 }
