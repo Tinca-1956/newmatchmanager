@@ -47,7 +47,9 @@ if (typeof window !== 'undefined') {
                 connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
                 connectFirestoreEmulator(firestore, 'localhost', 8080);
                 connectStorageEmulator(storage, 'localhost', 9199);
-                connectFunctionsEmulator(functions, 'localhost', 5001);
+                if (functions) {
+                    connectFunctionsEmulator(functions, 'localhost', 5001);
+                }
                 emulatorsConnected = true; // Set the flag to prevent reconnecting
             } catch(e) {
                 console.error("Error connecting to emulators. This can happen on hot reloads. It's often safe to ignore.", e);
