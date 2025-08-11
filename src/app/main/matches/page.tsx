@@ -19,7 +19,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, UserPlus, FileText, Trophy, Scale, LogIn, Edit, UserMinus, MapPin, MoreVertical, Image as ImageIcon, Globe } from 'lucide-react';
+import { PlusCircle, UserPlus, FileText, Trophy, Scale, LogIn, Edit, UserMinus, MapPin, MoreVertical, Image as ImageIcon, Globe, HelpCircle, Trash2 } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -32,6 +32,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -54,6 +55,19 @@ import Link from 'next/link';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CreateMatchModal } from '@/components/create-match-modal';
+import { MatchDescriptionModal } from '@/components/match-description-modal';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
 
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
@@ -110,6 +124,7 @@ function MatchesSiteAdminPageContent() {
     isDisplayAnglerListModalOpen,
     isEditModalOpen,
     isRemoveAnglerModalOpen,
+    isDescriptionModalOpen,
     selectedMatchForModal,
     selectedMatchIdForModal,
     handleViewResults,
@@ -120,6 +135,7 @@ function MatchesSiteAdminPageContent() {
     closeDisplayAnglerListModal,
     closeEditModal,
     closeRemoveAnglerModal,
+    closeDescriptionModal,
     handleManagePegs,
     handleWeighIn,
     handleAddAnglers,
@@ -127,6 +143,8 @@ function MatchesSiteAdminPageContent() {
     handleViewAnglerList,
     handleManageImages,
     handlePublish,
+    handleViewDescription,
+    handleDeleteMatch,
   } = useMatchActions();
 
   // Effect to set the initial club for fetching matches
@@ -284,6 +302,14 @@ function MatchesSiteAdminPageContent() {
                   <div className="flex items-center gap-1">
                       {canEdit && (
                         <>
+                           <Tooltip>
+                              <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" onClick={() => handleViewDescription(match)}>
+                                      <HelpCircle className="h-4 w-4" />
+                                  </Button>
+                              </TooltipTrigger>
+                              <TooltipContent><p>View/Edit Description</p></TooltipContent>
+                          </Tooltip>
                           <Tooltip>
                               <TooltipTrigger asChild>
                                   <Button variant="ghost" size="icon" onClick={() => handleAddAnglers(match.id)}>
@@ -332,6 +358,34 @@ function MatchesSiteAdminPageContent() {
                           </TooltipTrigger>
                           <TooltipContent><p>Angler List</p></TooltipContent>
                       </Tooltip>
+                      {match.registeredCount === 0 && (
+                          <AlertDialog>
+                              <Tooltip>
+                                  <TooltipTrigger asChild>
+                                      <AlertDialogTrigger asChild>
+                                          <Button variant="ghost" size="icon">
+                                              <Trash2 className="h-4 w-4 text-destructive" />
+                                          </Button>
+                                      </AlertDialogTrigger>
+                                  </TooltipTrigger>
+                                  <TooltipContent><p>Delete Match</p></TooltipContent>
+                              </Tooltip>
+                              <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                          This action cannot be undone. This will permanently delete the match: <span className="font-bold">{match.name}</span>.
+                                      </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDeleteMatch(match.id)}>
+                                          Yes, delete it
+                                      </AlertDialogAction>
+                                  </AlertDialogFooter>
+                              </AlertDialogContent>
+                          </AlertDialog>
+                      )}
                         </>
                       )}
                       
@@ -417,6 +471,10 @@ function MatchesSiteAdminPageContent() {
                         <DropdownMenuContent align="end">
                             {canEdit && (
                                 <>
+                                    <DropdownMenuItem onClick={() => handleViewDescription(match)}>
+                                        <HelpCircle className="mr-2 h-4 w-4" />
+                                        <span>Description</span>
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => handleAddAnglers(match.id)}>
                                         <UserPlus className="mr-2 h-4 w-4" />
                                         <span>Add Anglers</span>
@@ -441,6 +499,33 @@ function MatchesSiteAdminPageContent() {
                                         <FileText className="mr-2 h-4 w-4" />
                                         <span>View Angler List</span>
                                     </DropdownMenuItem>
+                                     {match.registeredCount === 0 && (
+                                        <>
+                                            <DropdownMenuSeparator />
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                                        <Trash2 className="mr-2 h-4 w-4 text-destructive" />
+                                                        <span className="text-destructive">Delete Match</span>
+                                                    </DropdownMenuItem>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            This action cannot be undone. This will permanently delete the match: <span className="font-bold">{match.name}</span>.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleDeleteMatch(match.id)}>
+                                                            Yes, delete it
+                                                        </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </>
+                                    )}
                                 </>
                             )}
                              <DropdownMenuItem onClick={() => handleViewResults(match)}>
@@ -552,6 +637,12 @@ function MatchesSiteAdminPageContent() {
             isOpen={isRemoveAnglerModalOpen}
             onClose={closeRemoveAnglerModal}
             match={selectedMatchForModal}
+          />
+           <MatchDescriptionModal
+            isOpen={isDescriptionModalOpen}
+            onClose={closeDescriptionModal}
+            match={selectedMatchForModal}
+            canEdit={canEdit}
           />
         </>
       )}

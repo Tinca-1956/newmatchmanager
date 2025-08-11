@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -18,7 +19,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, UserPlus, FileText, Trophy, Scale, LogIn, Edit, UserMinus, MapPin, MoreVertical, Image as ImageIcon, Globe } from 'lucide-react';
+import { PlusCircle, UserPlus, FileText, Trophy, Scale, LogIn, Edit, UserMinus, MapPin, MoreVertical, Image as ImageIcon, Globe, HelpCircle } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -53,6 +54,7 @@ import Link from 'next/link';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CreateMatchModal } from '@/components/create-match-modal';
+import { MatchDescriptionModal } from '@/components/match-description-modal';
 
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
@@ -105,12 +107,15 @@ function MatchesPageContent() {
   const {
     isResultsModalOpen,
     isDisplayAnglerListModalOpen,
+    isDescriptionModalOpen,
     selectedMatchForModal,
     handleViewResults,
     handleRegister,
     closeResultsModal,
     closeDisplayAnglerListModal,
+    closeDescriptionModal,
     handleViewAnglerList,
+    handleViewDescription,
   } = useMatchActions();
 
   // Effect to set the initial club for fetching matches
@@ -211,6 +216,8 @@ function MatchesPageContent() {
     }
     setSelectedClubId(clubId);
   };
+  
+  const canEdit = isSiteAdmin || isClubAdmin;
 
   const renderMatchList = () => {
     if (isLoading) {
@@ -263,6 +270,14 @@ function MatchesPageContent() {
           <TableCell>
               <TooltipProvider>
                   <div className="flex items-center gap-1">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={() => handleViewDescription(match)}>
+                                <HelpCircle className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>View Description</p></TooltipContent>
+                      </Tooltip>
                       <Tooltip>
                         <TooltipTrigger asChild>
                             <Button variant="ghost" size="icon" onClick={() => handleViewAnglerList(match)}>
@@ -351,6 +366,10 @@ function MatchesPageContent() {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                           <DropdownMenuItem onClick={() => handleViewDescription(match)}>
+                                <HelpCircle className="mr-2 h-4 w-4" />
+                                <span>Description</span>
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleViewAnglerList(match)}>
                                 <FileText className="mr-2 h-4 w-4" />
                                 <span>View Angler List</span>
@@ -442,6 +461,12 @@ function MatchesPageContent() {
             isOpen={isDisplayAnglerListModalOpen}
             onClose={closeDisplayAnglerListModal}
             match={selectedMatchForModal}
+          />
+           <MatchDescriptionModal
+            isOpen={isDescriptionModalOpen}
+            onClose={closeDescriptionModal}
+            match={selectedMatchForModal}
+            canEdit={canEdit}
           />
         </>
       )}

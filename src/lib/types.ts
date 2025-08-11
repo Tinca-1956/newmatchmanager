@@ -54,6 +54,7 @@ export interface Match {
   registeredAnglers: string[];
   paidPlaces: number;
   mediaUrls?: string[];
+  description?: string;
 }
 
 export interface Result {

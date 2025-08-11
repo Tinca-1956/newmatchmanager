@@ -8,7 +8,7 @@ import type { Match, Result as ResultType, PublicMatch, PublicResult } from '@/l
 import { useToast } from './use-toast';
 import { useAuth } from './use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { doc, getDoc, updateDoc, arrayUnion, increment, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayUnion, increment, collection, query, where, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
 
 
 export const useMatchActions = () => {
@@ -21,6 +21,8 @@ export const useMatchActions = () => {
   const [isDisplayAnglerListModalOpen, setIsDisplayAnglerListModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isRemoveAnglerModalOpen, setIsRemoveAnglerModalOpen] = useState(false);
+  const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
+
 
   const [selectedMatchForModal, setSelectedMatchForModal] = useState<Match | null>(null);
   const [selectedMatchIdForModal, setSelectedMatchIdForModal] = useState<string | null>(null);
@@ -50,6 +52,11 @@ export const useMatchActions = () => {
     setSelectedMatchForModal(match);
     setIsDisplayAnglerListModalOpen(true);
   };
+  
+  const handleViewDescription = (match: Match) => {
+    setSelectedMatchForModal(match);
+    setIsDescriptionModalOpen(true);
+  };
 
   const handleManageImages = (matchId: string) => {
     router.push(`/main/matches/${matchId}/images`);
@@ -64,6 +71,21 @@ export const useMatchActions = () => {
 
    const handleWeighIn = (matchId: string) => {
      router.push(`/main/matches/${matchId}/weigh-in`);
+  };
+  
+  const handleDeleteMatch = async (matchId: string) => {
+    if (!firestore) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Database connection not available.' });
+      return;
+    }
+    toast({ title: 'Deleting Match...', description: 'Please wait.' });
+    try {
+      await deleteDoc(doc(firestore, 'matches', matchId));
+      toast({ title: 'Success!', description: 'The match has been permanently deleted.' });
+    } catch (error) {
+      console.error('Error deleting match:', error);
+      toast({ variant: 'destructive', title: 'Delete Failed', description: 'Could not delete the match.' });
+    }
   };
 
   const handlePublish = async (match: Match) => {
@@ -218,12 +240,18 @@ export const useMatchActions = () => {
     setSelectedMatchForModal(null);
   }
 
+  const closeDescriptionModal = () => {
+    setIsDescriptionModalOpen(false);
+    setSelectedMatchForModal(null);
+  };
+
   return {
     isResultsModalOpen,
     isAnglerListModalOpen,
     isDisplayAnglerListModalOpen,
     isEditModalOpen,
     isRemoveAnglerModalOpen,
+    isDescriptionModalOpen,
     selectedMatchForModal,
     selectedMatchIdForModal,
     handleViewResults,
@@ -236,10 +264,13 @@ export const useMatchActions = () => {
     handleWeighIn,
     handleManageImages,
     handlePublish,
+    handleViewDescription,
+    handleDeleteMatch,
     closeResultsModal,
     closeAnglerListModal,
     closeDisplayAnglerListModal,
     closeEditModal,
     closeRemoveAnglerModal,
+    closeDescriptionModal,
   };
 };
