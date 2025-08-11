@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Upload, Trash2, FileText, Video } from 'lucide-react';
+import { Upload, Trash2, FileText, Video, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { firestore, storage } from '@/lib/firebase-client';
 import {
@@ -24,7 +24,8 @@ import {
   deleteDoc,
   serverTimestamp,
   query,
-  orderBy
+  orderBy,
+  updateDoc
 } from 'firebase/firestore';
 import {
   ref,
@@ -45,6 +46,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 
 interface HelpDocument {
@@ -65,6 +74,10 @@ export default function HelpPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<HelpDocument | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!firestore) {
@@ -104,7 +117,6 @@ export default function HelpPage() {
     const fileType = file.type.includes('pdf') ? 'pdf' : 'video';
     const storageRef = ref(storage, `help_documents/${Date.now()}-${file.name}`);
     
-    // Set metadata to allow inline viewing
     const metadata: UploadMetadata = {
       contentType: file.type,
       contentDisposition: 'inline',
@@ -142,27 +154,49 @@ export default function HelpPage() {
     if (!firestore || !storage) return;
 
     try {
-        // Attempt to delete from Storage first
         try {
             const fileRef = ref(storage, fileToDelete.url);
             await deleteObject(fileRef);
         } catch (error: any) {
-            // If the file doesn't exist in storage, that's okay.
-            // We still want to delete the Firestore document.
             if (error.code !== 'storage/object-not-found') {
-                // If it's a different error (e.g., permissions), throw it
                 throw error;
             }
             console.log("File not found in Storage, proceeding to delete Firestore reference.");
         }
-
-        // Always delete from Firestore
         await deleteDoc(doc(firestore, 'helpDocuments', fileToDelete.id));
 
         toast({ title: 'Success', description: `${fileToDelete.fileName} has been deleted.` });
     } catch (error) {
         console.error("Error deleting file:", error);
         toast({ variant: 'destructive', title: 'Delete Failed', description: 'Could not delete the file.' });
+    }
+  };
+  
+  const handleEditClick = (docToEdit: HelpDocument) => {
+    setSelectedDoc(docToEdit);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateDescription = async () => {
+    if (!selectedDoc || !firestore) {
+      toast({ variant: 'destructive', title: 'Error', description: 'No document selected or Firestore is unavailable.' });
+      return;
+    }
+    
+    setIsSaving(true);
+    try {
+      const docRef = doc(firestore, 'helpDocuments', selectedDoc.id);
+      await updateDoc(docRef, {
+        description: selectedDoc.description,
+      });
+      toast({ title: 'Success!', description: 'The description has been updated.' });
+      setIsEditDialogOpen(false);
+      setSelectedDoc(null);
+    } catch (error) {
+      console.error('Error updating description:', error);
+      toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not update the description.' });
+    } finally {
+      setIsSaving(false);
     }
   };
   
@@ -177,7 +211,10 @@ export default function HelpPage() {
                         <Skeleton className="h-4 w-64" />
                     </div>
                 </div>
-                <Skeleton className="h-9 w-9" />
+                <div className="flex gap-2">
+                    <Skeleton className="h-9 w-9" />
+                    <Skeleton className="h-9 w-9" />
+                </div>
             </div>
         ));
     }
@@ -195,93 +232,128 @@ export default function HelpPage() {
             <p className="text-sm text-muted-foreground">{file.description}</p>
           </div>
         </div>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <Trash2 className="h-4 w-4 text-destructive" />
+        <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={() => handleEditClick(file)}>
+                <Edit className="h-4 w-4" />
             </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the file <span className="font-bold">{file.fileName}</span>.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                className="bg-destructive hover:bg-destructive/90"
-                onClick={() => handleDeleteFile(file)}
-              >
-                Confirm Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+            <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon">
+                <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the file <span className="font-bold">{file.fileName}</span>.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                    className="bg-destructive hover:bg-destructive/90"
+                    onClick={() => handleDeleteFile(file)}
+                >
+                    Confirm Delete
+                </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+            </AlertDialog>
+        </div>
       </div>
     ));
   };
 
 
   return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Help - Site Admin</h1>
-        <p className="text-muted-foreground">Manage help documents and videos for users.</p>
+    <>
+      <div className="flex flex-col gap-8">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Help - Site Admin</h1>
+          <p className="text-muted-foreground">Manage help documents and videos for users.</p>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Watch these short videos to guide you through MATCH MANAGER</CardTitle>
+            <CardDescription>
+              Instructional videos and documents for MATCH MANAGER
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+              <div className="space-y-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea 
+                      id="description" 
+                      placeholder="Enter a description for the file you are about to upload..."
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      disabled={isUploading}
+                  />
+              </div>
+              <div className="space-y-2">
+                  <Label htmlFor="file-upload" className="block mb-2">File (Video or PDF)</Label>
+                  <input
+                      type="file"
+                      accept="video/*,application/pdf"
+                      ref={fileInputRef}
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      id="file-upload"
+                      disabled={isUploading}
+                  />
+                  <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading || !description.trim()}>
+                    <Upload className="mr-2 h-4 w-4" />
+                    {isUploading ? `Uploading...` : 'Select & Upload File'}
+                  </Button>
+              </div>
+              {isUploading && (
+                    <div className="w-full">
+                        <Progress value={uploadProgress} className="w-full" />
+                        <p className="text-sm text-muted-foreground mt-2">{Math.round(uploadProgress)}% complete</p>
+                    </div>
+              )}
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+              <CardTitle>Uploaded Files</CardTitle>
+              <CardDescription>A list of all currently available help documents and videos.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+              {renderFileList()}
+          </CardContent>
+        </Card>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Watch these short videos to guide you through MATCH MANAGER</CardTitle>
-          <CardDescription>
-            Instructional videos and documents for MATCH MANAGER
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-            <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea 
-                    id="description" 
-                    placeholder="Enter a description for the file you are about to upload..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    disabled={isUploading}
-                />
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="file-upload" className="block mb-2">File (Video or PDF)</Label>
-                <input
-                    type="file"
-                    accept="video/*,application/pdf"
-                    ref={fileInputRef}
-                    onChange={handleFileSelect}
-                    className="hidden"
-                    id="file-upload"
-                    disabled={isUploading}
-                />
-                <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading || !description.trim()}>
-                  <Upload className="mr-2 h-4 w-4" />
-                  {isUploading ? `Uploading...` : 'Select & Upload File'}
-                </Button>
-            </div>
-            {isUploading && (
-                  <div className="w-full">
-                      <Progress value={uploadProgress} className="w-full" />
-                      <p className="text-sm text-muted-foreground mt-2">{Math.round(uploadProgress)}% complete</p>
-                  </div>
-            )}
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader>
-            <CardTitle>Uploaded Files</CardTitle>
-            <CardDescription>A list of all currently available help documents and videos.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-            {renderFileList()}
-        </CardContent>
-      </Card>
-    </div>
+
+      {selectedDoc && (
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Edit Description</DialogTitle>
+                    <DialogDescription>
+                        Update the description for the file: {selectedDoc.fileName}
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                    <Label htmlFor="edit-description">Description</Label>
+                    <Textarea
+                        id="edit-description"
+                        value={selectedDoc.description}
+                        onChange={(e) => setSelectedDoc({ ...selectedDoc, description: e.target.value })}
+                        className="mt-2 min-h-[100px]"
+                    />
+                </div>
+                <DialogFooter>
+                    <Button variant="ghost" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={handleUpdateDescription} disabled={isSaving}>
+                        {isSaving ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+      )}
+    </>
   );
 }
