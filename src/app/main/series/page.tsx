@@ -496,7 +496,7 @@ export default function SeriesPage() {
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <AlertDialogTrigger asChild>
-                                            <Button variant="destructive" size="icon">
+                                             <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </AlertDialogTrigger>
