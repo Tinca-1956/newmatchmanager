@@ -1,21 +1,27 @@
 rules_version = '2';
 
-// See: https://firebase.google.com/docs/storage/security
 service firebase.storage {
   match /b/{bucket}/o {
-    // Rules are applied top-down. More specific rules should come first.
-    
-    // Allow read access to club logos for the public-facing dashboard.
-    // This allows unauthenticated users to fetch logos.
-    match /clubs/{clubId}/{allImages=**} {
+    // Allow anyone to read images from the clubs or matches path
+    match /clubs/{clubId}/{allPaths=**} {
       allow read: if true;
+      allow write: if request.auth != null && (
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin' ||
+                     (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId)
+                   );
+    }
+    
+    match /matches/{matchId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && (
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin' ||
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin'
+                   );
     }
 
-    // Default rule: All other files in storage require authentication to read or write.
-    // This is the most secure default. Any public access needs to be explicitly
-    // granted above this rule.
-    match /{allPaths=**} {
-      allow read, write: if request.auth != null;
+    match /help_documents/{allPaths=**} {
+       allow read: if true;
+       allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
     }
   }
 }
