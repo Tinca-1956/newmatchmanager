@@ -53,7 +53,6 @@ YOUR FULL NAME HERE`;
             <div className="text-center text-muted-foreground space-y-4">
                 <p>This application is designed to help fishing clubs manage their matches, members, and results with ease.</p>
                 <p>Built with modern technology to provide a seamless and responsive experience for club administrators, marshals, and anglers alike.</p>
-                 <p>Contact site owner <a href="mailto:stuart@emancium.com.au" className="text-primary underline">stuart@emancium.com.au</a></p>
             </div>
         </CardContent>
          <CardFooter className="flex-col items-center gap-4 text-center">
