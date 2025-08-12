@@ -41,17 +41,16 @@ service cloud.firestore {
         allow update, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
     }
 
-    // Logged-in users can read matches. Admins of that club can write.
+    // Allow any signed-in user to read and write matches.
     match /matches/{matchId} {
-      allow read: if isSignedIn();
-      allow create: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
-      allow update, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
+      allow read, write: if isSignedIn();
     }
 
     // Logged-in users can read results. Admins of that club can write.
     match /results/{resultId} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
+      allow create: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
+      allow update, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
     }
 
     // Public access for dashboard data.
