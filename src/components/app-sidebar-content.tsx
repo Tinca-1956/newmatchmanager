@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -41,6 +42,7 @@ const navItems = [
   { href: '/main/series', icon: Trophy, label: 'Series - Club Admin', adminOnly: true },
   { href: '/main/matches', icon: Swords, label: 'Matches - Site Admin', siteAdminOnly: true },
   { href: '/main/matches-club-admin', icon: Swords, label: 'Matches - Club Admin', adminOnly: true },
+  { href: '/main/matches-angler', icon: Swords, label: 'Matches - Angler' },
   { href: '/main/register', icon: LogIn, label: 'Register' },
   { href: '/main/weigh-in-site-admins', icon: Scale, label: 'Weigh in - Site Admin', siteAdminOnly: true },
   { href: '/main/weigh-in-club-admin', icon: Scale, label: 'Weigh in - Club Admin', adminOnly: true },
