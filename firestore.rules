@@ -2,73 +2,76 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
     function isSiteAdmin() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
     }
 
     function isClubAdmin() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin';
-    }
-    
-    function isClubAdminForRequest(clubId) {
-      return isClubAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin';
     }
 
-    function isMemberOfRequestClub(clubId) {
-        return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
+    function isClubAdminForRequest(clubId) {
+      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return user.role == 'Club Admin' && user.primaryClubId == clubId;
     }
-    
+
     match /users/{userId} {
       allow read: if request.auth.uid == userId 
-                || isSiteAdmin()
-                || (isClubAdmin() && request.auth.uid != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == resource.data.primaryClubId);
-      allow create: if request.auth.uid != null;
-      allow update: if request.auth.uid == userId || isSiteAdmin() || isClubAdminForRequest(resource.data.primaryClubId);
-      allow delete: if isSiteAdmin();
+                  || isSiteAdmin() 
+                  || (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == resource.data.primaryClubId);
+      allow write: if isSiteAdmin() || request.auth.uid == userId;
     }
-    
+
     match /clubs/{clubId} {
-      allow read: if true;
-      allow create, update, delete: if isSiteAdmin();
+      allow read: if isSignedIn();
+      allow write: if isSiteAdmin() || isClubAdminForRequest(clubId);
     }
     
     match /series/{seriesId} {
-        allow read: if request.auth.uid != null && isMemberOfRequestClub(resource.data.clubId);
-        allow create, update, delete: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
+        allow read: if isSignedIn();
+        allow create: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
+        allow update: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
+        allow delete: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
     }
     
     match /matches/{matchId} {
-      allow read: if request.auth.uid != null && isMemberOfRequestClub(resource.data.clubId);
-      allow create, delete: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
-      allow update: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
+      allow read: if isSignedIn();
+      allow create: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
+      allow update: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId)
+                    || (isSignedIn()
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['registeredAnglers', 'registeredCount']));
+      allow delete: if isSiteAdmin() || (isClubAdminForRequest(resource.data.clubId) && resource.data.registeredCount == 0);
     }
-    
+
     match /results/{resultId} {
-        allow read: if request.auth.uid != null && isMemberOfRequestClub(resource.data.clubId);
-        allow create, update, delete: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
-    }
-
-    match /helpDocuments/{docId} {
-        allow read: if true;
-        allow create, update, delete: if isSiteAdmin();
+      allow read: if isSignedIn();
+      allow write: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
     }
     
-    match /Standard_Texts/{textId} {
-        allow read, write: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
-    }
-
     match /publicMatches/{matchId} {
-        allow read: if true;
-        allow write: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
+      allow read: if true;
+      allow write: if isSiteAdmin() || isClubAdmin(); // Allow admins to publish
     }
     
      match /publicUpcomingMatches/{matchId} {
-        allow read: if true;
-        allow write: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
+      allow read: if true;
+      allow write: if isSiteAdmin();
+    }
+    
+    match /helpDocuments/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isSiteAdmin();
+    }
+    
+    match /Standard_Texts/{textId} {
+      allow read: if isSiteAdmin() || isClubAdmin();
+      allow write: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
     }
   }
 }
