@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -18,6 +17,7 @@ service cloud.firestore {
     }
     
     function isClubAdminForRequest(clubId) {
+      // User must be a Club Admin AND their primaryClubId must match the clubId of the resource they are trying to access.
       return isClubAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
     }
     
@@ -36,31 +36,30 @@ service cloud.firestore {
     // Logged-in users can read series. Admins of that club can write.
     match /series/{seriesId} {
         allow read: if isSignedIn();
-        allow create: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
-        allow update, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
+        allow create, update, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
     }
 
-    // Admins have full access to matches, all signed-in users can read.
+    // Logged-in users can read matches. Admins of that club can write.
     match /matches/{matchId} {
       allow read: if isSignedIn();
-      allow write: if isSiteAdmin() || isClubAdmin();
+      allow create, update, delete: if isSiteAdmin() || isClubAdmin();
     }
 
     // Logged-in users can read results. Admins of that club can write.
     match /results/{resultId} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
+      allow write: if isSiteAdmin() || isClubAdmin();
     }
 
     // Public access for dashboard data.
     match /publicMatches/{matchId} {
       allow read: if true;
-      allow write: if false; 
+      allow write: if isSiteAdmin() || isClubAdmin();
     }
 
     match /publicUpcomingMatches/{matchId} {
       allow read: if true;
-      allow write: if false;
+      allow write: if isSiteAdmin() || isClubAdmin();
     }
 
     // Admins can manage help documents.
