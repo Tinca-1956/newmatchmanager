@@ -40,9 +40,10 @@ service cloud.firestore {
         allow update, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
     }
 
-    // Simplified rule: Any signed-in user can read and write to any match.
+    // Admins have full access to matches, all signed-in users can read.
     match /matches/{matchId} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedIn();
+      allow write: if isSiteAdmin() || isClubAdmin();
     }
 
     // Logged-in users can read results. Admins of that club can write.
