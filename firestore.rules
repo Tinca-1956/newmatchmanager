@@ -1,9 +1,8 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
+    
     // Helper functions
     function isSignedIn() {
       return request.auth != null;
@@ -12,67 +11,62 @@ service cloud.firestore {
     function isSiteAdmin() {
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
     }
-
+    
     function isClubAdmin(clubId) {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin';
+      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return user.role == 'Club Admin' && user.primaryClubId == clubId;
     }
     
-    function isOwner(userId) {
-      return request.auth.uid == userId;
+    // All users can read their own user document
+    // Site admins can write to any user document
+    // Users can update their own profile details
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isSiteAdmin();
+      allow update: if request.auth.uid == userId;
     }
-
+    
     // All users can read all club documents
     match /clubs/{clubId} {
       allow read: if true;
-      allow create: if isSiteAdmin();
-      allow update: if isSiteAdmin() || isClubAdmin(clubId);
-      allow delete: if isSiteAdmin();
+      allow create, update, delete: if isClubAdmin(clubId) || isSiteAdmin();
     }
     
-    match /publicMatches/{matchId} {
-      allow read: if true;
-      allow write: if false; 
-    }
-
-    match /publicUpcomingMatches/{matchId} {
-      allow read: if true;
-      allow write: if false; 
-    }
-
-    // Users can only read/write their own document
-    match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId) || isSiteAdmin();
-      allow delete: if isSiteAdmin();
-    }
-
-    // Matches
-    match /matches/{matchId} {
-      allow read: if isSignedIn();
-      // Use request.resource.data for create/update
-      allow create, update: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
-      // Use resource.data for delete
-      allow delete: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
-    }
-
-    // Series
+    // Only Site Admins or Club Admins for the relevant club can write to series
     match /series/{seriesId} {
       allow read: if isSignedIn();
-      // Club Admins can manage series for their own club
-      allow create, update, delete: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
+      allow write: if isClubAdmin(request.resource.data.clubId) || isSiteAdmin();
     }
     
-    // Results
+    // All users can read matches in their own club.
+    // Admins can write to matches in their own club.
+    match /matches/{matchId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isClubAdmin(request.resource.data.clubId) || isSiteAdmin();
+    }
+   
+    // Only Site Admins or Club Admins for the relevant club can write to results
     match /results/{resultId} {
       allow read: if isSignedIn();
-      // Only admins can write results
-      allow create, update, delete: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
+      allow write: if isClubAdmin(request.resource.data.clubId) || isSiteAdmin();
     }
-    
+
+    // Help documents can be read by any signed-in user, but only written by site admins
     match /helpDocuments/{docId} {
-      allow read: if true; // Everyone can read help documents
-      allow write: if isSiteAdmin(); // Only Site Admins can create/update/delete
+      allow read: if isSignedIn();
+      allow write: if isSiteAdmin();
+    }
+
+    // Allow public read access to published match results
+    match /publicMatches/{matchId} {
+      allow read: if true;
+      allow write: if false; // Should only be written from a trusted backend/admin
+    }
+
+    // Allow public read access to upcoming matches
+    match /publicUpcomingMatches/{matchId} {
+      allow read: if true;
+      allow write: if false; // Should only be written from a trusted backend/admin
     }
   }
 }
