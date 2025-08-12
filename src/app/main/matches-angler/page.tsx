@@ -37,7 +37,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, onSnapshot, doc, query, where, getDocs, getDoc, orderBy, Timestamp, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, query, where, getDocs, getDoc, orderBy, Timestamp, updateDoc, arrayUnion, increment } from 'firebase/firestore';
 import type { Match, User, Club, MatchStatus } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -46,15 +46,13 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { ResultsModal } from '@/components/results-modal';
 import { AnglerListModal } from '@/components/angler-list-modal';
 import { DisplayAnglerListModal } from '@/components/display-angler-list-modal';
-import { EditMatchModal } from '@/components/edit-match-modal';
 import { useMatchActions } from '@/hooks/use-match-actions';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { RemoveAnglerModal } from '@/components/remove-angler-modal';
 import Link from 'next/link';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { CreateMatchModal } from '@/components/create-match-modal';
-import { MatchDescriptionModal } from '@/components/match-description-modal';
+import { useAnglerMatchActions } from '@/hooks/use-angler-match-actions';
+import { ViewOnlyMatchDescriptionModal } from '@/components/view-only-match-description-modal';
 
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
@@ -104,19 +102,25 @@ function MatchesPageContent() {
   
   const [isLoading, setIsLoading] = useState(true);
   
+  // Use the new, specific hook for Angler actions
+  const {
+    isDescriptionModalOpen,
+    selectedMatchForModal,
+    handleViewDescription,
+    closeDescriptionModal,
+  } = useAnglerMatchActions();
+  
+  // Keep the old hook for shared modals like results and angler lists
   const {
     isResultsModalOpen,
     isDisplayAnglerListModalOpen,
-    isDescriptionModalOpen,
-    selectedMatchForModal,
+    selectedMatchForModal: selectedMatchForSharedModal,
     handleViewResults,
-    handleRegister,
+    handleViewAnglerList,
     closeResultsModal,
     closeDisplayAnglerListModal,
-    closeDescriptionModal,
-    handleViewAnglerList,
-    handleViewDescription,
   } = useMatchActions();
+
 
   // Effect to set the initial club for fetching matches
   useEffect(() => {
@@ -392,7 +396,7 @@ function MatchesPageContent() {
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Matches</h1>
-            <p className="text-muted-foreground">View and register for club matches here.</p>
+            <p className="text-muted-foreground">View club matches here.</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
               {isSiteAdmin && (
@@ -450,24 +454,24 @@ function MatchesPageContent() {
         )}
       </div>
 
-      {selectedMatchForModal && (
+      <ViewOnlyMatchDescriptionModal
+        isOpen={isDescriptionModalOpen}
+        onClose={closeDescriptionModal}
+        match={selectedMatchForModal}
+      />
+      
+      {selectedMatchForSharedModal && (
         <>
-          <ResultsModal 
-            isOpen={isResultsModalOpen}
-            onClose={closeResultsModal}
-            match={selectedMatchForModal}
-          />
-          <DisplayAnglerListModal
-            isOpen={isDisplayAnglerListModalOpen}
-            onClose={closeDisplayAnglerListModal}
-            match={selectedMatchForModal}
-          />
-           <MatchDescriptionModal
-            isOpen={isDescriptionModalOpen}
-            onClose={closeDescriptionModal}
-            match={selectedMatchForModal}
-            canEdit={canEdit}
-          />
+            <ResultsModal 
+                isOpen={isResultsModalOpen}
+                onClose={closeResultsModal}
+                match={selectedMatchForSharedModal}
+            />
+            <DisplayAnglerListModal
+                isOpen={isDisplayAnglerListModalOpen}
+                onClose={closeDisplayAnglerListModal}
+                match={selectedMatchForSharedModal}
+            />
         </>
       )}
     </>
