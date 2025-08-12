@@ -21,13 +21,14 @@ service cloud.firestore {
       // User must be a Club Admin AND their primaryClubId must match the clubId of the resource they are trying to access.
       return isClubAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
     }
-
-    // User data is private, but users can read their own profile, and admins can read profiles within their own club.
+    
+    // User data is private, but users can read their own profile. Club admins can read members of their own club.
     match /users/{userId} {
+      allow read: if request.auth.uid == userId 
+                  || isSiteAdmin() 
+                  || (isClubAdmin() && get(/databases/$(database)/documents/users/$(userId)).data.primaryClubId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId);
       allow create: if isSiteAdmin();
-      allow read, update: if request.auth.uid == userId 
-                          || isSiteAdmin() 
-                          || (isClubAdmin() && resource.data.primaryClubId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId);
+      allow update: if request.auth.uid == userId || isSiteAdmin() || isClubAdminForRequest(resource.data.primaryClubId);
       allow delete: if isSiteAdmin();
     }
 
@@ -39,15 +40,18 @@ service cloud.firestore {
     
     // Logged-in users can read series. Admins of that club can write.
     match /series/{seriesId} {
-      allow read: if isSignedIn();
-      allow create: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
-      allow update, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
+        allow read: if isSignedIn();
+        allow create: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
+        allow update, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
     }
 
-    // Logged-in users can read matches. Admins of that club can write.
+    // Logged-in users can read matches. Admins of that club can write. Anglers can register/unregister.
     match /matches/{matchId} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isSiteAdmin() || isClubAdmin();
+      allow create, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
+      // Allow update for admins OR if a user is only modifying the registration fields.
+      allow update: if (isSiteAdmin() || isClubAdminForRequest(resource.data.clubId))
+                    || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys.hasOnly(['registeredAnglers', 'registeredCount']));
     }
 
     // Logged-in users can read results. Admins of that club can write.
@@ -55,21 +59,16 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create, update, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
     }
-    
-    match /Standard_Texts/{textId} {
-      allow read: if isSiteAdmin() || isClubAdmin();
-      allow create, update, delete: if isSiteAdmin() || (isClubAdmin() && isClubAdminForRequest(request.resource.data.clubId));
-    }
 
     // Public access for dashboard data.
     match /publicMatches/{matchId} {
       allow read: if true;
-      allow write: if false; 
+      allow write: if isSiteAdmin() || isClubAdmin(); // Allow admins to publish results
     }
 
     match /publicUpcomingMatches/{matchId} {
       allow read: if true;
-      allow write: if isSiteAdmin() || isClubAdmin();
+      allow write: if isSiteAdmin() || isClubAdmin(); // Allow admins to update/create when match is edited
     }
 
     // Admins can manage help documents.
@@ -77,5 +76,14 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create, update, delete: if isSiteAdmin();
     }
+
+    // Admins can manage standard texts for their club.
+    match /Standard_Texts/{textId} {
+      allow read: if isSignedIn();
+      allow create: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
+      allow update, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
+    }
   }
 }
+
+    
