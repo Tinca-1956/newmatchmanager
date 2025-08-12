@@ -3,7 +3,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper Functions
     function isSignedIn() {
       return request.auth != null;
     }
@@ -12,96 +11,100 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
     
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
     function isSiteAdmin() {
-      return isSignedIn() && getUserData().role == 'Site Admin';
+      return isSignedIn() && getUserRole() == 'Site Admin';
     }
 
     function isClubAdmin() {
-        return isSignedIn() && getUserData().role == 'Club Admin';
+        return isSignedIn() && getUserRole() == 'Club Admin';
     }
 
-    // Check if the user is an admin of the specified club
+    function getUserClubId(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.primaryClubId;
+    }
+
     function isUpdatingClubMember(clubId) {
-        return isClubAdmin() && getUserData().primaryClubId == clubId;
+        return getUserClubId(request.auth.uid) == clubId;
     }
     
-    // Check if a user is only updating their own name or primary club
     function isUpdatingOwnProfile() {
-      return request.resource.data.keys().hasAll(['firstName', 'lastName', 'primaryClubId']) && request.resource.data.size() == 3;
-    }
-    
-    function isRegistering(match) {
-      return request.auth.uid in match.registeredAnglers;
+      return request.resource.data.keys().hasOnly(['firstName', 'lastName', 'primaryClubId']);
     }
 
-    function isUnregistering(match) {
-      return request.auth.uid in resource.data.registeredAnglers;
+    function isRegisteringForMatch() {
+        // Check that only 'registeredAnglers' and 'registeredCount' are being changed.
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['registeredAnglers', 'registeredCount']);
     }
 
-    // Collections
-    match /users/{userId} {
-      allow get, list: if isSignedIn();
+    function isLeavingMatch() {
+        return request.auth.uid in resource.data.registeredAnglers;
+    }
 
-      // User can create their own doc. Admins can create users in their own club.
-      allow create: if isOwner(userId)
-                    || isSiteAdmin()
-                    || (isClubAdmin() && isUpdatingClubMember(request.resource.data.primaryClubId));
-
-      // User can update their own profile. Admins can update users in their club.
-      allow update: if isOwner(userId) && isUpdatingOwnProfile()
-                    || isSiteAdmin()
-                    || (isClubAdmin() && isUpdatingClubMember(resource.data.primaryClubId));
-                    
-      allow delete: if isSiteAdmin();
+    function isJoiningMatch() {
+        return !(request.auth.uid in resource.data.registeredAnglers);
     }
     
     match /clubs/{clubId} {
+      // Anyone can read club info (for public dashboard, club selection, etc.)
       allow read: if true;
-      allow create, update, delete: if isSiteAdmin();
+      // Only site admins can create new clubs
+      allow create: if isSiteAdmin();
+      // Site admins can edit any club, club admins can only edit their own club's description and image
+      allow update: if isSiteAdmin() || 
+                     (isClubAdmin() && isUpdatingClubMember(clubId) && request.resource.data.keys().hasOnly(['description', 'imageUrl']));
+      // Only site admins can delete clubs
+      allow delete: if isSiteAdmin();
     }
-
+    
+    match /users/{userId} {
+      allow list, get: if isSignedIn();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) && isUpdatingOwnProfile()
+                      || isSiteAdmin()
+                      || (isClubAdmin() && isUpdatingClubMember(request.resource.data.primaryClubId));
+      allow delete: if isSiteAdmin();
+    }
+    
     match /series/{seriesId} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if isSiteAdmin() || isClubAdmin();
+        allow read: if isSignedIn();
+        allow create, update, delete: if isSiteAdmin() || isClubAdmin();
     }
 
     match /matches/{matchId} {
-      allow read: if isSignedIn();
-      allow create, delete: if isSiteAdmin() || isClubAdmin();
-      
-      // Complex update logic for matches
-      allow update: if isSiteAdmin() || isClubAdmin()
-                    || (
-                      // This block allows an angler to register or unregister
-                      isSignedIn() &&
-                      // The fields being updated must be exactly these two
-                      request.resource.data.keys().hasAll(['registeredAnglers', 'registeredCount']) &&
-                      // Check for registration: user is being added
-                      (isRegistering(request.resource.data) && request.resource.data.registeredCount == resource.data.registeredCount + 1) ||
-                      // Check for un-registration: user is being removed
-                      (isUnregistering(resource.data) && request.resource.data.registeredCount == resource.data.registeredCount - 1)
-                    );
+        allow read: if isSignedIn();
+        
+        allow create: if isSiteAdmin() || isClubAdmin();
+        
+        // This is the combined, complex update rule
+        allow update: if (isSiteAdmin() || isClubAdmin())
+                      // An Angler can update a match IF...
+                      || (isRegisteringForMatch() && (
+                            // they are joining (and not already in the list)
+                            (isJoiningMatch() && request.auth.uid in request.resource.data.registeredAnglers) ||
+                            // OR they are leaving (and are already in the list)
+                            (isLeavingMatch() && !(request.auth.uid in request.resource.data.registeredAnglers))
+                         ));
+
+        allow delete: if isSiteAdmin() || isClubAdmin();
     }
     
     match /results/{resultId} {
-      // Allow any signed-in user to read results.
-      allow read: if true;
-      // Allow only admins to write results.
-      allow write: if isSiteAdmin() || isClubAdmin();
+      allow read, list: if true;
+      allow create, update, delete: if isSiteAdmin() || isClubAdmin();
     }
     
     match /publicMatches/{matchId} {
-        allow read: if true; // Publicly readable
-        allow write: if isSiteAdmin() || isClubAdmin(); // Only admins can publish
+        allow read: if true;
+        allow write: if false; // Should only be written from a trusted server/function
     }
     
     match /publicUpcomingMatches/{matchId} {
         allow read: if true;
-        allow write: if isSiteAdmin() || isClubAdmin();
+        allow write: if false;
     }
     
     match /Standard_Texts/{textId} {
@@ -109,8 +112,8 @@ service cloud.firestore {
     }
     
     match /helpDocuments/{docId} {
-        allow read: if isSignedIn();
-        allow write, delete: if isSiteAdmin();
+        allow read: if true;
+        allow write: if isSiteAdmin();
     }
   }
 }
