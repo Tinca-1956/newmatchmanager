@@ -63,39 +63,29 @@ export default function ResultsPage() {
     const [isLoadingMatches, setIsLoadingMatches] = useState(false);
     const [isLoadingResults, setIsLoadingResults] = useState(false);
 
-    // Step 1: Fetch clubs (for Site Admin) or set from profile
+    // Step 1: Fetch all clubs for all users to browse
     useEffect(() => {
-        if (adminLoading || authLoading || !firestore) return;
+        if (authLoading || !firestore) return;
 
-        if (isSiteAdmin) {
-            const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
-            const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
-                const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
-                setAllClubs(clubsData);
-                if (clubsData.length > 0 && !selectedClubId) {
+        const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
+        const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
+            const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+            setAllClubs(clubsData);
+            if (!selectedClubId) {
+                 if (userProfile?.primaryClubId && clubsData.some(c => c.id === userProfile.primaryClubId)) {
+                    setSelectedClubId(userProfile.primaryClubId);
+                } else if (clubsData.length > 0) {
                     setSelectedClubId(clubsData[0].id);
                 }
-                setIsLoadingClubs(false);
-            }, (error) => {
-                 console.error("Error fetching clubs for admin:", error);
-                 toast({ variant: 'destructive', title: 'Error', description: 'Could not load clubs.' });
-                 setIsLoadingClubs(false);
-            });
-            return () => unsubscribe();
-        } else if (userProfile?.primaryClubId) {
-             const clubDocRef = doc(firestore, 'clubs', userProfile.primaryClubId);
-             getDoc(clubDocRef).then(docSnap => {
-                if (docSnap.exists()) {
-                    setAllClubs([{ id: docSnap.id, ...docSnap.data()} as Club]);
-                }
-             });
-            setSelectedClubId(userProfile.primaryClubId);
+            }
             setIsLoadingClubs(false);
-        } else {
-             // For non-admins with no primary club
-            setIsLoadingClubs(false);
-        }
-    }, [isSiteAdmin, adminLoading, authLoading, userProfile, firestore, toast, selectedClubId]);
+        }, (error) => {
+             console.error("Error fetching clubs:", error);
+             toast({ variant: 'destructive', title: 'Error', description: 'Could not load clubs.' });
+             setIsLoadingClubs(false);
+        });
+        return () => unsubscribe();
+    }, [authLoading, userProfile, firestore, toast, selectedClubId]);
 
 
     // Step 2: Handle Club Selection -> Fetch Series
@@ -385,11 +375,13 @@ export default function ResultsPage() {
                     <div className="flex flex-wrap items-end gap-4 mb-6">
                         <div className="flex flex-col gap-1.5">
                             <Label htmlFor="club-filter">Club</Label>
-                            {isSiteAdmin ? (
+                            {isLoadingClubs ? (
+                                <Skeleton className="h-10 w-[200px]" />
+                            ) : (
                                 <Select 
                                     value={selectedClubId} 
                                     onValueChange={(value) => setSelectedClubId(value)}
-                                    disabled={isLoadingClubs || allClubs.length === 0}
+                                    disabled={allClubs.length === 0}
                                 >
                                     <SelectTrigger id="club-filter" className="w-[200px]">
                                         <SelectValue placeholder="Select a club..." />
@@ -402,8 +394,6 @@ export default function ResultsPage() {
                                         ))}
                                     </SelectContent>
                                 </Select>
-                            ) : (
-                                <Input value={allClubs.length > 0 ? allClubs[0].name : 'Loading...'} disabled className="w-[200px]" />
                             )}
                         </div>
                          <div className="flex flex-col gap-1.5">
