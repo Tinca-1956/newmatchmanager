@@ -1,9 +1,10 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper functions
+    // Helper Functions
     function isSignedIn() {
       return request.auth != null;
     }
@@ -11,62 +12,63 @@ service cloud.firestore {
     function isSiteAdmin() {
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
     }
-    
-    function isClubAdmin(clubId) {
-      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return user.role == 'Club Admin' && user.primaryClubId == clubId;
+
+    function isClubAdmin() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin';
     }
     
-    // All users can read their own user document
-    // Site admins can write to any user document
-    // Users can update their own profile details
+    function isClubAdminForRequest(clubId) {
+      // User must be a Club Admin AND their primaryClubId must match the clubId of the resource they are trying to access.
+      return isClubAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
+    }
+    
+    // User data is private, but users can read their own profile.
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isSiteAdmin();
-      allow update: if request.auth.uid == userId;
+      allow read, update: if request.auth.uid == userId || isSiteAdmin();
+      allow create, delete: if isSiteAdmin();
     }
-    
-    // All users can read all club documents
+
+    // Public read access for the dashboard filter. Admins can edit.
     match /clubs/{clubId} {
       allow read: if true;
-      allow create, update, delete: if isClubAdmin(clubId) || isSiteAdmin();
+      allow create, update, delete: if isSiteAdmin() || isClubAdminForRequest(clubId);
     }
     
-    // Only Site Admins or Club Admins for the relevant club can write to series
+    // Logged-in users can read series. Admins of that club can write.
     match /series/{seriesId} {
-      allow read: if isSignedIn();
-      allow write: if isClubAdmin(request.resource.data.clubId) || isSiteAdmin();
+        allow read: if isSignedIn();
+        allow create: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
+        allow update, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
     }
-    
-    // All users can read matches in their own club.
-    // Admins can write to matches in their own club.
+
+    // Logged-in users can read matches. Admins of that club can write.
     match /matches/{matchId} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isClubAdmin(request.resource.data.clubId) || isSiteAdmin();
+      allow create: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
+      allow update, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
     }
-   
-    // Only Site Admins or Club Admins for the relevant club can write to results
+
+    // Logged-in users can read results. Admins of that club can write.
     match /results/{resultId} {
       allow read: if isSignedIn();
-      allow write: if isClubAdmin(request.resource.data.clubId) || isSiteAdmin();
+      allow create, update, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
     }
 
-    // Help documents can be read by any signed-in user, but only written by site admins
-    match /helpDocuments/{docId} {
-      allow read: if isSignedIn();
-      allow write: if isSiteAdmin();
-    }
-
-    // Allow public read access to published match results
+    // Public access for dashboard data.
     match /publicMatches/{matchId} {
       allow read: if true;
-      allow write: if false; // Should only be written from a trusted backend/admin
+      allow write: if false; 
     }
 
-    // Allow public read access to upcoming matches
     match /publicUpcomingMatches/{matchId} {
       allow read: if true;
-      allow write: if false; // Should only be written from a trusted backend/admin
+      allow write: if false;
+    }
+
+    // Admins can manage help documents.
+    match /helpDocuments/{docId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSiteAdmin();
     }
   }
 }
