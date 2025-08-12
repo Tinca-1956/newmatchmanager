@@ -63,29 +63,39 @@ export default function ResultsPage() {
     const [isLoadingMatches, setIsLoadingMatches] = useState(false);
     const [isLoadingResults, setIsLoadingResults] = useState(false);
 
-    // Step 1: Fetch all clubs for all users to browse
+    // Step 1: Fetch clubs (for Site Admin) or set from profile
     useEffect(() => {
-        if (authLoading || !firestore) return;
+        if (adminLoading || authLoading || !firestore) return;
 
-        const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
-        const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
-            const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
-            setAllClubs(clubsData);
-            if (!selectedClubId) {
-                 if (userProfile?.primaryClubId && clubsData.some(c => c.id === userProfile.primaryClubId)) {
-                    setSelectedClubId(userProfile.primaryClubId);
-                } else if (clubsData.length > 0) {
+        if (isSiteAdmin) {
+            const clubsQuery = query(collection(firestore, 'clubs'), orderBy('name'));
+            const unsubscribe = onSnapshot(clubsQuery, (snapshot) => {
+                const clubsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+                setAllClubs(clubsData);
+                if (clubsData.length > 0 && !selectedClubId) {
                     setSelectedClubId(clubsData[0].id);
                 }
-            }
+                setIsLoadingClubs(false);
+            }, (error) => {
+                 console.error("Error fetching clubs for admin:", error);
+                 toast({ variant: 'destructive', title: 'Error', description: 'Could not load clubs.' });
+                 setIsLoadingClubs(false);
+            });
+            return () => unsubscribe();
+        } else if (userProfile?.primaryClubId) {
+             const clubDocRef = doc(firestore, 'clubs', userProfile.primaryClubId);
+             getDoc(clubDocRef).then(docSnap => {
+                if (docSnap.exists()) {
+                    setAllClubs([{ id: docSnap.id, ...docSnap.data()} as Club]);
+                }
+             });
+            setSelectedClubId(userProfile.primaryClubId);
             setIsLoadingClubs(false);
-        }, (error) => {
-             console.error("Error fetching clubs:", error);
-             toast({ variant: 'destructive', title: 'Error', description: 'Could not load clubs.' });
-             setIsLoadingClubs(false);
-        });
-        return () => unsubscribe();
-    }, [authLoading, userProfile, firestore, toast, selectedClubId]);
+        } else {
+             // For non-admins with no primary club
+            setIsLoadingClubs(false);
+        }
+    }, [isSiteAdmin, adminLoading, authLoading, userProfile, firestore, toast, selectedClubId]);
 
 
     // Step 2: Handle Club Selection -> Fetch Series
