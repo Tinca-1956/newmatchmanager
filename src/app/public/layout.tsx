@@ -8,7 +8,7 @@ export default function PublicLayout({
   return (
     <div className="flex flex-col min-h-screen">
       <PublicHeader />
-      <main className="flex-grow bg-muted/40">
+      <main className="flex-1 bg-muted/40">
         {children}
       </main>
       <footer className="text-center p-4 text-sm text-sidebar-foreground bg-sidebar border-t border-sidebar-border">
