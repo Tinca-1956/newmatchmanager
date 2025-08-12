@@ -1,72 +1,70 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // Helper function to check for Site Admin role
     function isSiteAdmin() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
     }
 
-    function isClubAdmin(clubId) {
-      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return user.role == 'Club Admin' && user.primaryClubId == clubId;
+    // Helper function to check for any Admin role
+    function isAdmin() {
+      let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return userRole == 'Site Admin' || userRole == 'Club Admin';
     }
     
-    function isClubAdminForMatch(matchId) {
-      let match = get(/databases/$(database)/documents/matches/$(matchId)).data;
-      return isClubAdmin(match.clubId);
-    }
-    
-    function isMemberOfClub(clubId) {
+    // Helper function to check if a user is a member of a specific club
+    function isMemberOf(clubId) {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
     }
-    
-    function isRegisteredForMatch(matchId) {
-       return request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.registeredAnglers;
+
+    match /{document=**} {
+      allow read, write: if false;
     }
 
-    // Rules for each collection
     match /users/{userId} {
-      allow read, update: if request.auth.uid == userId || isSiteAdmin();
-      allow create: if request.auth != null;
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == userId || isSiteAdmin();
     }
 
     match /clubs/{clubId} {
       allow read: if request.auth != null;
-      allow create, update, delete: if isSiteAdmin();
+      allow write: if isSiteAdmin();
+      allow update: if isAdmin() && isMemberOf(clubId);
     }
     
     match /series/{seriesId} {
-      allow read: if request.auth != null;
-      allow create, update, delete: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
+      allow read, write: if request.auth != null;
     }
 
     match /matches/{matchId} {
       allow read, write: if request.auth != null;
     }
-
+    
     match /results/{resultId} {
        allow read, write: if request.auth != null;
     }
-    
+
     match /publicMatches/{matchId} {
       allow read: if true;
       allow write: if isSiteAdmin();
     }
     
     match /publicUpcomingMatches/{matchId} {
-        allow read: if true;
-        allow write: if request.auth != null;
+      allow read: if true;
+      allow write: if isSiteAdmin();
     }
-
-    match /Standard_Texts/{textId} {
-      allow read, write: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
-    }
-
-    match /helpDocuments/{docId} {
+    
+     match /Standard_Texts/{textId} {
       allow read: if request.auth != null;
-      allow write, delete: if isSiteAdmin();
+      allow write: if isAdmin();
+    }
+    
+    match /helpDocuments/{docId} {
+        allow read: if request.auth != null;
+        allow write: if isSiteAdmin();
     }
   }
 }
