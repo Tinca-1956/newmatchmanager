@@ -73,6 +73,12 @@ export interface Result {
   sectionRank?: number | null;
 }
 
+export interface StandardText {
+  id: string;
+  clubId: string;
+  content: string;
+}
+
 
 // Public-facing types for the publicMatches collection
 export interface PublicResult {

@@ -24,6 +24,7 @@ import {
   LogIn,
   Image as ImageIcon,
   MessageSquare,
+  FileText as FileTextIcon,
 } from 'lucide-react';
 import { SheetClose } from './ui/sheet';
 import { useAuth } from '@/hooks/use-auth';
@@ -47,6 +48,7 @@ const navItems = [
   { href: '/main/results-site-admin', icon: Medal, label: 'Results - Site Admin', siteAdminOnly: true },
   { href: '/main/results', icon: Medal, label: 'Results' },
   { href: '/main/gallery', icon: ImageIcon, label: 'Image Gallery' },
+  { href: '/main/standard-texts', icon: FileTextIcon, label: 'Standard Text - Club Admin', adminOnly: true },
   { href: '/main/profile', icon: UserIcon, label: 'Profile' },
   { href: '/main/help', icon: HelpCircle, label: 'Help - Site Admin', siteAdminOnly: true },
   { href: '/main/help-user', icon: HelpCircle, label: 'Help' },
