@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -15,28 +16,34 @@ service cloud.firestore {
     function isClubAdmin() {
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin';
     }
-    
-    function isClubAdminForRequest(clubId) {
-      // User must be a Club Admin AND their primaryClubId must match the clubId of the resource they are trying to access.
+
+    function isClubAdminForClub(clubId) {
       return isClubAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
     }
     
-    // User data is private, but users can read their own profile.
+    // User data is private, but users can read their own profile, and admins can read users in their club.
     match /users/{userId} {
-      allow read, update: if request.auth.uid == userId || isSiteAdmin();
-      allow create, delete: if isSiteAdmin();
+      allow create: if isSiteAdmin();
+      allow update: if request.auth.uid == userId || isSiteAdmin();
+      allow delete: if isSiteAdmin();
+      // Allow a user to read their own document.
+      // Allow a site admin to read any user document.
+      // Allow a club admin to read documents of users who are in their club.
+      allow read: if request.auth.uid == userId || isSiteAdmin() || 
+                  (isClubAdmin() && get(/databases/$(database)/documents/users/$(userId)).data.primaryClubId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId);
     }
 
     // Public read access for the dashboard filter. Admins can edit.
     match /clubs/{clubId} {
       allow read: if true;
-      allow create, update, delete: if isSiteAdmin() || isClubAdminForRequest(clubId);
+      allow create, delete: if isSiteAdmin();
+      allow update: if isSiteAdmin() || isClubAdminForClub(clubId);
     }
     
     // Logged-in users can read series. Admins of that club can write.
     match /series/{seriesId} {
         allow read: if isSignedIn();
-        allow create, update, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
+        allow create, update, delete: if isSiteAdmin() || isClubAdmin();
     }
 
     // Logged-in users can read matches. Admins of that club can write.
@@ -48,7 +55,7 @@ service cloud.firestore {
     // Logged-in users can read results. Admins of that club can write.
     match /results/{resultId} {
       allow read: if isSignedIn();
-      allow write: if isSiteAdmin() || isClubAdmin();
+      allow create, update, delete: if isSiteAdmin() || isClubAdmin();
     }
 
     // Public access for dashboard data.
