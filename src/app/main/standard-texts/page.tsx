@@ -163,7 +163,13 @@ export default function StandardTextsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Text List</CardTitle>
-            <CardDescription>A list of all standard texts for your club.</CardDescription>
+            <CardDescription>
+              A list of all standard texts for your club.You can use these texts
+              for match rules, fees, reports and any other information that you
+              want to share with anglers. Select the item below, click edit,
+              select the required text, copy it, then go to MATCHES and paste
+              the text into the match "Description" field.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
