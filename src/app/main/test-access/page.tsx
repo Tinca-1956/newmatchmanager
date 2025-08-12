@@ -37,6 +37,8 @@ export default function TestAccessPage() {
   const [singleMatch, setSingleMatch] = useState<Match | null>(null);
   const [isSingleMatchLoading, setIsSingleMatchLoading] = useState(false);
   const [singleMatchError, setSingleMatchError] = useState<string | null>(null);
+  
+  const [isUpdatingMatch, setIsUpdatingMatch] = useState(false);
 
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isCreatingAngler, setIsCreatingAngler] = useState(false);
@@ -206,6 +208,43 @@ export default function TestAccessPage() {
       });
     } finally {
       setIsSingleMatchLoading(false);
+    }
+  };
+
+  const handleUpdateMatchName = async () => {
+    const testMatchId = 'dwoFy4YJJVzLWwQqFow1';
+    if (!firestore) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Firestore not available.' });
+        return;
+    }
+
+    setIsUpdatingMatch(true);
+    try {
+        const matchDocRef = doc(firestore, 'matches', testMatchId);
+        const matchDoc = await getDoc(matchDocRef);
+
+        if (!matchDoc.exists()) {
+            toast({ variant: 'destructive', title: 'Test Failed', description: `Match with ID ${testMatchId} does not exist.` });
+            setIsUpdatingMatch(false);
+            return;
+        }
+
+        const currentName = matchDoc.data().name;
+        await updateDoc(matchDocRef, {
+            name: currentName + 'x'
+        });
+
+        toast({ title: 'SUCCESS!', description: `Successfully updated match name for ${testMatchId}.` });
+    } catch (e: any) {
+        console.error("Update Match Test Failed:", e);
+        toast({
+            variant: 'destructive',
+            title: 'Update Match Test FAILED',
+            description: e.message,
+            duration: 10000,
+        });
+    } finally {
+        setIsUpdatingMatch(false);
     }
   };
 
@@ -390,9 +429,19 @@ export default function TestAccessPage() {
           </div>
           
            <div className="space-y-2 rounded-md border p-4">
-                <h3 className="font-semibold mb-2">Step 2: Test Match Registration</h3>
+                <h3 className="font-semibold mb-2">Step 2: Test Match Name Update (WRITE)</h3>
                 <p className="text-sm text-muted-foreground pb-4">
-                    This is the critical test. Click to attempt to register for a specific, hardcoded match.
+                    This is the critical test. Click to attempt to update a specific match name. This will test the `update` security rule.
+                </p>
+                <Button onClick={handleUpdateMatchName} disabled={isUpdatingMatch || authLoading || !userProfile}>
+                    {isUpdatingMatch ? 'Updating...' : 'Run Match Update Test'}
+                </Button>
+           </div>
+           
+           <div className="space-y-2 rounded-md border p-4">
+                <h3 className="font-semibold mb-2">Step 3: Test Match Registration</h3>
+                <p className="text-sm text-muted-foreground pb-4">
+                    This is another critical test. Click to attempt to register for a specific, hardcoded match.
                 </p>
                 <Button onClick={handleTestRegistration} disabled={isRegistering || authLoading || !userProfile}>
                     {isRegistering ? 'Registering...' : 'Run Registration Test'}
