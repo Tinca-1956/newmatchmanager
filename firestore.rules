@@ -3,43 +3,44 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper Functions
+
+    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
-    
+
     function isSiteAdmin() {
-      // Check for Site Admin role in the user's document
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
-    }
-    
-    function isClubAdmin() {
-       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin';
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
     }
 
-    // Rules for 'users' collection
+    function isClubAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin';
+    }
+
+    function isAngler() {
+       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Angler';
+    }
+
+    // Collection Rules
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn();
+      allow create: if isSignedIn(); // Allows new users to create their own profile document
       allow update: if request.auth.uid == userId || isSiteAdmin();
       allow delete: if isSiteAdmin();
     }
-    
-    // Rules for 'clubs' collection
+
     match /clubs/{clubId} {
-        allow read: if isSignedIn();
-        allow create, delete: if isSiteAdmin();
-        allow update: if isSiteAdmin() || (isClubAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId);
-    }
-    
-    // Rules for 'series' collection
-     match /series/{seriesId} {
       allow read: if isSignedIn();
-      allow write: if isSiteAdmin() || (isClubAdmin() && request.resource.data.clubId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId);
+      allow write: if isSiteAdmin();
     }
-    
-    // Rules for 'matches' collection
+
+    match /series/{seriesId} {
+      allow read: if isSignedIn();
+      // Allow create/update/delete only for admins of the specific club
+      allow write: if isSiteAdmin() ||
+                   (isClubAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == resource.data.clubId);
+    }
+
     match /matches/{matchId} {
       allow read: if isSignedIn();
 
@@ -52,33 +53,33 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == resource.data.clubId);
     }
     
-    // Rules for 'results' collection
     match /results/{resultId} {
         allow read: if isSignedIn();
-        allow write: if isSiteAdmin() || isClubAdmin();
+        allow write: if isSiteAdmin() || 
+                     (isClubAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == resource.data.clubId);
+    }
+
+    match /Standard_Texts/{textId} {
+        allow read: if isSignedIn();
+        allow write: if isSiteAdmin() ||
+                     (isClubAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == resource.data.clubId);
     }
     
-    // Rules for 'helpDocuments' collection
     match /helpDocuments/{docId} {
       allow read: if isSignedIn();
       allow write: if isSiteAdmin();
     }
     
-    // Rules for 'Standard_Texts' collection
-    match /Standard_Texts/{textId} {
-        allow read: if isSignedIn();
-        allow write: if isSiteAdmin() || (isClubAdmin() && request.resource.data.clubId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId);
-    }
-
-    // Rules for public-facing collections
+    // PUBLIC-FACING COLLECTIONS - READ ONLY
     match /publicMatches/{matchId} {
-        allow read: if true;
-        allow write: if false; // Should only be written to by admin SDK
+      allow read: if true;
+      allow write: if false; // Nobody can write directly to this collection
     }
     
     match /publicUpcomingMatches/{matchId} {
-        allow read: if true;
-        allow write: if false; // Should only be written to by admin SDK
+      allow read: if true;
+      allow write: if false;
     }
+
   }
 }
