@@ -61,9 +61,9 @@ service cloud.firestore {
     
     match /matches/{matchId} {
       allow read: if isSignedIn();
-      allow create: if isSiteAdmin() ||
+      allow create: if isSiteAdmin() || 
                      (isClubAdmin() && request.resource.data.clubId == getUserData().primaryClubId);
-      allow update: if isSiteAdmin() ||
+      allow update: if isSiteAdmin() || 
                      (isClubAdmin() && resource.data.clubId == getUserData().primaryClubId);
       allow delete: if isSiteAdmin() ||
                      (isClubAdmin() && resource.data.clubId == getUserData().primaryClubId);
