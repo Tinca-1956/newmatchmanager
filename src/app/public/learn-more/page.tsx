@@ -4,40 +4,18 @@
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
   CardFooter,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Zap, Users, Shield } from 'lucide-react';
-import Link from 'next/link';
+import { Check } from 'lucide-react';
 
-const features = [
-  {
-    icon: <Zap className="h-6 w-6 text-primary" />,
-    title: 'Automated Match Setup',
-    description: 'Quickly create series and matches with customizable rules, dates, and locations.',
-  },
-  {
-    icon: <Users className="h-6 w-6 text-primary" />,
-    title: 'Angler Management',
-    description: 'Manage member lists, track registrations, and handle payments all in one place.',
-  },
-  {
-    icon: <CheckCircle className="h-6 w-6 text-primary" />,
-    title: 'Live Weigh-ins & Results',
-    description: 'Enter weights in real-time and automatically calculate results and league standings.',
-  },
-  {
-    icon: <Shield className="h-6 w-6 text-primary" />,
-    title: 'Secure & Scalable',
-    description: 'Built on modern, reliable technology to ensure your data is safe and accessible.',
-  },
-];
+export default function LearnMorePage() {
 
-const subject = "MATCH MANAGER - ADD NEW CLUB ENQUIRY";
-const body = `Dear Stuart,
+    const subject = "MATCH MANAGER - ADD NEW CLUB ENQUIRY";
+    const body = `Dear Stuart,
 
 I am interested in learning more about MATCH MANAGER for my club.
 
@@ -53,67 +31,81 @@ Warmest regards
 
 YOUR FULL NAME HERE`;
 
-const mailtoLink = `mailto:stuart@emancium.com.au?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const mailtoLink = `mailto:stuart@emancium.com.au?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
-
-export default function LearnMorePage() {
   return (
-    <div className="flex flex-col items-center gap-12 sm:gap-16 px-4 py-8 sm:py-12 md:py-16">
-      
-      <section className="text-center max-w-4xl mx-auto">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight">
-          Streamline Your Fishing Club Management
-        </h1>
-        <p className="mt-4 text-base sm:text-lg text-muted-foreground">
-          Match Manager is the all-in-one solution for running fishing clubs and competitions. Spend less time on admin and more time on the bank.
-        </p>
-      </section>
+    <div className="container mx-auto py-12 px-4 md:px-6">
+      <div className="grid md:grid-cols-2 gap-12 items-center">
+        {/* Left Column: Video */}
+        <div className="rounded-lg overflow-hidden shadow-2xl">
+           <video
+            className="w-full h-full object-cover"
+            src="https://firebasestorage.googleapis.com/v0/b/new-match-manager.firebasestorage.app/o/help_documents%2F1754728555716-Signing%20Up.mp4?alt=media&token=3815e632-5cf8-4cdf-b103-9d526b319fbc"
+            controls
+            autoPlay
+            muted
+            loop
+          >
+            Your browser does not support the video tag.
+          </video>
+        </div>
 
-      <section className="w-full max-w-5xl">
-        <Card className="overflow-hidden">
-          <CardContent className="p-0">
-             <div className="aspect-video bg-black">
-                <video controls className="w-full h-full" autoPlay muted loop>
-                  <source src="https://firebasestorage.googleapis.com/v0/b/new-match-manager.firebasestorage.app/o/help_documents%2F1754728555716-Signing%20Up.mp4?alt=media&token=3815e632-5cf8-4cdf-b103-9d526b319fbc" type="video/mp4" />
-                  Your browser does not support the video tag.
-                </video>
-            </div>
-          </CardContent>
-        </Card>
-      </section>
-
-      <section className="w-full max-w-5xl">
-          <h2 className="text-2xl sm:text-3xl font-bold text-center mb-8">Key Features</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {features.map((feature, index) => (
-              <div key={index} className="flex items-start gap-4">
-                <div>{feature.icon}</div>
-                <div>
-                  <h3 className="font-semibold">{feature.title}</h3>
-                  <p className="text-sm text-muted-foreground">{feature.description}</p>
-                </div>
-              </div>
-            ))}
+        {/* Right Column: Text Content */}
+        <div className="space-y-6">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
+            Focus on the Fishing, Not the Paperwork.
+          </h1>
+          <p className="text-lg text-muted-foreground">
+            Match Manager is the all-in-one solution for running fishing clubs and competitions. Spend less time on admin and more time on the bank. Watch the video to learn how to sign up to an existing club., or click the button at the bottom of the page to get your club added to the app.
+          </p>
+          
+          <div className="space-y-4">
+              <h3 className="text-2xl font-semibold">Key Features</h3>
+              <ul className="space-y-3">
+                  <li className="flex items-start gap-3">
+                      <Check className="h-6 w-6 text-primary mt-1 flex-shrink-0" />
+                      <div>
+                          <p className="font-semibold">Automated Dashboard</p>
+                          <p className="text-sm text-muted-foreground">Instantly see upcoming matches and recent results for your primary club.</p>
+                      </div>
+                  </li>
+                   <li className="flex items-start gap-3">
+                      <Check className="h-6 w-6 text-primary mt-1 flex-shrink-0" />
+                      <div>
+                          <p className="font-semibold">Simplified Registration</p>
+                          <p className="text-sm text-muted-foreground">Anglers can easily register for upcoming matches with a single click.</p>
+                      </div>
+                  </li>
+                  <li className="flex items-start gap-3">
+                      <Check className="h-6 w-6 text-primary mt-1 flex-shrink-0" />
+                      <div>
+                          <p className="font-semibold">Live Leaderboards</p>
+                          <p className="text-sm text-muted-foreground">Real-time weigh-in and results tracking keeps everyone informed.</p>
+                      </div>
+                  </li>
+              </ul>
           </div>
-      </section>
-      
-       <section className="w-full max-w-2xl">
-        <Card>
+        </div>
+      </div>
+
+       <Card className="mt-16 bg-muted/40">
             <CardHeader className="text-center">
-                <CardTitle className="text-2xl">Ready to Get Started?</CardTitle>
-                <CardDescription>Contact us today to get your club set up on Match Manager.</CardDescription>
+                <CardTitle className="text-3xl">Ready to Get Started?</CardTitle>
+                <CardDescription>
+                    Contact us to get your club set up on Match Manager today.
+                </CardDescription>
             </CardHeader>
             <CardContent className="flex justify-center">
                 <Button asChild size="lg">
-                   <a href={mailtoLink}>Contact Us Now</a>
+                    <a href={mailtoLink}>
+                       Get your club added to MATCH MANAGER
+                    </a>
                 </Button>
             </CardContent>
             <CardFooter className="flex justify-center">
                  <p className="text-xs text-muted-foreground">We'll get back to you to set up your club profile.</p>
             </CardFooter>
         </Card>
-      </section>
-
     </div>
   );
 }
