@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -17,7 +18,6 @@ service cloud.firestore {
     }
     
     function isClubAdminForRequest(clubId) {
-      // User must be a Club Admin AND their primaryClubId must match the clubId of the resource they are trying to access.
       return isClubAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
     }
     
@@ -40,7 +40,7 @@ service cloud.firestore {
         allow update, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
     }
 
-    // Logged-in users can read and write matches.
+    // Simplified rule: Any signed-in user can read and write to any match.
     match /matches/{matchId} {
       allow read, write: if isSignedIn();
     }
