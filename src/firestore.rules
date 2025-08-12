@@ -3,82 +3,83 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper Functions
+    
+    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
-
-    function isUser(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-    
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
     
     function isSiteAdmin() {
-      return isSignedIn() && getUserData().role == 'Site Admin';
+      // Check for 'Site Admin' role in the user's custom claims
+      return request.auth.token.role == 'Site Admin';
     }
     
     function isClubAdmin() {
-       return isSignedIn() && getUserData().role == 'Club Admin';
+      // Check for 'Club Admin' role in the user's custom claims
+      return request.auth.token.role == 'Club Admin';
     }
-    
-    // USERS
-    match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create: if isUser(userId);
-      allow update: if isUser(userId) || isSiteAdmin();
-      allow delete: if isSiteAdmin();
+
+    // Explicitly check the user's document for their primary club ID
+    function isClubMember(clubId) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
     }
-    
-    // CLUBS
+
+    // Rules for 'clubs' collection
     match /clubs/{clubId} {
-      allow read: if isSignedIn();
-      allow create, update: if isSiteAdmin();
-      allow delete: if isSiteAdmin();
-    }
-
-    // SERIES
-    match /series/{seriesId} {
-       allow read: if isSignedIn();
-       allow create, update, delete: if isSiteAdmin() || (isClubAdmin() && resource.data.clubId == getUserData().primaryClubId);
-    }
-    
-    // MATCHES
-    match /matches/{matchId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
-    }
-    
-    // RESULTS
-    match /results/{resultId} {
-      allow read: if isSignedIn();
-      allow write: if isSiteAdmin() || (isClubAdmin() && resource.data.clubId == getUserData().primaryClubId);
-    }
-
-    // Standard Texts
-    match /Standard_Texts/{textId} {
-       allow read: if isSignedIn();
-       allow write: if isSiteAdmin() || isClubAdmin();
-    }
-
-    // Help Documents
-    match /helpDocuments/{docId} {
       allow read: if isSignedIn();
       allow write: if isSiteAdmin();
     }
     
-    // Public collections
-    match /publicMatches/{matchId} {
-        allow read: if true;
-        allow write: if false; // Should only be written from backend/admin
+    // Rules for 'series' collection
+    match /series/{seriesId} {
+      allow read: if isSignedIn();
+      // Allow write if user is Site Admin or a Club Admin of that specific club
+      allow write: if isSiteAdmin() || (isClubAdmin() && isClubMember(request.resource.data.clubId));
     }
     
+    // Rules for 'matches' collection
+    match /matches/{matchId} {
+      allow read: if isSignedIn();
+      allow write: if isSiteAdmin() || (isClubAdmin() && isClubMember(request.resource.data.clubId));
+    }
+    
+    // Rules for 'results' collection
+    match /results/{resultId} {
+      allow read: if isSignedIn();
+      // Allow write if user is Site Admin or a Club Admin of that specific club
+      allow write: if isSiteAdmin() || (isClubAdmin() && isClubMember(request.resource.data.clubId));
+    }
+
+    // Rules for 'users' collection
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      // Allow a user to update their own profile, or allow an admin to update any profile.
+      allow update: if request.auth.uid == userId || isSiteAdmin() || 
+                    (isClubAdmin() && isClubMember(resource.data.primaryClubId));
+      allow create: if isSignedIn();
+    }
+    
+    // Rules for 'Standard_Texts' collection
+    match /Standard_Texts/{textId} {
+        allow read: if isSignedIn();
+        allow write: if isSiteAdmin() || (isClubAdmin() && isClubMember(request.resource.data.clubId));
+    }
+    
+    // Rules for 'helpDocuments' collection (Admin only)
+    match /helpDocuments/{docId} {
+        allow read: if isSignedIn();
+        allow write: if isSiteAdmin();
+    }
+
+    // Rules for public collections
+    match /publicMatches/{matchId} {
+        allow read: if true;
+        allow write: if isSiteAdmin(); // Only site admin can publish results
+    }
+
     match /publicUpcomingMatches/{matchId} {
         allow read: if true;
-        allow write: if false; // Should only be written from backend/admin
+        allow write: if isSiteAdmin(); // Only site admin can manage public upcoming matches
     }
   }
 }
