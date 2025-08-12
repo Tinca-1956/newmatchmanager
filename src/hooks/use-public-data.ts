@@ -108,7 +108,14 @@ export const usePublicData = (): UsePublicDataReturn => {
 
         if (source.length === 0) return null;
         
-        return source.sort((a, b) => b.date.seconds - a.date.seconds)[0];
+        const sorted = source.sort((a, b) => b.date.seconds - a.date.seconds)[0];
+        
+        // Also sort the nested results
+        if (sorted.results) {
+            sorted.results.sort((a, b) => (a.position || 999) - (b.position || 999));
+        }
+        
+        return sorted;
 
     }, [allPublicCompleted, selectedClubId]);
     
