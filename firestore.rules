@@ -61,9 +61,12 @@ service cloud.firestore {
     
     match /matches/{matchId} {
       allow read: if isSignedIn();
-      allow create: if isClubAdmin() || isSiteAdmin();
-      allow update: if isClubAdmin() || isSiteAdmin();
-      allow delete: if false; // Soft deletes handled by updating status
+      allow create: if isSiteAdmin() ||
+                     (isClubAdmin() && request.resource.data.clubId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId);
+      allow update: if isSiteAdmin() ||
+                     (isClubAdmin() && resource.data.clubId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId);
+      allow delete: if isSiteAdmin() ||
+                     (isClubAdmin() && resource.data.clubId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId);
     }
     
     match /results/{resultId} {
