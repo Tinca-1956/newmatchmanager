@@ -1,89 +1,65 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper Functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
 
     function isSiteAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
     }
 
     function isClubAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin';
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin';
     }
-    
+
     function isClubAdminForRequest(clubId) {
-      // User must be a Club Admin AND their primaryClubId must match the clubId of the resource they are trying to access.
       return isClubAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
     }
     
-    // User data is private, but users can read their own profile. Club admins can read members of their own club.
     match /users/{userId} {
-      allow read: if request.auth.uid == userId 
-                  || isSiteAdmin() 
-                  || (isClubAdmin() && get(/databases/$(database)/documents/users/$(userId)).data.primaryClubId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId);
-      allow create: if isSiteAdmin();
-      allow update: if request.auth.uid == userId || isSiteAdmin() || isClubAdminForRequest(resource.data.primaryClubId);
+      allow create: if request.auth != null;
+      allow read, update: if request.auth.uid == userId || isSiteAdmin() || 
+        (isClubAdmin() && get(/databases/$(database)/documents/users/$(userId)).data.primaryClubId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId);
       allow delete: if isSiteAdmin();
     }
 
-    // Public read access for the dashboard filter. Admins can edit.
     match /clubs/{clubId} {
-      allow read: if true;
-      allow create, update, delete: if isSiteAdmin() || isClubAdminForRequest(clubId);
-    }
-    
-    // Logged-in users can read series. Admins of that club can write.
-    match /series/{seriesId} {
-        allow read: if isSignedIn();
-        allow create: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
-        allow update, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
-    }
-
-    // Logged-in users can read matches. Admins of that club can write. Anglers can register/unregister.
-    match /matches/{matchId} {
-      allow read: if isSignedIn();
-      allow create, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
-      // Allow update for admins OR if a user is only modifying the registration fields.
-      allow update: if (isSiteAdmin() || isClubAdminForRequest(resource.data.clubId))
-                    || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys.hasOnly(['registeredAnglers', 'registeredCount']));
-    }
-
-    // Logged-in users can read results. Admins of that club can write.
-    match /results/{resultId} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
-    }
-
-    // Public access for dashboard data.
-    match /publicMatches/{matchId} {
-      allow read: if true;
-      allow write: if isSiteAdmin() || isClubAdmin(); // Allow admins to publish results
-    }
-
-    match /publicUpcomingMatches/{matchId} {
-      allow read: if true;
-      allow write: if isSiteAdmin() || isClubAdmin(); // Allow admins to update/create when match is edited
-    }
-
-    // Admins can manage help documents.
-    match /helpDocuments/{docId} {
-      allow read: if isSignedIn();
+      allow read: if request.auth != null;
       allow create, update, delete: if isSiteAdmin();
     }
 
-    // Admins can manage standard texts for their club.
-    match /Standard_Texts/{textId} {
-      allow read: if isSignedIn();
-      allow create: if isSiteAdmin() || isClubAdminForRequest(request.resource.data.clubId);
-      allow update, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
+    match /series/{seriesId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if isSiteAdmin() || isClubAdmin();
+    }
+
+    match /matches/{matchId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if isSiteAdmin() || isClubAdminForRequest(resource.data.clubId);
+    }
+    
+    match /results/{resultId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if isSiteAdmin() || isClubAdmin();
+    }
+
+    match /publicMatches/{matchId} {
+        allow read: if true;
+        allow write: if isSiteAdmin() || isClubAdmin();
+    }
+
+    match /publicUpcomingMatches/{matchId} {
+        allow read: if true;
+        allow write: if isSiteAdmin() || isClubAdmin();
+    }
+
+    match /helpDocuments/{docId} {
+        allow read: if request.auth != null;
+        allow write: if isSiteAdmin();
+    }
+    
+     match /Standard_Texts/{textId} {
+      allow read: if request.auth != null;
+      allow write: if isSiteAdmin() || isClubAdmin();
     }
   }
 }
-
-    
