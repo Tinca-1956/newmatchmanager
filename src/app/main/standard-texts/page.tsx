@@ -231,6 +231,9 @@ export default function StandardTextsPage() {
               className="mt-2 min-h-[120px]"
               placeholder="Enter your standard text here..."
             />
+            <p className="text-xs italic text-muted-foreground mt-2">
+                Highlight selected text, then press CTRL-C to copy. Use CTRL-V to paste text elsewhere. To select all text in this dialog, use CTRL-A
+            </p>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
