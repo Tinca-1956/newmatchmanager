@@ -19,7 +19,7 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 export default function TestAccessPage() {
   const { user, userProfile, loading: authLoading } = useAuth();
-  const { isSiteAdmin, loading: adminLoading } = useAdminAuth();
+  const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
   const { toast } = useToast();
   
   const [anglers, setAnglers] = useState<User[]>([]);
@@ -368,24 +368,39 @@ export default function TestAccessPage() {
   };
 
   const renderCurrentUserInfo = () => {
-      if (authLoading) {
+      if (authLoading || adminLoading) {
           return (
               <div className="space-y-2">
                   <Skeleton className="h-5 w-48" />
                   <Skeleton className="h-5 w-32" />
+                  <Skeleton className="h-5 w-24" />
               </div>
           )
       }
       if (userProfile) {
           return (
-              <div>
+              <div className="text-sm">
                   <p><span className="font-semibold">Current User:</span> {userProfile.firstName} {userProfile.lastName}</p>
                   <p><span className="font-semibold">Detected Role:</span> {userProfile.role}</p>
+                  <p><span className="font-semibold">Is Site Admin?</span> {isSiteAdmin ? 'Yes' : 'No'}</p>
+                  <p><span className="font-semibold">Is Club Admin?</span> {isClubAdmin ? 'Yes' : 'No'}</p>
                   <p><span className="font-semibold">Primary Club ID:</span> {userProfile.primaryClubId || 'Not Set'}</p>
               </div>
           )
       }
-      return <p className="text-muted-foreground">Could not load current user information.</p>
+      return <p className="text-sm text-muted-foreground">Could not load current user information.</p>
+  }
+  
+   const renderRuleDataTest = () => {
+    return (
+        <div className="space-y-2 rounded-md border p-4">
+            <h3 className="font-semibold mb-2">Step 0: Rule Inputs Diagnostic</h3>
+            <p className="text-sm text-muted-foreground pb-4">
+                This card shows the client-side values that should be used by the security rules. Verify these are correct for the currently logged-in user before running other tests.
+            </p>
+            {renderCurrentUserInfo()}
+        </div>
+    )
   }
 
   return (
@@ -423,13 +438,10 @@ export default function TestAccessPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="space-y-2 rounded-md border p-4">
-             <h3 className="font-semibold mb-2">Step 1: Read Your User Profile</h3>
-             {renderCurrentUserInfo()}
-          </div>
+          {renderRuleDataTest()}
           
            <div className="space-y-2 rounded-md border p-4">
-                <h3 className="font-semibold mb-2">Step 2: Test Match Name Update (WRITE)</h3>
+                <h3 className="font-semibold mb-2">Step 1: Test Match Name Update (WRITE)</h3>
                 <p className="text-sm text-muted-foreground pb-4">
                     This is the critical test. Click to attempt to update a specific match name. This will test the `update` security rule.
                 </p>
@@ -439,7 +451,7 @@ export default function TestAccessPage() {
            </div>
            
            <div className="space-y-2 rounded-md border p-4">
-                <h3 className="font-semibold mb-2">Step 3: Test Match Registration</h3>
+                <h3 className="font-semibold mb-2">Step 2: Test Match Registration</h3>
                 <p className="text-sm text-muted-foreground pb-4">
                     This is another critical test. Click to attempt to register for a specific, hardcoded match.
                 </p>
