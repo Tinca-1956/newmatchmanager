@@ -17,6 +17,9 @@ import { sendTestEmail } from '@/lib/send-email';
 import NextImage from 'next/image';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
+// Hardcoded ID for the match to be used in tests
+const TEST_MATCH_ID = 'dwoFy4YJJVzLWwQqFow1';
+
 export default function TestAccessPage() {
   const { user, userProfile, loading: authLoading } = useAuth();
   const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
@@ -35,6 +38,7 @@ export default function TestAccessPage() {
   const [seriesError, setSeriesError] = useState<string | null>(null);
 
   const [singleMatch, setSingleMatch] = useState<Match | null>(null);
+  const [singleMatchClubId, setSingleMatchClubId] = useState<string | null>(null); // State for the match's club ID
   const [isSingleMatchLoading, setIsSingleMatchLoading] = useState(false);
   const [singleMatchError, setSingleMatchError] = useState<string | null>(null);
   
@@ -173,14 +177,14 @@ export default function TestAccessPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Firestore not available.' });
       return;
     }
-    const matchId = "dwoFy4YJJVzLWwQqFow1";
 
     setIsSingleMatchLoading(true);
     setSingleMatch(null);
+    setSingleMatchClubId(null);
     setSingleMatchError(null);
 
     try {
-      const matchDocRef = doc(firestore, 'matches', matchId);
+      const matchDocRef = doc(firestore, 'matches', TEST_MATCH_ID);
       const docSnap = await getDoc(matchDocRef);
 
       if (docSnap.exists()) {
@@ -190,12 +194,13 @@ export default function TestAccessPage() {
             date: (docSnap.data().date as Timestamp).toDate(),
         } as Match;
         setSingleMatch(fetchedMatch);
+        setSingleMatchClubId(fetchedMatch.clubId); // Set the clubId for the diagnostic card
         toast({
           title: 'Success!',
           description: `Successfully fetched single match: ${fetchedMatch.name}`
         });
       } else {
-        setSingleMatchError(`A match with ID ${matchId} was not found.`);
+        setSingleMatchError(`A match with ID ${TEST_MATCH_ID} was not found.`);
         toast({ title: 'Query Succeeded', description: 'The query ran successfully but the match document was not found.' });
       }
     } catch (e: any) {
@@ -212,7 +217,6 @@ export default function TestAccessPage() {
   };
 
   const handleUpdateMatchName = async () => {
-    const testMatchId = 'dwoFy4YJJVzLWwQqFow1';
     if (!firestore) {
         toast({ variant: 'destructive', title: 'Error', description: 'Firestore not available.' });
         return;
@@ -220,11 +224,11 @@ export default function TestAccessPage() {
 
     setIsUpdatingMatch(true);
     try {
-        const matchDocRef = doc(firestore, 'matches', testMatchId);
+        const matchDocRef = doc(firestore, 'matches', TEST_MATCH_ID);
         const matchDoc = await getDoc(matchDocRef);
 
         if (!matchDoc.exists()) {
-            toast({ variant: 'destructive', title: 'Test Failed', description: `Match with ID ${testMatchId} does not exist.` });
+            toast({ variant: 'destructive', title: 'Test Failed', description: `Match with ID ${TEST_MATCH_ID} does not exist.` });
             setIsUpdatingMatch(false);
             return;
         }
@@ -234,7 +238,7 @@ export default function TestAccessPage() {
             name: currentName + 'x'
         });
 
-        toast({ title: 'SUCCESS!', description: `Successfully updated match name for ${testMatchId}.` });
+        toast({ title: 'SUCCESS!', description: `Successfully updated match name for ${TEST_MATCH_ID}.` });
     } catch (e: any) {
         console.error("Update Match Test Failed:", e);
         toast({
@@ -341,11 +345,10 @@ export default function TestAccessPage() {
         toast({ variant: 'destructive', title: 'Error', description: 'Firestore or user not available.' });
         return;
     }
-    const testMatchId = 'dwoFy4YJJVzLWwQqFow1'; // Use a known, existing match ID
     setIsRegistering(true);
 
     try {
-        const matchDocRef = doc(firestore, 'matches', testMatchId);
+        const matchDocRef = doc(firestore, 'matches', TEST_MATCH_ID);
         
         // This is the core operation that is failing
         await updateDoc(matchDocRef, {
@@ -353,7 +356,7 @@ export default function TestAccessPage() {
             registeredCount: increment(1)
         });
 
-        toast({ title: 'SUCCESS!', description: `Successfully registered for test match ${testMatchId}.` });
+        toast({ title: 'SUCCESS!', description: `Successfully registered for test match ${TEST_MATCH_ID}.` });
     } catch (e: any) {
         console.error("Test Registration Failed:", e);
         toast({
@@ -367,7 +370,7 @@ export default function TestAccessPage() {
     }
   };
 
-  const renderCurrentUserInfo = () => {
+  const renderRuleDataTest = () => {
       if (authLoading || adminLoading) {
           return (
               <div className="space-y-2">
@@ -377,36 +380,34 @@ export default function TestAccessPage() {
               </div>
           )
       }
-      if (userProfile) {
-          return (
-              <div className="text-sm">
-                  <p><span className="font-semibold">Current User:</span> {userProfile.firstName} {userProfile.lastName}</p>
-                  <p><span className="font-semibold">Detected Role:</span> {userProfile.role}</p>
-                  <p><span className="font-semibold">Is Site Admin?</span> {isSiteAdmin ? 'Yes' : 'No'}</p>
-                  <p><span className="font-semibold">Is Club Admin?</span> {isClubAdmin ? 'Yes' : 'No'}</p>
-                  <p><span className="font-semibold">Primary Club ID:</span> {userProfile.primaryClubId || 'Not Set'}</p>
+      return (
+          <div className="space-y-2 rounded-md border p-4">
+              <h3 className="font-semibold mb-2">Step 0: Rule Inputs Diagnostic</h3>
+              <p className="text-sm text-muted-foreground pb-4">
+                  This card shows the values that should be available to the security rules. Verify these are correct before running other tests.
+              </p>
+              <div className="text-sm font-mono p-2 bg-muted rounded">
+                  <p><span className="font-semibold text-primary">User Profile Data:</span></p>
+                  <p><strong className="text-muted-foreground">Is Site Admin?</strong> {isSiteAdmin ? 'Yes' : 'No'}</p>
+                  <p><strong className="text-muted-foreground">Is Club Admin?</strong> {isClubAdmin ? 'Yes' : 'No'}</p>
+                  <p><strong className="text-muted-foreground">User's Primary Club ID:</strong> {userProfile?.primaryClubId || 'Not Set'}</p>
+                  <hr className="my-2" />
+                  <p><span className="font-semibold text-primary">Resource Data (from test match):</span></p>
+                  <p><strong className="text-muted-foreground">Test Match ID:</strong> {TEST_MATCH_ID}</p>
+                   {isSingleMatchLoading ? (
+                        <Skeleton className="h-5 w-3/4 mt-1" />
+                   ): (
+                        <p><strong className="text-muted-foreground">Match's Club ID:</strong> {singleMatchClubId || 'Run "Single Match Query" to load'}</p>
+                   )}
               </div>
-          )
-      }
-      return <p className="text-sm text-muted-foreground">Could not load current user information.</p>
-  }
-  
-   const renderRuleDataTest = () => {
-    return (
-        <div className="space-y-2 rounded-md border p-4">
-            <h3 className="font-semibold mb-2">Step 0: Rule Inputs Diagnostic</h3>
-            <p className="text-sm text-muted-foreground pb-4">
-                This card shows the client-side values that should be used by the security rules. Verify these are correct for the currently logged-in user before running other tests.
-            </p>
-            {renderCurrentUserInfo()}
-        </div>
-    )
+          </div>
+      )
   }
 
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Test Access & Utilities</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Test Access - Admin</h1>
         <p className="text-muted-foreground">A page to test permissions and run admin utilities.</p>
       </div>
 
