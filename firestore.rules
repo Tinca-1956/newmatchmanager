@@ -1,80 +1,12 @@
-
 rules_version = '2';
-
-function isSiteAdmin() {
-  return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
-}
-
-function isClubAdmin() {
-  return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Club Admin';
-}
-
-function isAngler() {
-  return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Angler';
-}
-
-function isOwner(clubId) {
-  return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
-}
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Default rule: Allow read access to any authenticated user.
-    // This simplifies many read operations across the app.
-    // Write access is denied by default and must be granted specifically.
+    // Default rule: Allow read and write access to any authenticated user.
+    // This simplifies permissions and relies on application-level logic to control
+    // what data users can see and modify.
     match /{document=**} {
-      allow read: if request.auth != null;
-      allow write: if false; // Deny writes by default
-    }
-
-    // Matches:
-    // Site/Club Admins can do anything.
-    // Any authenticated user can update (register/unregister).
-    match /matches/{matchId} {
-        allow write: if isSiteAdmin() || isClubAdmin();
-        allow update: if request.auth != null; // Allows registration (updating the registeredAnglers array)
-    }
-
-    // Users:
-    // Site Admins can do anything.
-    // Club Admins can manage users in their club.
-    // Individual users can update their own profile.
-    match /users/{userId} {
-        allow write: if isSiteAdmin() || isClubAdmin() || request.auth.uid == userId;
-    }
-    
-    // Series, Results, Standard Texts:
-    // Only Admins can write to these collections.
-    match /series/{seriesId} {
-        allow write: if isSiteAdmin() || isClubAdmin();
-    }
-    match /results/{resultId} {
-        allow write: if isSiteAdmin() || isClubAdmin();
-    }
-     match /Standard_Texts/{textId} {
-        allow write: if isSiteAdmin() || isClubAdmin();
-    }
-
-    // Clubs:
-    // Site Admins can do anything.
-    // Club Admins can write to their own club document.
-    match /clubs/{clubId} {
-      allow write: if isSiteAdmin() || (isClubAdmin() && isOwner(clubId));
-    }
-    
-    // Help Documents:
-    // Only Site Admins can manage help documents.
-    match /helpDocuments/{docId} {
-        allow write: if isSiteAdmin();
-    }
-
-    // Public collections are read-only for clients, written by server-side processes or admins.
-    match /publicMatches/{matchId} {
-        allow write: if isSiteAdmin() || isClubAdmin();
-    }
-     match /publicUpcomingMatches/{matchId} {
-        allow write: if isSiteAdmin() || isClubAdmin();
+      allow read, write: if request.auth != null;
     }
   }
 }
