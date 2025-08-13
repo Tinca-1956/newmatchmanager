@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -55,6 +55,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface HelpDocument {
   id: string;
@@ -79,11 +80,14 @@ export default function HelpPage() {
   const [selectedDoc, setSelectedDoc] = useState<HelpDocument | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  const [sortBy, setSortBy] = useState<'createdAt' | 'fileName'>('createdAt');
+
   useEffect(() => {
     if (!firestore) {
       setIsLoading(false);
       return;
     }
+    // We only order by createdAt from Firestore. Filename sorting will be done on the client.
     const helpDocsQuery = query(collection(firestore, 'helpDocuments'), orderBy('createdAt', 'desc'));
 
     const unsubscribe = onSnapshot(helpDocsQuery, (snapshot) => {
@@ -101,6 +105,18 @@ export default function HelpPage() {
 
     return () => unsubscribe();
   }, [toast]);
+  
+  const sortedFiles = useMemo(() => {
+    return [...files].sort((a, b) => {
+        if (sortBy === 'fileName') {
+            return a.fileName.localeCompare(b.fileName);
+        }
+        // Default is 'createdAt' which is already handled by the query, but we can keep this for consistency
+        if (!a.createdAt) return 1;
+        if (!b.createdAt) return -1;
+        return b.createdAt.toMillis() - a.createdAt.toMillis();
+    });
+  }, [files, sortBy]);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files || event.target.files.length === 0 || !storage || !firestore) return;
@@ -219,11 +235,11 @@ export default function HelpPage() {
         ));
     }
     
-    if (files.length === 0) {
+    if (sortedFiles.length === 0) {
         return <p className="text-sm text-center text-muted-foreground p-4">No help documents or videos have been uploaded yet.</p>
     }
 
-    return files.map(file => (
+    return sortedFiles.map(file => (
       <div key={file.id} className="flex items-center justify-between p-4 border rounded-md">
         <div className="flex items-center gap-4">
           {file.type === 'pdf' ? <FileText className="h-8 w-8 text-destructive" /> : <Video className="h-8 w-8 text-blue-500" />}
@@ -318,8 +334,24 @@ export default function HelpPage() {
         
         <Card>
           <CardHeader>
-              <CardTitle>Uploaded Files</CardTitle>
-              <CardDescription>A list of all currently available help documents and videos.</CardDescription>
+            <div className="flex justify-between items-center">
+                <div>
+                    <CardTitle>Uploaded Files</CardTitle>
+                    <CardDescription>A list of all currently available help documents and videos.</CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Label htmlFor="sort-by">Sort by</Label>
+                     <Select value={sortBy} onValueChange={(value) => setSortBy(value as any)}>
+                        <SelectTrigger id="sort-by" className="w-[180px]">
+                            <SelectValue placeholder="Sort..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="createdAt">Date Created</SelectItem>
+                            <SelectItem value="fileName">Filename</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
               {renderFileList()}
