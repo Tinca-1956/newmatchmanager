@@ -262,7 +262,7 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
                       const isPaidPlace = result.position !== null && paidPlaces > 0 && result.position <= paidPlaces;
                       return (
                         <TableRow 
-                          key={result.userId}
+                          key={`${result.userId}-${result.peg}`}
                           className={isPaidPlace ? 'bg-green-100 dark:bg-green-900/30' : ''}
                         >
                             <TableCell>
