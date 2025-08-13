@@ -50,7 +50,7 @@ const navItems = [
   { href: '/main/gallery', icon: ImageIcon, label: 'Image Gallery' },
   { href: '/main/standard-texts', icon: FileTextIcon, label: 'Std. Text - Club Admin', adminOnly: true },
   { href: '/main/profile', icon: UserIcon, label: 'Profile' },
-  { href: '/main/help', icon: HelpCircle, label: 'Help - Site Admin', siteAdminOnly: true },
+  { href: '/main/help', icon: HelpCircle, label: 'Help - Site Admin', adminOnly: true },
   { href: '/main/help-user', icon: HelpCircle, label: 'Help' },
   { href: '/main/contact', icon: MessageSquare, label: 'Contact' },
   { href: '/main/about', icon: Info, label: 'About' },
