@@ -91,51 +91,61 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
     );
   }
 
-  const sortedNavItems = navItems.filter((item: any) => {
-      if (!userProfile) return false; // Don't show any items if profile is not loaded
+  const filteredNavItems = navItems.filter((item: any) => {
+      if (!userProfile) return false;
 
       const isSiteAdmin = userProfile.role === 'Site Admin';
       const isClubAdmin = userProfile.role === 'Club Admin';
       const isAngler = userProfile.role === 'Angler';
       
-      // All users see the Register link
-      if (item.href === '/main/register') {
-          return true;
-      }
+      if (item.emulatorOnly && !isEmulatorMode) return false;
+      if (item.siteAdminOnly && !isSiteAdmin) return false;
+      if (item.adminOnly && !isSiteAdmin && !isClubAdmin) return false;
+      if (item.anglerOnly && !isAngler) return false;
       
-      if (item.emulatorOnly && !isEmulatorMode) {
-          return false;
-      }
-      
-      if (item.siteAdminOnly && !isSiteAdmin) {
-          return false;
-      }
-      
-      if (item.clubAdminOnly && !isClubAdmin) {
-        return false;
-      }
+      // Specific logic to hide Club Admin items from Site Admin view
+      if (item.clubAdminOnly && isSiteAdmin) return false;
 
-      if (item.adminOnly && !isSiteAdmin && !isClubAdmin) {
-          return false;
-      }
-
-      if (item.anglerOnly && !isAngler) {
-        return false;
-      }
-      
       return true;
-  }).sort((a, b) => {
-      const adminOrder = ['/main/admin/seed', '/main/users/deleted', '/main/emulator', '/main/test-access'];
-      const aIndex = adminOrder.indexOf(a.href);
-      const bIndex = adminOrder.indexOf(b.href);
-      
-      if (aIndex !== -1 && bIndex !== -1) {
-          return aIndex - bIndex;
-      }
-      if (aIndex !== -1) return 1; // Put admin items at the bottom
-      if (bIndex !== -1) return -1;
-      return 0;
   });
+
+  let sortedNavItems = filteredNavItems;
+
+  if (userProfile?.role === 'Angler') {
+    const anglerOrder = [
+      '/main/dashboard',
+      '/main/series-angler',
+      '/main/matches-angler',
+      '/main/register',
+      '/main/results',
+      '/main/gallery',
+      '/main/profile',
+      '/main/help-user',
+      '/main/contact',
+      '/main/about',
+    ];
+    sortedNavItems.sort((a, b) => {
+      const aIndex = anglerOrder.indexOf(a.href);
+      const bIndex = anglerOrder.indexOf(b.href);
+      if (aIndex === -1 && bIndex === -1) return 0;
+      if (aIndex === -1) return 1;
+      if (bIndex === -1) return -1;
+      return aIndex - bIndex;
+    });
+  } else {
+    // Keep existing admin sort order
+    sortedNavItems.sort((a, b) => {
+        const adminOrder = ['/main/admin/seed', '/main/users/deleted', '/main/emulator', '/main/test-access'];
+        const aIndex = adminOrder.indexOf(a.href);
+        const bIndex = adminOrder.indexOf(b.href);
+        
+        if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+        if (aIndex !== -1) return 1;
+        if (bIndex !== -1) return -1;
+        return 0;
+    });
+  }
+
 
   const linkClasses = (isActive: boolean) => `flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
         isActive
