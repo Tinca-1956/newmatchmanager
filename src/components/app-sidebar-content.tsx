@@ -110,10 +110,6 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
       if (item.adminOnly && !isSiteAdmin && !isClubAdmin) return false;
       if (item.anglerOnly && !isAngler) return false;
       
-      // Specific logic to hide Club Admin items from Site Admin view
-      if (item.href.includes('-club-admin') && isSiteAdmin) return false;
-
-
       return true;
   });
 
