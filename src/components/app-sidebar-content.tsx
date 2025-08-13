@@ -100,7 +100,6 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
       
       if (item.href === '/main/series-angler' && !isAngler) return false;
       if (item.href === '/main/matches-angler' && !isAngler) return false;
-      if (item.href === '/main/register' && !isAngler) return false;
       
       if (item.href === '/main/help-user' && (isSiteAdmin || isClubAdmin)) return false;
 
