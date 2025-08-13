@@ -109,8 +109,8 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
       // Hide admin-specific duplicates from anglers
       if (['/main/series', '/main/matches'].includes(item.href) && isAngler) return false;
       
-      // Hide user-facing help from admins
-      if (item.href === '/main/help-user' && (isSiteAdmin || isClubAdmin)) return false;
+      // Hide user-facing help from Site Admins (who have their own help page)
+      if (item.href === '/main/help-user' && isSiteAdmin) return false;
 
       return true;
   });
