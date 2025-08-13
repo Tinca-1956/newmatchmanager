@@ -56,8 +56,8 @@ const navItems = [
   { href: '/main/about', icon: Info, label: 'About' },
   { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users - Site Admin', siteAdminOnly: true },
   { href: '/main/test-access', icon: TestTube, label: 'Test Access - Admin', siteAdminOnly: true },
-  { href: '/main/series-angler', icon: Trophy, label: 'Series' },
-  { href: '/main/matches-angler', icon: Swords, label: 'Matches' },
+  { href: '/main/series-angler', icon: Trophy, label: 'Series', anglerOnly: true },
+  { href: '/main/matches-angler', icon: Swords, label: 'Matches', anglerOnly: true },
   { href: '/main/emulator', icon: FlaskConical, label: 'Emulator', adminOnly: true, emulatorOnly: true },
 ];
 
@@ -98,17 +98,20 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
       const isClubAdmin = userProfile.role === 'Club Admin';
       const isAngler = userProfile.role === 'Angler';
       
-      if (item.href === '/main/series-angler' && !isAngler) return false;
-      if (item.href === '/main/matches-angler' && !isAngler) return false;
-      
-      if (item.href === '/main/help-user' && (isSiteAdmin || isClubAdmin)) return false;
-
-
       if (item.emulatorOnly && !isEmulatorMode) return false;
       if (item.siteAdminOnly && !isSiteAdmin) return false;
       if (item.adminOnly && !isSiteAdmin && !isClubAdmin) return false;
       if (item.anglerOnly && !isAngler) return false;
+
+      // Hide angler-specific duplicates from admins
+      if (['/main/series-angler', '/main/matches-angler'].includes(item.href) && (isSiteAdmin || isClubAdmin)) return false;
+
+      // Hide admin-specific duplicates from anglers
+      if (['/main/series', '/main/matches'].includes(item.href) && isAngler) return false;
       
+      // Hide user-facing help from admins
+      if (item.href === '/main/help-user' && (isSiteAdmin || isClubAdmin)) return false;
+
       return true;
   });
 
@@ -127,6 +130,7 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
       '/main/contact',
       '/main/about',
     ];
+    // Custom sort for Angler role
     sortedNavItems.sort((a, b) => {
       const aIndex = anglerOrder.indexOf(a.href);
       const bIndex = anglerOrder.indexOf(b.href);
@@ -134,18 +138,6 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
       if (aIndex === -1) return 1;
       if (bIndex === -1) return -1;
       return aIndex - bIndex;
-    });
-  } else {
-    // Keep existing admin sort order
-    sortedNavItems.sort((a, b) => {
-        const adminOrder = ['/main/admin/seed', '/main/users/deleted', '/main/emulator', '/main/test-access'];
-        const aIndex = adminOrder.indexOf(a.href);
-        const bIndex = adminOrder.indexOf(b.href);
-        
-        if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-        if (aIndex !== -1) return 1;
-        if (bIndex !== -1) return -1;
-        return 0;
     });
   }
 
