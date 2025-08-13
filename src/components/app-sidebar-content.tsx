@@ -55,9 +55,9 @@ const navItems = [
   { href: '/main/contact', icon: MessageSquare, label: 'Contact' },
   { href: '/main/about', icon: Info, label: 'About' },
   { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users - Site Admin', siteAdminOnly: true },
-  { href: '/main/test-access', icon: TestTube, label: 'Test Access - Admin', adminOnly: true },
-  { href: '/main/series-angler', icon: Trophy, label: 'Series - Angler', anglerOnly: true },
-  { href: '/main/matches-angler', icon: Swords, label: 'Matches - Angler', anglerOnly: true },
+  { href: '/main/test-access', icon: TestTube, label: 'Test Access - Admin', siteAdminOnly: true },
+  { href: '/main/series-angler', icon: Trophy, label: 'Series' },
+  { href: '/main/matches-angler', icon: Swords, label: 'Matches' },
   { href: '/main/emulator', icon: FlaskConical, label: 'Emulator', adminOnly: true, emulatorOnly: true },
 ];
 
@@ -98,13 +98,21 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
       const isClubAdmin = userProfile.role === 'Club Admin';
       const isAngler = userProfile.role === 'Angler';
       
+      if (item.href === '/main/series-angler' && !isAngler) return false;
+      if (item.href === '/main/matches-angler' && !isAngler) return false;
+      if (item.href === '/main/register' && !isAngler) return false;
+      
+      if (item.href === '/main/help-user' && (isSiteAdmin || isClubAdmin)) return false;
+
+
       if (item.emulatorOnly && !isEmulatorMode) return false;
       if (item.siteAdminOnly && !isSiteAdmin) return false;
       if (item.adminOnly && !isSiteAdmin && !isClubAdmin) return false;
       if (item.anglerOnly && !isAngler) return false;
       
       // Specific logic to hide Club Admin items from Site Admin view
-      if (item.clubAdminOnly && isSiteAdmin) return false;
+      if (item.href.includes('-club-admin') && isSiteAdmin) return false;
+
 
       return true;
   });
