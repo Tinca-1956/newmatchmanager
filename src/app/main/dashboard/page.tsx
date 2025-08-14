@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -106,7 +107,7 @@ export default function DashboardPage() {
                         ? club.subscriptionExpiryDate.toDate()
                         : new Date(club.subscriptionExpiryDate);
                     
-                    return !isNaN(expiryDate.getTime()) && expiryDate <= thresholdDate && expiryDate >= now;
+                    return !isNaN(expiryDate.getTime()) && expiryDate <= thresholdDate;
                 }
                 return false;
             });
