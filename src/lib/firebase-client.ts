@@ -3,13 +3,12 @@ import { initializeApp, getApps, getApp, type FirebaseOptions } from 'firebase/a
 import { getAuth, type Auth, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, type Firestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage, connectStorageEmulator } from 'firebase/storage';
-import { getFunctions, connectFunctionsEmulator, type Functions } from 'firebase/functions';
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 
 let app;
 let auth: Auth | null = null;
 let firestore: Firestore | null = null;
 let storage: FirebaseStorage | null = null;
-let functions: Functions | null = null;
 
 // A flag to ensure emulator connection only happens once.
 let emulatorsConnected = false;
@@ -36,8 +35,9 @@ if (typeof window !== 'undefined') {
         
         auth = getAuth(app);
         firestore = getFirestore(app);
+        // Correctly initialize storage with the bucket URL
         storage = getStorage(app, firebaseConfig.storageBucket);
-        functions = getFunctions(app, 'us-central1'); // Always initialize functions
+        const functions = getFunctions(app);
 
         // This is the correct way to conditionally connect to emulators.
         // It depends on an environment variable and ensures it only runs once.
@@ -47,9 +47,7 @@ if (typeof window !== 'undefined') {
                 connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
                 connectFirestoreEmulator(firestore, 'localhost', 8080);
                 connectStorageEmulator(storage, 'localhost', 9199);
-                if (functions) {
-                  connectFunctionsEmulator(functions, 'localhost', 5001);
-                }
+                connectFunctionsEmulator(functions, 'localhost', 5001);
                 emulatorsConnected = true; // Set the flag to prevent reconnecting
             } catch(e) {
                 console.error("Error connecting to emulators. This can happen on hot reloads. It's often safe to ignore.", e);
@@ -58,4 +56,4 @@ if (typeof window !== 'undefined') {
     }
 }
 
-export { app, auth, firestore, storage, functions };
+export { app, auth, firestore, storage };
