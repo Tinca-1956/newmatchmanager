@@ -33,7 +33,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { firestore, storage } from '@/lib/firebase-client';
-import { doc, onSnapshot, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, getDoc, Timestamp } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import type { Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -41,6 +41,7 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 import Image from 'next/image';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/use-auth';
+import { format } from 'date-fns';
 
 export default function ClubsClubAdminPage() {
   const { toast } = useToast();
@@ -202,6 +203,7 @@ export default function ClubsClubAdminPage() {
                   <TableHead className="w-16">Logo</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Description</TableHead>
+                  <TableHead>Expiry</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -211,6 +213,7 @@ export default function ClubsClubAdminPage() {
                     <TableCell><Skeleton className="h-10 w-10 rounded-full" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-64" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-8 w-8 rounded-md" /></TableCell>
                     </TableRow>
                 ) : club ? (
@@ -226,6 +229,9 @@ export default function ClubsClubAdminPage() {
                         </TableCell>
                         <TableCell className="font-medium">{club.name}</TableCell>
                         <TableCell>{club.description}</TableCell>
+                        <TableCell>
+                            {club.subscriptionExpiryDate ? format((club.subscriptionExpiryDate as Timestamp).toDate(), 'dd/MM/yyyy') : 'N/A'}
+                        </TableCell>
                         <TableCell className="text-right">
                            {(isSiteAdmin || isClubAdmin) && (
                                 <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(club)}>
@@ -236,7 +242,7 @@ export default function ClubsClubAdminPage() {
                     </TableRow>
                 ) : (
                     <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center">
+                        <TableCell colSpan={5} className="h-24 text-center">
                             No primary club found. Please set one in your profile.
                         </TableCell>
                     </TableRow>
