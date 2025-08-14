@@ -91,8 +91,8 @@ export default function DashboardPage() {
 
   // Effect for Site Admin expiry report
   useEffect(() => {
-    // Only run for Site Admins and once per session using sessionStorage
-    if (userProfile?.role === 'Site Admin' && firestore && !sessionStorage.getItem('expiryReportShown')) {
+    // Only run for Site Admins
+    if (userProfile?.role === 'Site Admin' && firestore) {
         const fetchExpiringClubs = async () => {
             const clubsQuery = query(collection(firestore, 'clubs'));
             const clubsSnapshot = await getDocs(clubsQuery);
@@ -120,7 +120,6 @@ export default function DashboardPage() {
             if (expiring.length > 0) {
                 setExpiringClubs(expiring);
                 setIsExpiryModalOpen(true);
-                sessionStorage.setItem('expiryReportShown', 'true'); // Mark as shown for this session
             }
         };
 
