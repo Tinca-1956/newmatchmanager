@@ -89,29 +89,24 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingResults, setIsLoadingResults] = useState(true);
 
-  // Effect for Site Admin expiry report
+  // Effect for expiry reports
   useEffect(() => {
-    // Only run for Site Admins
-    if (userProfile?.role === 'Site Admin' && firestore) {
-        const fetchExpiringClubs = async () => {
+    if (!userProfile || !firestore) return;
+
+    const now = new Date();
+    const thresholdDate = addDays(now, 30);
+
+    const fetchClubsAndCheckExpiry = async () => {
+        if (userProfile.role === 'Site Admin') {
             const clubsQuery = query(collection(firestore, 'clubs'));
             const clubsSnapshot = await getDocs(clubsQuery);
             const allClubs = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
 
-            const now = new Date();
-            const thresholdDate = addDays(now, 30);
-            
             const expiring = allClubs.filter(club => {
                 if (club.subscriptionExpiryDate) {
                     const expiryDate = club.subscriptionExpiryDate instanceof Timestamp
                         ? club.subscriptionExpiryDate.toDate()
                         : new Date(club.subscriptionExpiryDate);
-                    
-                    if (isNaN(expiryDate.getTime())) {
-                        return false; // Skip invalid dates
-                    }
-                    
-                    // Show if the date is in the past OR within the next 30 days
                     return expiryDate <= thresholdDate;
                 }
                 return false;
@@ -121,10 +116,28 @@ export default function DashboardPage() {
                 setExpiringClubs(expiring);
                 setIsExpiryModalOpen(true);
             }
-        };
+        } else if (userProfile.role === 'Club Admin' && userProfile.primaryClubId) {
+            const clubDocRef = doc(firestore, 'clubs', userProfile.primaryClubId);
+            const clubDoc = await getDoc(clubDocRef);
 
-        fetchExpiringClubs();
-    }
+            if (clubDoc.exists()) {
+                const club = { id: clubDoc.id, ...clubDoc.data() } as Club;
+                if (club.subscriptionExpiryDate) {
+                    const expiryDate = club.subscriptionExpiryDate instanceof Timestamp
+                        ? club.subscriptionExpiryDate.toDate()
+                        : new Date(club.subscriptionExpiryDate);
+
+                    if (expiryDate <= thresholdDate) {
+                        setExpiringClubs([club]);
+                        setIsExpiryModalOpen(true);
+                    }
+                }
+            }
+        }
+    };
+    
+    fetchClubsAndCheckExpiry();
+
   }, [userProfile]);
 
   useEffect(() => {
