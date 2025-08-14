@@ -16,6 +16,7 @@ import { format } from 'date-fns';
 import { sendTestEmail } from '@/lib/send-email';
 import NextImage from 'next/image';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
+import { callHelloWorld } from '@/lib/firebase-functions';
 
 // Hardcoded ID for the match to be used in tests
 const TEST_MATCH_ID = 'dwoFy4YJJVzLWwQqFow1';
@@ -48,6 +49,9 @@ export default function TestAccessPage() {
   const [isCreatingAngler, setIsCreatingAngler] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
+  
+  const [isPingingCloud, setIsPingingCloud] = useState(false);
+  const [cloudFunctionResult, setCloudFunctionResult] = useState<string | null>(null);
 
 
   const handleGetAnglers = async () => {
@@ -369,6 +373,23 @@ export default function TestAccessPage() {
         setIsRegistering(false);
     }
   };
+  
+  const handleCloudFunctionTest = async () => {
+    if (!userProfile) return;
+    setIsPingingCloud(true);
+    setCloudFunctionResult(null);
+    try {
+        const result = await callHelloWorld(userProfile.firstName);
+        setCloudFunctionResult(result.message);
+        toast({ title: 'Cloud Function Success!', description: 'Received a response from the cloud.' });
+    } catch (error: any) {
+        console.error("Cloud Function Test Failed:", error);
+        setCloudFunctionResult(`Error: ${error.message}`);
+        toast({ variant: 'destructive', title: 'Cloud Function Test FAILED', description: 'Check browser console and function logs for details.', duration: 10000 });
+    } finally {
+        setIsPingingCloud(false);
+    }
+  };
 
   const renderRuleDataTest = () => {
       if (authLoading || adminLoading) {
@@ -441,6 +462,25 @@ export default function TestAccessPage() {
         <CardContent className="space-y-6">
           {renderRuleDataTest()}
           
+           <div className="space-y-2 rounded-md border p-4">
+                <h3 className="font-semibold mb-2">Test Cloud Function (helloWorld)</h3>
+                <p className="text-sm text-muted-foreground pb-4">
+                   This button calls a simple 'helloWorld' cloud function. A successful response confirms that your frontend is correctly configured to call your backend functions.
+                </p>
+                <Button onClick={handleCloudFunctionTest} disabled={isPingingCloud || authLoading || !userProfile}>
+                    {isPingingCloud ? 'Pinging...' : 'Run Cloud Function Test'}
+                </Button>
+                 {cloudFunctionResult && (
+                    <Alert variant={cloudFunctionResult.startsWith('Error:') ? 'destructive' : 'default'} className="mt-4">
+                        <Terminal className="h-4 w-4" />
+                        <AlertTitle>Cloud Function Result</AlertTitle>
+                        <AlertDescription>
+                            {cloudFunctionResult}
+                        </AlertDescription>
+                    </Alert>
+                )}
+           </div>
+
            <div className="space-y-2 rounded-md border p-4">
                 <h3 className="font-semibold mb-2">Step 1: Test Match Name Update (WRITE)</h3>
                 <p className="text-sm text-muted-foreground pb-4">
