@@ -107,7 +107,12 @@ export default function DashboardPage() {
                         ? club.subscriptionExpiryDate.toDate()
                         : new Date(club.subscriptionExpiryDate);
                     
-                    return !isNaN(expiryDate.getTime()) && expiryDate <= thresholdDate;
+                    if (isNaN(expiryDate.getTime())) {
+                        return false; // Skip invalid dates
+                    }
+                    
+                    // Show if the date is in the past OR within the next 30 days
+                    return expiryDate <= thresholdDate;
                 }
                 return false;
             });
