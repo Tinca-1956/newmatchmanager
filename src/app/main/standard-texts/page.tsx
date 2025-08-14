@@ -49,6 +49,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/use-auth';
+import { Input } from '@/components/ui/input';
 
 export default function StandardTextsPage() {
   const { userProfile, loading: authLoading } = useAuth();
@@ -86,29 +87,32 @@ export default function StandardTextsPage() {
   }, [userProfile, authLoading, adminLoading, toast]);
   
   const openDialog = (text: Partial<StandardText> | null = null) => {
-    setCurrentText(text ? { ...text } : { content: '', clubId: userProfile?.primaryClubId || '' });
+    setCurrentText(text ? { ...text } : { summary: '', content: '', clubId: userProfile?.primaryClubId || '' });
     setIsDialogOpen(true);
   };
   
   const handleSave = async () => {
-    if (!currentText || !currentText.content || !currentText.clubId || !firestore) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Text content cannot be empty.' });
+    if (!currentText || !currentText.content || !currentText.summary || !currentText.clubId || !firestore) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Summary and text content cannot be empty.' });
       return;
     }
     
     setIsSaving(true);
     try {
+      const dataToSave = {
+        clubId: currentText.clubId,
+        summary: currentText.summary,
+        content: currentText.content,
+      };
+
       if (currentText.id) {
         // Update existing
         const docRef = doc(firestore, 'Standard_Texts', currentText.id);
-        await updateDoc(docRef, { content: currentText.content });
+        await updateDoc(docRef, dataToSave);
         toast({ title: 'Success', description: 'Standard text updated.' });
       } else {
         // Create new
-        await addDoc(collection(firestore, 'Standard_Texts'), {
-          clubId: currentText.clubId,
-          content: currentText.content,
-        });
+        await addDoc(collection(firestore, 'Standard_Texts'), dataToSave);
         toast({ title: 'Success', description: 'Standard text created.' });
       }
       setIsDialogOpen(false);
@@ -175,7 +179,7 @@ export default function StandardTextsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Content</TableHead>
+                  <TableHead>Summary</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -194,7 +198,7 @@ export default function StandardTextsPage() {
                 ) : (
                   texts.map((text) => (
                     <TableRow key={text.id}>
-                      <TableCell className="max-w-xl truncate">{text.content}</TableCell>
+                      <TableCell className="font-medium">{text.summary}</TableCell>
                       <TableCell className="text-right space-x-2">
                         <Button variant="ghost" size="icon" onClick={() => openDialog(text)}><Edit className="h-4 w-4" /></Button>
                         <AlertDialog>
@@ -226,20 +230,33 @@ export default function StandardTextsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{currentText?.id ? 'Edit' : 'Create'} Standard Text</DialogTitle>
-            <DialogDescription>Enter the content for the reusable text snippet.</DialogDescription>
+            <DialogDescription>Enter a short summary and the full content for the reusable text snippet.</DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <Label htmlFor="content">Text Content</Label>
-            <Textarea
-              id="content"
-              value={currentText?.content || ''}
-              onChange={(e) => setCurrentText(prev => prev ? { ...prev, content: e.target.value } : null)}
-              className="mt-2 min-h-[120px]"
-              placeholder="Enter your standard text here..."
-            />
-            <p className="text-xs italic text-muted-foreground mt-2">
-                Highlight selected text, then press CTRL-C to copy. Use CTRL-V to paste text elsewhere. To select all text in this dialog, use CTRL-A
-            </p>
+          <div className="py-4 space-y-4">
+             <div className="space-y-2">
+              <Label htmlFor="summary">Summary</Label>
+              <Input
+                id="summary"
+                value={currentText?.summary || ''}
+                onChange={(e) => setCurrentText(prev => prev ? { ...prev, summary: e.target.value } : null)}
+                placeholder="e.g., Standard Match Rules"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="content">Full Text Content</Label>
+              <Textarea
+                id="content"
+                value={currentText?.content || ''}
+                onChange={(e) => setCurrentText(prev => prev ? { ...prev, content: e.target.value } : null)}
+                className="mt-2 min-h-[120px]"
+                placeholder="Enter your standard text here..."
+                required
+              />
+              <p className="text-xs italic text-muted-foreground mt-2">
+                  Highlight selected text, then press CTRL-C to copy. Use CTRL-V to paste text elsewhere. To select all text in this dialog, use CTRL-A
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>

@@ -76,6 +76,7 @@ export interface Result {
 export interface StandardText {
   id: string;
   clubId: string;
+  summary?: string;
   content: string;
 }
 
