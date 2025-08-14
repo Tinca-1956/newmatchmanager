@@ -12,13 +12,20 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { sendTestEmail } from '@/lib/send-email';
 import NextImage from 'next/image';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 // Hardcoded ID for the match to be used in tests
 const TEST_MATCH_ID = 'dwoFy4YJJVzLWwQqFow1';
+
+interface ExpiryTestResult {
+    clubName: string;
+    expiryDate: string;
+    thresholdDate: string;
+    shouldTrigger: boolean;
+}
 
 export default function TestAccessPage() {
   const { user, userProfile, loading: authLoading } = useAuth();
@@ -48,6 +55,9 @@ export default function TestAccessPage() {
   const [isCreatingAngler, setIsCreatingAngler] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isTestingExpiry, setIsTestingExpiry] = useState(false);
+  const [expiryTestResult, setExpiryTestResult] = useState<ExpiryTestResult | null>(null);
+
 
   const handleGetAnglers = async () => {
     if (!firestore || !userProfile?.primaryClubId) {
@@ -368,6 +378,50 @@ export default function TestAccessPage() {
         setIsRegistering(false);
     }
   };
+  
+  const handleSingleClubTest = async () => {
+    if (!firestore) return;
+    setIsTestingExpiry(true);
+    setExpiryTestResult(null);
+    try {
+        const clubsQuery = query(collection(firestore, 'clubs'), where('name', '==', 'SYDNEY COARSE ANGLING'));
+        const clubSnapshot = await getDocs(clubsQuery);
+        if (clubSnapshot.empty) {
+            toast({ variant: 'destructive', title: 'Test Error', description: 'Could not find "SYDNEY COARSE ANGLING" club.' });
+            setIsTestingExpiry(false);
+            return;
+        }
+        
+        const clubDoc = clubSnapshot.docs[0];
+        const club = { id: clubDoc.id, ...clubDoc.data() } as Club;
+
+        if (club.subscriptionExpiryDate) {
+            const expiryDate = club.subscriptionExpiryDate instanceof Timestamp
+                ? club.subscriptionExpiryDate.toDate()
+                : new Date(club.subscriptionExpiryDate);
+                
+            const now = new Date();
+            const thresholdDate = addDays(now, 30);
+            
+            const shouldTrigger = expiryDate <= thresholdDate;
+            
+            setExpiryTestResult({
+                clubName: club.name,
+                expiryDate: format(expiryDate, 'PPP'),
+                thresholdDate: format(thresholdDate, 'PPP'),
+                shouldTrigger: shouldTrigger
+            });
+             toast({ title: 'Test Complete', description: 'Expiry logic test finished.' });
+        } else {
+             toast({ variant: 'destructive', title: 'Test Error', description: 'The selected club does not have an expiry date set.' });
+        }
+    } catch (e: any) {
+        console.error('Error running single club expiry test:', e);
+        toast({ variant: 'destructive', title: 'Test Failed', description: 'Could not run the expiry test.' });
+    } finally {
+        setIsTestingExpiry(false);
+    }
+  };
 
   const renderRuleDataTest = () => {
       if (authLoading || adminLoading) {
@@ -417,6 +471,24 @@ export default function TestAccessPage() {
                   <CardDescription>One-off actions to manage application data.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                   <div className="space-y-2 rounded-md border p-4">
+                        <h3 className="font-semibold mb-2">Expiry Report Logic Test</h3>
+                        <p className="text-sm text-muted-foreground pb-4">
+                          This will fetch the "SYDNEY COARSE ANGLING" club and check if its expiry date should trigger the warning modal.
+                        </p>
+                        <Button onClick={handleSingleClubTest} disabled={isTestingExpiry}>
+                            {isTestingExpiry ? 'Testing...' : 'Run Single Club Expiry Test'}
+                        </Button>
+                         {expiryTestResult && (
+                            <div className="mt-4 text-sm font-mono p-2 bg-muted rounded">
+                                <p><strong className="text-primary">Club:</strong> {expiryTestResult.clubName}</p>
+                                <p><strong className="text-primary">Expiry Date:</strong> {expiryTestResult.expiryDate}</p>
+                                <p><strong className="text-primary">Threshold Date (Today + 30d):</strong> {expiryTestResult.thresholdDate}</p>
+                                <hr className="my-2"/>
+                                <p><strong className="text-primary">Report Should Trigger?:</strong> {expiryTestResult.shouldTrigger ? 'YES' : 'NO'}</p>
+                            </div>
+                        )}
+                    </div>
                   <div className="space-y-2 rounded-md border p-4">
                       <h3 className="font-semibold mb-2">Sync Public Upcoming Matches</h3>
                       <p className="text-sm text-muted-foreground pb-4">
