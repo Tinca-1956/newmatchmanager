@@ -4,11 +4,11 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
 import { doc, onSnapshot, collection, query, where, Timestamp, orderBy, limit, getDocs, writeBatch } from 'firebase/firestore';
-import type { User, Match, MatchStatus, Result } from '@/lib/types';
+import type { User, Match, MatchStatus, Result, Club } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Image as ImageIcon, ArrowRight, Trophy as TrophyIcon } from 'lucide-react';
@@ -24,6 +24,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ExpiryReportModal } from '@/components/expiry-report-modal';
 
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
@@ -80,10 +81,45 @@ export default function DashboardPage() {
   const [recentMatchPaidPlaces, setRecentMatchPaidPlaces] = useState<number>(0);
   const [recentMatchImages, setRecentMatchImages] = useState<string[]>([]);
   const [recentMatchId, setRecentMatchId] = useState<string | null>(null);
+  const [expiringClubs, setExpiringClubs] = useState<Club[]>([]);
+  const [isExpiryModalOpen, setIsExpiryModalOpen] = useState(false);
 
 
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingResults, setIsLoadingResults] = useState(true);
+
+  // Effect for Site Admin expiry report
+  useEffect(() => {
+    // Only run for Site Admins and once per session using sessionStorage
+    if (userProfile?.role === 'Site Admin' && firestore && !sessionStorage.getItem('expiryReportShown')) {
+        const fetchExpiringClubs = async () => {
+            const clubsQuery = query(collection(firestore, 'clubs'));
+            const clubsSnapshot = await getDocs(clubsQuery);
+            const allClubs = clubsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
+
+            const now = new Date();
+            const thresholdDate = addDays(now, 30);
+            
+            const expiring = allClubs.filter(club => {
+                if (club.subscriptionExpiryDate) {
+                    const expiryDate = club.subscriptionExpiryDate instanceof Timestamp
+                        ? club.subscriptionExpiryDate.toDate()
+                        : club.subscriptionExpiryDate;
+                    return expiryDate <= thresholdDate && expiryDate >= now;
+                }
+                return false;
+            });
+
+            if (expiring.length > 0) {
+                setExpiringClubs(expiring);
+                setIsExpiryModalOpen(true);
+                sessionStorage.setItem('expiryReportShown', 'true'); // Mark as shown for this session
+            }
+        };
+
+        fetchExpiringClubs();
+    }
+  }, [userProfile]);
 
   useEffect(() => {
     if (!userProfile?.primaryClubId || !firestore) {
@@ -448,6 +484,12 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
     </div>
+    
+    <ExpiryReportModal 
+        isOpen={isExpiryModalOpen}
+        onClose={() => setIsExpiryModalOpen(false)}
+        expiringClubs={expiringClubs}
+    />
     </>
   );
 }
