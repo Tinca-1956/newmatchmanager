@@ -15,9 +15,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
-import { doc, updateDoc } from 'firebase/firestore';
-import type { Match } from '@/lib/types';
+import { doc, updateDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
+import type { Match, StandardText } from '@/lib/types';
 import { ScrollArea } from './ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Skeleton } from './ui/skeleton';
 
 interface MatchDescriptionModalProps {
   isOpen: boolean;
@@ -29,6 +37,8 @@ interface MatchDescriptionModalProps {
 export function MatchDescriptionModal({ isOpen, onClose, match, canEdit }: MatchDescriptionModalProps) {
   const [description, setDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [standardTexts, setStandardTexts] = useState<StandardText[]>([]);
+  const [isLoadingTexts, setIsLoadingTexts] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -36,6 +46,26 @@ export function MatchDescriptionModal({ isOpen, onClose, match, canEdit }: Match
       setDescription(match.description || '');
     }
   }, [match]);
+
+  useEffect(() => {
+    if (isOpen && canEdit && match?.clubId && firestore) {
+      setIsLoadingTexts(true);
+      const textsQuery = query(
+        collection(firestore, 'Standard_Texts'),
+        where('clubId', '==', match.clubId)
+      );
+      const unsubscribe = onSnapshot(textsQuery, (snapshot) => {
+        const textsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StandardText));
+        setStandardTexts(textsData);
+        setIsLoadingTexts(false);
+      }, (error) => {
+        console.error("Error fetching standard texts:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch standard texts.' });
+        setIsLoadingTexts(false);
+      });
+      return () => unsubscribe();
+    }
+  }, [isOpen, match, canEdit, toast]);
 
   const handleSave = async () => {
     if (!match || !firestore) {
@@ -58,6 +88,18 @@ export function MatchDescriptionModal({ isOpen, onClose, match, canEdit }: Match
       setIsSaving(false);
     }
   };
+
+  const handleInsertText = (textId: string) => {
+    if (!textId) return;
+    const selectedText = standardTexts.find(t => t.id === textId);
+    if (selectedText) {
+      setDescription(prev => {
+        // Add a clean separation if there's existing text.
+        const separator = prev ? '\n\n---\n\n' : '';
+        return `${prev}${separator}${selectedText.content}`;
+      });
+    }
+  };
   
   if (!match) return null;
 
@@ -67,10 +109,33 @@ export function MatchDescriptionModal({ isOpen, onClose, match, canEdit }: Match
         <DialogHeader>
           <DialogTitle>Match Description</DialogTitle>
           <DialogDescription>
-            Details for {match.name}. {canEdit ? "You can edit the description below." : ""}
+            Details for {match.name}. {canEdit ? "You can edit the description or insert a standard text." : ""}
           </DialogDescription>
         </DialogHeader>
-        <div className="py-4">
+        <div className="py-4 space-y-4">
+          {canEdit && (
+            <div className="space-y-2">
+              <Label htmlFor="standard-text-select">Insert Standard Text</Label>
+              {isLoadingTexts ? (
+                <Skeleton className="h-10 w-full" />
+              ) : (
+                <Select onValueChange={handleInsertText} value="">
+                  <SelectTrigger id="standard-text-select">
+                    <SelectValue placeholder="Select a text to insert..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {standardTexts.length > 0 ? (
+                      standardTexts.map(text => (
+                        <SelectItem key={text.id} value={text.id}>{text.summary}</SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="none" disabled>No standard texts found</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
           {canEdit ? (
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
