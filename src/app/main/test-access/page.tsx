@@ -19,6 +19,7 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 // Hardcoded ID for the match to be used in tests
 const TEST_MATCH_ID = 'dwoFy4YJJVzLWwQqFow1';
+const TEST_CLUB_ID = 'eU9OuMHhRKwPqt3O59gS'; // ID for SYDNEY COARSE ANGLING
 
 interface ExpiryTestResult {
     clubName: string;
@@ -384,15 +385,15 @@ export default function TestAccessPage() {
     setIsTestingExpiry(true);
     setExpiryTestResult(null);
     try {
-        const clubsQuery = query(collection(firestore, 'clubs'), where('name', '==', 'SYDNEY COARSE ANGLING'));
-        const clubSnapshot = await getDocs(clubsQuery);
-        if (clubSnapshot.empty) {
-            toast({ variant: 'destructive', title: 'Test Error', description: 'Could not find "SYDNEY COARSE ANGLING" club.' });
+        const clubDocRef = doc(firestore, 'clubs', TEST_CLUB_ID);
+        const clubDoc = await getDoc(clubDocRef);
+
+        if (!clubDoc.exists()) {
+            toast({ variant: 'destructive', title: 'Test Error', description: `Could not find club with ID ${TEST_CLUB_ID}.` });
             setIsTestingExpiry(false);
             return;
         }
         
-        const clubDoc = clubSnapshot.docs[0];
         const club = { id: clubDoc.id, ...clubDoc.data() } as Club;
 
         if (club.subscriptionExpiryDate) {
@@ -474,7 +475,7 @@ export default function TestAccessPage() {
                    <div className="space-y-2 rounded-md border p-4">
                         <h3 className="font-semibold mb-2">Expiry Report Logic Test</h3>
                         <p className="text-sm text-muted-foreground pb-4">
-                          This will fetch the "SYDNEY COARSE ANGLING" club and check if its expiry date should trigger the warning modal.
+                          This will fetch the club with ID {TEST_CLUB_ID} and check if its expiry date should trigger the warning modal.
                         </p>
                         <Button onClick={handleSingleClubTest} disabled={isTestingExpiry}>
                             {isTestingExpiry ? 'Testing...' : 'Run Single Club Expiry Test'}
