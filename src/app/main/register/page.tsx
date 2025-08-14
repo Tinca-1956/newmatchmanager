@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -8,8 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { doc, getDoc, collection, query, where, onSnapshot, Timestamp, updateDoc, arrayUnion, increment } from 'firebase/firestore';
-import type { Club, Match } from '@/lib/types';
+import { doc, getDoc, collection, query, where, onSnapshot, Timestamp, updateDoc, arrayUnion, increment, getDocs } from 'firebase/firestore';
+import type { Club, Match, User } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { CheckCircle2, XCircle, LogIn } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHeader, TableHead, TableRow } from '@/components/ui/table';
@@ -119,6 +118,15 @@ export default function RegisterPage() {
         
         // Send confirmation email
         if(userProfile.email) {
+            // Find club admins to CC
+            const adminsQuery = query(
+              collection(firestore, 'users'), 
+              where('primaryClubId', '==', match.clubId), 
+              where('role', '==', 'Club Admin')
+            );
+            const adminSnapshot = await getDocs(adminsQuery);
+            const adminEmails = adminSnapshot.docs.map(doc => (doc.data() as User).email);
+
             await sendMatchRegistrationConfirmationEmail(
                 userProfile.email,
                 userProfile.firstName,
@@ -128,7 +136,8 @@ export default function RegisterPage() {
                 match.location,
                 format(match.date, 'PPP'),
                 match.registeredCount + 1,
-                match.drawTime
+                match.drawTime,
+                adminEmails // Pass admin emails to be CC'd
             );
              toast({ title: 'Email Sent', description: 'A confirmation email has been sent to your address.' });
         }

@@ -1,4 +1,3 @@
-
 'use server';
 
 import { Resend } from 'resend';
@@ -196,12 +195,14 @@ export const sendMatchRegistrationConfirmationEmail = async (
   location: string,
   date: string,
   registeredCount: number,
-  drawTime: string
+  drawTime: string,
+  ccEmails: string[] = []
 ) => {
   try {
     const { data, error } = await resend.emails.send({
       from: `Match Manager <${fromEmail}>`,
       to: [email],
+      cc: ccEmails,
       subject: 'Confirmation of Registration',
       text: createMatchRegistrationConfirmationEmailBody(
         anglerFirstName,
