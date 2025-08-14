@@ -21,6 +21,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Club } from '@/lib/types';
+import { Timestamp } from 'firebase/firestore';
 
 interface ExpiryReportModalProps {
   isOpen: boolean;
@@ -33,6 +34,27 @@ export function ExpiryReportModal({ isOpen, onClose, expiringClubs }: ExpiryRepo
   if (!isOpen || expiringClubs.length === 0) {
     return null;
   }
+  
+  const formatDate = (dateValue: Date | Timestamp | undefined): string => {
+    if (!dateValue) return 'N/A';
+    if (dateValue instanceof Timestamp) {
+      return format(dateValue.toDate(), 'PPP');
+    }
+    if (dateValue instanceof Date) {
+      return format(dateValue, 'PPP');
+    }
+    // Attempt to parse if it's a string or number, though this path is less likely with the fix.
+    try {
+      const d = new Date(dateValue as any);
+      if (!isNaN(d.getTime())) {
+        return format(d, 'PPP');
+      }
+    } catch (e) {
+       return 'Invalid Date';
+    }
+    return 'Invalid Date';
+  }
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -58,7 +80,7 @@ export function ExpiryReportModal({ isOpen, onClose, expiringClubs }: ExpiryRepo
               {expiringClubs.map((club) => (
                 <TableRow key={club.id}>
                   <TableCell className="font-medium">{club.name}</TableCell>
-                  <TableCell>{format(club.subscriptionExpiryDate as Date, 'PPP')}</TableCell>
+                  <TableCell>{formatDate(club.subscriptionExpiryDate)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

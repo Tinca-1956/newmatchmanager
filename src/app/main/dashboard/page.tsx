@@ -104,8 +104,9 @@ export default function DashboardPage() {
                 if (club.subscriptionExpiryDate) {
                     const expiryDate = club.subscriptionExpiryDate instanceof Timestamp
                         ? club.subscriptionExpiryDate.toDate()
-                        : club.subscriptionExpiryDate;
-                    return expiryDate <= thresholdDate && expiryDate >= now;
+                        : new Date(club.subscriptionExpiryDate);
+                    
+                    return !isNaN(expiryDate.getTime()) && expiryDate <= thresholdDate && expiryDate >= now;
                 }
                 return false;
             });
