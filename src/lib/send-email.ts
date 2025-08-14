@@ -73,6 +73,33 @@ const createContactAdminEmailBody = (message: string, fromUserEmail: string): st
   `;
 }
 
+const createMatchRegistrationConfirmationEmailBody = (
+  anglerFirstName: string,
+  clubName: string,
+  seriesName: string,
+  matchName: string,
+  location: string,
+  date: string,
+  registeredCount: number,
+  drawTime: string
+): string => {
+  return `
+Dear ${anglerFirstName},
+
+Thank you for registering for the ${clubName} match: ${seriesName}, ${matchName} at ${location} on ${date}.
+
+There are now ${registeredCount} anglers registered for this match.
+
+We look forward to seeing you on the bank at ${drawTime} for the draw and briefing.
+
+Don't forget to check the 'Description' field in the MATCHES page for full details about the peg fees, pool fees, rules and general information.
+
+Warmest regards,
+MATCH MANAGER.
+Match secretary, ${clubName}
+  `;
+};
+
 
 export const sendVerificationEmail = async (email: string, name: string, verificationLink: string) => {
   try {
@@ -156,6 +183,44 @@ export const sendContactEmailToClubAdmins = async (toEmail: string, subject: str
 
   } catch (error) {
     console.error('Error in sendContactEmailToClubAdmins:', error);
+    throw error;
+  }
+};
+
+export const sendMatchRegistrationConfirmationEmail = async (
+  email: string,
+  anglerFirstName: string,
+  clubName: string,
+  seriesName: string,
+  matchName: string,
+  location: string,
+  date: string,
+  registeredCount: number,
+  drawTime: string
+) => {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: `Match Manager <${fromEmail}>`,
+      to: [email],
+      subject: 'Confirmation of Registration',
+      text: createMatchRegistrationConfirmationEmailBody(
+        anglerFirstName,
+        clubName,
+        seriesName,
+        matchName,
+        location,
+        date,
+        registeredCount,
+        drawTime
+      ),
+    });
+    if (error) {
+      console.error('Resend error:', error);
+      throw new Error('Failed to send registration confirmation email.');
+    }
+    return data;
+  } catch (error) {
+    console.error('Error in sendMatchRegistrationConfirmationEmail:', error);
     throw error;
   }
 };

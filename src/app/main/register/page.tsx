@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHeader, TableHead, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { sendMatchRegistrationConfirmationEmail } from '@/lib/send-email';
 
 export default function RegisterPage() {
   const { user, userProfile, loading: authLoading } = useAuth();
@@ -114,10 +115,27 @@ export default function RegisterPage() {
             registeredCount: increment(1)
         });
         
+        toast({ title: 'Success!', description: `You have been registered for ${match.name}.` });
+        
+        // Send confirmation email
+        if(userProfile.email) {
+            await sendMatchRegistrationConfirmationEmail(
+                userProfile.email,
+                userProfile.firstName,
+                clubName,
+                match.seriesName,
+                match.name,
+                match.location,
+                format(match.date, 'PPP'),
+                match.registeredCount + 1,
+                match.drawTime
+            );
+             toast({ title: 'Email Sent', description: 'A confirmation email has been sent to your address.' });
+        }
+        
         // Immediately remove the match from the local state to hide it
         setUpcomingMatches(prevMatches => prevMatches.filter(m => m.id !== match.id));
 
-        toast({ title: 'Success!', description: `You have been registered for ${match.name}.` });
     } catch (error) {
         console.error("Error registering for match: ", error);
         toast({ variant: 'destructive', title: 'Registration Failed', description: 'Could not register you for the match.' });
