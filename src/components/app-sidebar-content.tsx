@@ -35,32 +35,28 @@ import { collection, query, where, onSnapshot, limit } from 'firebase/firestore'
 import { Skeleton } from './ui/skeleton';
 
 const navItems = [
-  { href: '/main/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { href: '/main/clubs', icon: Shield, label: 'Clubs - Site Admin', siteAdminOnly: true },
-  { href: '/main/clubs-club-admin', icon: Shield, label: 'Clubs - Club Admin', adminOnly: true },
-  { href: '/main/members', icon: Users, label: 'Members - Site Admin', siteAdminOnly: true },
-  { href: '/main/members-club-admin', icon: Users, label: 'Members - Club Admin', adminOnly: true },
-  { href: '/main/series', icon: Trophy, label: 'Series - Club Admin', adminOnly: true },
-  { href: '/main/matches', icon: Swords, label: 'Matches - Site Admin', siteAdminOnly: true },
-  { href: '/main/matches-club-admin', icon: Swords, label: 'Matches - Club Admin', adminOnly: true },
-  { href: '/main/register', icon: LogIn, label: 'Register' },
-  { href: '/main/weigh-in-site-admins', icon: Scale, label: 'Weigh in - Site Admin', siteAdminOnly: true },
-  { href: '/main/weigh-in-club-admin', icon: Scale, label: 'Weigh in - Club Admin', adminOnly: true },
-  { href: '/main/results-site-admin', icon: Medal, label: 'Results - Site Admin', siteAdminOnly: true },
-  { href: '/main/results', icon: Medal, label: 'Results' },
-  { href: '/main/gallery', icon: ImageIcon, label: 'Image Gallery' },
-  { href: '/main/standard-texts', icon: FileTextIcon, label: 'Std. Text - Club Admin', adminOnly: true },
-  { href: '/main/subscriptions', icon: CreditCard, label: 'Subscription', adminOnly: true },
-  { href: '/main/profile', icon: UserIcon, label: 'Profile' },
-  { href: '/main/help', icon: HelpCircle, label: 'Help - Site Admin', siteAdminOnly: true },
-  { href: '/main/help-user', icon: HelpCircle, label: 'Help' },
-  { href: '/main/contact', icon: MessageSquare, label: 'Contact' },
-  { href: '/main/about', icon: Info, label: 'About' },
-  { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users - Site Admin', siteAdminOnly: true },
-  { href: '/main/test-access', icon: TestTube, label: 'Test Access - Admin', siteAdminOnly: true },
-  { href: '/main/series-angler', icon: Trophy, label: 'Series', anglerOnly: true },
-  { href: '/main/matches-angler', icon: Swords, label: 'Matches', anglerOnly: true },
-  { href: '/main/emulator', icon: FlaskConical, label: 'Emulator', adminOnly: true, emulatorOnly: true },
+  { href: '/main/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['Site Admin', 'Club Admin', 'Angler'] },
+  { href: '/main/clubs', icon: Shield, label: 'Clubs', roles: ['Site Admin'] },
+  { href: '/main/clubs-club-admin', icon: Shield, label: 'My Club', roles: ['Club Admin'] },
+  { href: '/main/members', icon: Users, label: 'Members', roles: ['Site Admin'] },
+  { href: '/main/members-club-admin', icon: Users, label: 'Club Members', roles: ['Club Admin'] },
+  { href: '/main/series', icon: Trophy, label: 'Series', roles: ['Site Admin', 'Club Admin'] },
+  { href: '/main/matches', icon: Swords, label: 'Matches', roles: ['Site Admin', 'Club Admin'] },
+  { href: '/main/register', icon: LogIn, label: 'Register for Match', roles: ['Angler'] },
+  { href: '/main/weigh-in-site-admins', icon: Scale, label: 'Weigh-in', roles: ['Site Admin'] },
+  { href: '/main/weigh-in-club-admin', icon: Scale, label: 'Weigh-in', roles: ['Club Admin'] },
+  { href: '/main/results', icon: Medal, label: 'Results', roles: ['Site Admin', 'Club Admin', 'Angler'] },
+  { href: '/main/gallery', icon: ImageIcon, label: 'Image Gallery', roles: ['Site Admin', 'Club Admin', 'Angler'] },
+  { href: '/main/standard-texts', icon: FileTextIcon, label: 'Standard Texts', roles: ['Site Admin', 'Club Admin'] },
+  { href: '/main/subscriptions', icon: CreditCard, label: 'Subscription', roles: ['Site Admin', 'Club Admin'] },
+  { href: '/main/profile', icon: UserIcon, label: 'Profile', roles: ['Site Admin', 'Club Admin', 'Angler'] },
+  { href: '/main/help', icon: HelpCircle, label: 'Help Admin', roles: ['Site Admin'] },
+  { href: '/main/help-user', icon: HelpCircle, label: 'Help', roles: ['Club Admin', 'Angler'] },
+  { href: '/main/contact', icon: MessageSquare, label: 'Contact Admin', roles: ['Angler'] },
+  { href: '/main/about', icon: Info, label: 'About', roles: ['Site Admin', 'Club Admin', 'Angler'] },
+  { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users', roles: ['Site Admin'] },
+  { href: '/main/test-access', icon: TestTube, label: 'Test Access', roles: ['Site Admin'] },
+  { href: '/main/emulator', icon: FlaskConical, label: 'Emulator', roles: ['Site Admin', 'Club Admin'], emulatorOnly: true },
 ];
 
 interface AppSidebarContentProps {
@@ -93,72 +89,25 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
     );
   }
 
-  const filteredNavItems = navItems.filter((item: any) => {
+  const filteredNavItems = navItems.filter((item) => {
       if (!userProfile) return false;
-
-      const isSiteAdmin = userProfile.role === 'Site Admin';
-      const isClubAdmin = userProfile.role === 'Club Admin';
-      const isAngler = userProfile.role === 'Angler';
-      
       if (item.emulatorOnly && !isEmulatorMode) return false;
-      if (item.siteAdminOnly && !isSiteAdmin) return false;
-      if (item.adminOnly && !isSiteAdmin && !isClubAdmin) return false;
-      if (item.anglerOnly && !isAngler) return false;
-
-      // Hide angler-specific duplicates from admins
-      if (['/main/series-angler', '/main/matches-angler'].includes(item.href) && (isSiteAdmin || isClubAdmin)) return false;
-
-      // Hide admin-specific duplicates from anglers
-      if (['/main/series', '/main/matches'].includes(item.href) && isAngler) return false;
-      
-      // Hide user-facing help from Site Admins (who have their own help page)
-      if (item.href === '/main/help-user' && isSiteAdmin) return false;
-
-      return true;
+      return item.roles.includes(userProfile.role);
   });
-
-  let sortedNavItems = filteredNavItems;
-
-  if (userProfile?.role === 'Angler') {
-    const anglerOrder = [
-      '/main/dashboard',
-      '/main/series-angler',
-      '/main/matches-angler',
-      '/main/register',
-      '/main/results',
-      '/main/gallery',
-      '/main/profile',
-      '/main/help-user',
-      '/main/contact',
-      '/main/about',
-    ];
-    // Custom sort for Angler role
-    sortedNavItems.sort((a, b) => {
-      const aIndex = anglerOrder.indexOf(a.href);
-      const bIndex = anglerOrder.indexOf(b.href);
-      if (aIndex === -1 && bIndex === -1) return 0;
-      if (aIndex === -1) return 1;
-      if (bIndex === -1) return -1;
-      return aIndex - bIndex;
-    });
-  }
-
-
-  const linkClasses = (isActive: boolean) => `flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
-        isActive
+  
+  const linkClasses = (href: string) => `flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
+        (pathname === href || (pathname.startsWith(href) && href !== '/main/dashboard'))
             ? 'bg-sidebar-accent text-sidebar-accent-foreground'
             : 'text-sidebar-primary hover:text-sidebar-foreground/70'
     }`;
 
   return (
     <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
-      {sortedNavItems.map((item) => {
-        const isActive = pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/main/dashboard'  && item.href !== '/main/clubs');
-
+      {filteredNavItems.map((item) => {
         const linkContent = (
           <Link
             href={item.href}
-            className={linkClasses(isActive)}
+            className={linkClasses(item.href)}
           >
             <item.icon className="h-4 w-4" />
             <span className="flex-1">{item.label}</span>
