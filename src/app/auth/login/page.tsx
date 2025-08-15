@@ -19,7 +19,8 @@ import { signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth
 import { auth, firestore } from '@/lib/firebase-client';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, Timestamp } from 'firebase/firestore';
+import type { Club, User } from '@/lib/types';
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -89,9 +90,35 @@ export default function LoginPage() {
       const userDoc = await getDoc(userDocRef);
 
       if (userDoc.exists()) {
+        const userProfile = userDoc.data() as User;
+
+        if (userProfile.primaryClubId) {
+            const clubDocRef = doc(firestore, 'clubs', userProfile.primaryClubId);
+            const clubDoc = await getDoc(clubDocRef);
+
+            if (clubDoc.exists()) {
+                const clubData = clubDoc.data() as Club;
+                if (clubData.subscriptionExpiryDate) {
+                    const expiryDate = (clubData.subscriptionExpiryDate as Timestamp).toDate();
+                    if (new Date() > expiryDate) {
+                        toast({
+                            variant: 'destructive',
+                            title: 'Subscription Expired',
+                            description: 'Your club subscription to MATCH MANAGER has expired. Please contact you club administrator.',
+                            duration: 10000,
+                        });
+                        await auth.signOut(); // Sign out the user
+                        return; // Stop the login process
+                    }
+                }
+            }
+        }
+        
+        // If all checks pass, redirect
          router.push('/main/dashboard');
+
       } else {
-        // This is a first-time login for a registered user
+        // This is a first-time login for a registered user, let them select a club
         router.push('/auth/select-club');
       }
     } catch (error: unknown) {
