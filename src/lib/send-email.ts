@@ -80,9 +80,10 @@ const createMatchRegistrationConfirmationEmailBody = (
   location: string,
   date: string,
   registeredCount: number,
-  drawTime: string
+  drawTime: string,
+  description?: string,
 ): string => {
-  return `
+  let emailBody = `
 Dear ${anglerFirstName},
 
 Thank you for registering for the ${clubName} match: ${seriesName}, ${matchName} at ${location} on ${date}.
@@ -97,6 +98,17 @@ Warmest regards,
 MATCH MANAGER.
 Match secretary, ${clubName}
   `;
+
+  if (description) {
+    emailBody += `
+---
+MATCH INFORMATION
+---
+${description}
+`;
+  }
+
+  return emailBody;
 };
 
 
@@ -196,7 +208,8 @@ export const sendMatchRegistrationConfirmationEmail = async (
   date: string,
   registeredCount: number,
   drawTime: string,
-  ccEmails: string[] = []
+  ccEmails: string[] = [],
+  description?: string
 ) => {
   try {
     const { data, error } = await resend.emails.send({
@@ -212,7 +225,8 @@ export const sendMatchRegistrationConfirmationEmail = async (
         location,
         date,
         registeredCount,
-        drawTime
+        drawTime,
+        description
       ),
     });
     if (error) {

@@ -137,7 +137,8 @@ export default function RegisterPage() {
                 format(match.date, 'PPP'),
                 match.registeredCount + 1,
                 match.drawTime,
-                adminEmails // Pass admin emails to be CC'd
+                adminEmails, // Pass admin emails to be CC'd
+                match.description || '' // Pass match description
             );
              toast({ title: 'Email Sent', description: 'A confirmation email has been sent to your address.' });
         }
