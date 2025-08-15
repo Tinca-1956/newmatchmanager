@@ -22,7 +22,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, getDocs, doc, updateDoc, arrayRemove, increment } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, arrayRemove, increment, writeBatch } from 'firebase/firestore';
 import type { Match, User } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Trash2 } from 'lucide-react';
@@ -92,14 +92,34 @@ export function RemoveAnglerModal({ isOpen, onClose, match }: RemoveAnglerModalP
 
     setIsDeleting(anglerId);
     try {
+        const batch = writeBatch(firestore);
+
+        // 1. Update the match document to remove the angler
         const matchDocRef = doc(firestore, 'matches', match.id);
-        await updateDoc(matchDocRef, {
+        batch.update(matchDocRef, {
             registeredAnglers: arrayRemove(anglerId),
             registeredCount: increment(-1)
         });
 
+        // 2. Find and delete the corresponding result document
+        const resultsQuery = query(
+            collection(firestore, 'results'),
+            where('matchId', '==', match.id),
+            where('userId', '==', anglerId)
+        );
+        const resultsSnapshot = await getDocs(resultsQuery);
+        if (!resultsSnapshot.empty) {
+            resultsSnapshot.forEach(resultDoc => {
+                batch.delete(resultDoc.ref);
+            });
+        }
+        
+        // Commit both operations
+        await batch.commit();
+
+        // Update local state after successful deletion
         setRegisteredAnglers(prev => prev.filter(angler => angler.id !== anglerId));
-        toast({ title: 'Success', description: 'Angler has been removed from the match.' });
+        toast({ title: 'Success', description: 'Angler has been removed from the match and their result has been deleted.' });
     } catch (error) {
         console.error("Error removing angler:", error);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not remove the angler.' });
