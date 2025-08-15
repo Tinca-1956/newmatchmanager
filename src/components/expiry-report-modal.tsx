@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,7 @@ interface ExpiryReportModalProps {
 }
 
 export function ExpiryReportModal({ isOpen, onClose, expiringClubs }: ExpiryReportModalProps) {
+  const router = useRouter();
 
   if (!isOpen || expiringClubs.length === 0) {
     return null;
@@ -53,6 +55,11 @@ export function ExpiryReportModal({ isOpen, onClose, expiringClubs }: ExpiryRepo
        return 'Invalid Date';
     }
     return 'Invalid Date';
+  }
+
+  const handleRenewClick = () => {
+    onClose(); // Close the modal first
+    router.push('/main/subscriptions');
   }
 
 
@@ -86,10 +93,13 @@ export function ExpiryReportModal({ isOpen, onClose, expiringClubs }: ExpiryRepo
             </TableBody>
           </Table>
         </div>
-        <DialogFooter>
-          <Button type="button" onClick={onClose}>
-            Close
-          </Button>
+        <DialogFooter className="sm:justify-end gap-2">
+            <Button type="button" variant="default" onClick={handleRenewClick}>
+                Renew
+            </Button>
+            <Button type="button" variant="outline" onClick={onClose}>
+                Close
+            </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
