@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { doc, onSnapshot, collection, query, where, Timestamp, orderBy, limit, getDocs, writeBatch } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, Timestamp, orderBy, limit, getDocs, writeBatch, getDoc } from 'firebase/firestore';
 import type { User, Match, MatchStatus, Result, Club } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -93,10 +93,10 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!userProfile || !firestore) return;
 
-    const now = new Date();
-    const thresholdDate = addDays(now, 30);
-
     const fetchClubsAndCheckExpiry = async () => {
+        const now = new Date();
+        const thresholdDate = addDays(now, 30);
+
         if (userProfile.role === 'Site Admin') {
             const clubsQuery = query(collection(firestore, 'clubs'));
             const clubsSnapshot = await getDocs(clubsQuery);
@@ -136,6 +136,7 @@ export default function DashboardPage() {
         }
     };
     
+    // Only run this check once when the component mounts and profile is available
     fetchClubsAndCheckExpiry();
 
   }, [userProfile]);
