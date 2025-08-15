@@ -8,7 +8,7 @@ import type { Match, Result as ResultType, PublicMatch, PublicResult } from '@/l
 import { useToast } from './use-toast';
 import { useAuth } from './use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { doc, getDoc, updateDoc, arrayUnion, increment, collection, query, where, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayUnion, increment, collection, query, where, getDocs, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 
 
 export const useMatchActions = () => {
@@ -80,8 +80,24 @@ export const useMatchActions = () => {
     }
     toast({ title: 'Deleting Match...', description: 'Please wait.' });
     try {
-      await deleteDoc(doc(firestore, 'matches', matchId));
-      toast({ title: 'Success!', description: 'The match has been permanently deleted.' });
+      const batch = writeBatch(firestore);
+
+      // 1. Delete the main match document
+      const matchRef = doc(firestore, 'matches', matchId);
+      batch.delete(matchRef);
+
+      // 2. Delete the corresponding public upcoming match document
+      const publicUpcomingMatchRef = doc(firestore, 'publicUpcomingMatches', matchId);
+      batch.delete(publicUpcomingMatchRef);
+      
+      // 3. Delete the corresponding public completed match document
+      const publicMatchRef = doc(firestore, 'publicMatches', matchId);
+      batch.delete(publicMatchRef);
+
+      // Commit all deletions in a single atomic operation
+      await batch.commit();
+
+      toast({ title: 'Success!', description: 'The match has been permanently deleted from all collections.' });
     } catch (error) {
       console.error('Error deleting match:', error);
       toast({ variant: 'destructive', title: 'Delete Failed', description: 'Could not delete the match.' });
