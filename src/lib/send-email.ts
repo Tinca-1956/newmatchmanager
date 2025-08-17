@@ -3,7 +3,7 @@
 
 import { Resend } from 'resend';
 import type { PublicMatch, Result, Club } from './types';
-import { firestoreAdmin } from './firebase-server';
+import { firestore } from './firebase-client';
 import { collection, doc, getDoc, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 
@@ -246,23 +246,23 @@ export const sendMatchRegistrationConfirmationEmail = async (
 };
 
 export async function sendResultsEmail(matchId: string, recipientEmail: string) {
-    if (!firestoreAdmin) {
+    if (!firestore) {
         throw new Error("Firestore is not initialized.");
     }
     
     try {
         // 1. Fetch Match and Club data
-        const matchDocRef = doc(firestoreAdmin, 'matches', matchId);
+        const matchDocRef = doc(firestore, 'matches', matchId);
         const matchDoc = await getDoc(matchDocRef);
         if (!matchDoc.exists()) throw new Error(`Match with ID ${matchId} not found.`);
         const matchData = matchDoc.data() as PublicMatch;
 
-        const clubDocRef = doc(firestoreAdmin, 'clubs', matchData.clubId);
+        const clubDocRef = doc(firestore, 'clubs', matchData.clubId);
         const clubDoc = await getDoc(clubDocRef);
         const clubName = clubDoc.exists() ? clubDoc.data().name : 'Unknown Club';
 
         // 2. Fetch Results data
-        const resultsQuery = query(collection(firestoreAdmin, 'results'), where('matchId', '==', matchId));
+        const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', matchId));
         const resultsSnapshot = await getDocs(resultsQuery);
         const resultsData = resultsSnapshot.docs.map(doc => doc.data() as Result);
         if (resultsData.length === 0) throw new Error("No results found for this match.");
