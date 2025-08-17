@@ -126,7 +126,7 @@ export default function WeighInPage() {
   const [canEdit, setCanEdit] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
-  const [sortBy, setSortBy] = useState<'Peg' | 'Overall' | 'Section'>('Peg');
+  const [sortBy, setSortBy] = useState<'Peg' | 'Overall' | 'Section' | 'None'>('None');
   const [isSaving, setIsSaving] = useState<string | null>(null); // Store userId of saving angler
 
   // Fetch user profile to check role
@@ -389,6 +389,9 @@ export default function WeighInPage() {
 
   const sortedResults = useMemo(() => {
     const resultsCopy = [...results];
+    if (sortBy === 'None') {
+        return resultsCopy;
+    }
      if (sortBy === 'Overall') {
         return resultsCopy.sort((a, b) => (a.position || 999) - (b.position || 999));
     }
@@ -439,6 +442,7 @@ export default function WeighInPage() {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => setSortBy('None')}>None</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setSortBy('Peg')}>Peg</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setSortBy('Overall')}>Overall</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setSortBy('Section')}>Section</DropdownMenuItem>
@@ -481,6 +485,7 @@ export default function WeighInPage() {
                             <SelectValue placeholder="Sort..." />
                         </SelectTrigger>
                         <SelectContent>
+                            <SelectItem value="None">None</SelectItem>
                             <SelectItem value="Peg">Peg</SelectItem>
                             <SelectItem value="Overall">Overall</SelectItem>
                             <SelectItem value="Section">Section</SelectItem>
@@ -710,3 +715,5 @@ export default function WeighInPage() {
     </div>
   );
 }
+
+    
