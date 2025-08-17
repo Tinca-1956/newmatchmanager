@@ -32,7 +32,6 @@ interface ExpiryTestResult {
 // This server action will be called from the new test button.
 // It's placed here to keep test-related logic self-contained.
 async function handleSendTestResultsEmail() {
-    'use server';
     if (!firestore) {
         throw new Error("Firestore is not initialized.");
     }
