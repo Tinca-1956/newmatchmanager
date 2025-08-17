@@ -29,77 +29,6 @@ interface ExpiryTestResult {
     shouldTrigger: boolean;
 }
 
-// This server action will be called from the new test button.
-// It's placed here to keep test-related logic self-contained.
-async function handleSendTestResultsEmail() {
-    if (!firestore) {
-        throw new Error("Firestore is not initialized.");
-    }
-    
-    try {
-        // 1. Fetch Match and Club data
-        const matchDocRef = doc(firestore, 'matches', TEST_MATCH_ID);
-        const matchDoc = await getDoc(matchDocRef);
-        if (!matchDoc.exists()) throw new Error(`Match with ID ${TEST_MATCH_ID} not found.`);
-        const matchData = matchDoc.data() as Match;
-
-        const clubDocRef = doc(firestore, 'clubs', matchData.clubId);
-        const clubDoc = await getDoc(clubDocRef);
-        const clubName = clubDoc.exists() ? clubDoc.data().name : 'Unknown Club';
-
-        // 2. Fetch Results data
-        const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', TEST_MATCH_ID));
-        const resultsSnapshot = await getDocs(resultsQuery);
-        const resultsData = resultsSnapshot.docs.map(doc => doc.data() as Result);
-        if (resultsData.length === 0) throw new Error("No results found for this match.");
-
-        // 3. Sort and Format the results
-        const byOverall = [...resultsData].sort((a, b) => (a.position || 999) - (b.position || 999));
-        const byPeg = [...resultsData].sort((a, b) => (a.peg || "").localeCompare(b.peg || "", undefined, { numeric: true }));
-        
-        const resultsBySection: { [key: string]: Result[] } = {};
-        resultsData.forEach(r => {
-            const section = r.section || 'Uncategorized';
-            if (!resultsBySection[section]) resultsBySection[section] = [];
-            resultsBySection[section].push(r);
-        });
-
-        let emailBody = `Results for ${matchData.name} on ${format(matchData.date instanceof Timestamp ? matchData.date.toDate() : matchData.date, 'PPP')}\n\n`;
-
-        emailBody += '--- OVERALL RESULTS ---\n';
-        byOverall.forEach(r => {
-            emailBody += `${r.position}. ${r.userName} - ${r.weight.toFixed(3)}kg (Peg ${r.peg})\n`;
-        });
-        emailBody += '\n';
-
-        emailBody += '--- PEG ORDER RESULTS ---\n';
-        byPeg.forEach(r => {
-            emailBody += `Peg ${r.peg}: ${r.userName} - ${r.weight.toFixed(3)}kg (Pos ${r.position})\n`;
-        });
-        emailBody += '\n';
-
-        emailBody += '--- SECTION RESULTS ---\n';
-        Object.keys(resultsBySection).forEach(sectionName => {
-            emailBody += `Section: ${sectionName}\n`;
-            const sectionResults = resultsBySection[sectionName].sort((a, b) => (b.weight) - (a.weight));
-            sectionResults.forEach((r, index) => {
-                 emailBody += `${index + 1}. ${r.userName} - ${r.weight.toFixed(3)}kg (Peg ${r.peg})\n`;
-            });
-            emailBody += '\n';
-        });
-
-        // 4. Send the email
-        await sendResultsEmail(TEST_RECIPIENT_EMAIL, `Test Results: ${matchData.name}`, emailBody);
-        
-        return { success: true };
-
-    } catch (error: any) {
-        console.error("Failed to send test results email:", error);
-        return { success: false, error: error.message };
-    }
-}
-
-
 export default function TestAccessPage() {
   const { user, userProfile, loading: authLoading } = useAuth();
   const { isSiteAdmin, isClubAdmin, loading: adminLoading } = useAdminAuth();
@@ -499,19 +428,28 @@ export default function TestAccessPage() {
 
   const onSendResultsClick = async () => {
     setIsSendingResults(true);
-    const result = await handleSendTestResultsEmail();
-    if (result.success) {
-        toast({
-            title: 'Email Sent!',
-            description: `A test results email has been sent to ${TEST_RECIPIENT_EMAIL}.`,
-        });
-    } else {
+    try {
+        const result = await sendResultsEmail(TEST_MATCH_ID, TEST_RECIPIENT_EMAIL);
+        if (result.success) {
+            toast({
+                title: 'Email Sent!',
+                description: `A test results email has been sent to ${TEST_RECIPIENT_EMAIL}.`,
+            });
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Email Failed',
+                description: result.error || 'Could not send the test results email.',
+            });
+        }
+    } catch(e: any) {
          toast({
             variant: 'destructive',
-            title: 'Email Failed',
-            description: result.error || 'Could not send the test results email.',
+            title: 'Client Error',
+            description: e.message,
         });
     }
+    
     setIsSendingResults(false);
   }
 
