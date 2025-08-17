@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import { format, addDays } from 'date-fns';
-import { sendTestEmail, sendResultsEmail } from '@/lib/send-email';
+import { sendResultsEmail } from '@/lib/send-email';
 import NextImage from 'next/image';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
@@ -60,7 +60,6 @@ export default function TestAccessPage() {
   const [isTestingExpiry, setIsTestingExpiry] = useState(false);
   const [expiryTestResult, setExpiryTestResult] = useState<ExpiryTestResult | null>(null);
   const [isSendingResults, setIsSendingResults] = useState(false);
-
 
   const handleGetAnglers = async () => {
     if (!firestore || !userProfile?.primaryClubId) {
@@ -264,28 +263,23 @@ export default function TestAccessPage() {
     }
   };
 
-  const handleSendEmail = async () => {
-    if (!userProfile) {
-        toast({ variant: 'destructive', title: 'Error', description: 'User profile not loaded.' });
-        return;
-    }
-    setIsSendingEmail(true);
+  const onSendResultsClick = async () => {
+    setIsSendingResults(true);
     try {
-        await sendTestEmail(userProfile.email, userProfile.firstName);
+        await sendResultsEmail(TEST_MATCH_ID, TEST_RECIPIENT_EMAIL);
         toast({
             title: 'Email Sent!',
-            description: `A test email has been sent to ${userProfile.email}.`,
+            description: `A test results email has been sent to ${TEST_RECIPIENT_EMAIL}.`,
         });
-    } catch (error) {
+    } catch (error: any) {
         toast({
             variant: 'destructive',
             title: 'Email Failed',
-            description: 'Could not send the test email. Check your Resend API key and server logs.',
+            description: error.message || 'Could not send the test results email. Check server logs.',
         });
-    } finally {
-        setIsSendingEmail(false);
     }
-  }
+    setIsSendingResults(false);
+  };
 
   const handleCreateTestAngler = async () => {
       if (!firestore) return;
@@ -425,33 +419,6 @@ export default function TestAccessPage() {
         setIsTestingExpiry(false);
     }
   };
-
-  const onSendResultsClick = async () => {
-    setIsSendingResults(true);
-    try {
-        const result = await sendResultsEmail(TEST_MATCH_ID, TEST_RECIPIENT_EMAIL);
-        if (result.success) {
-            toast({
-                title: 'Email Sent!',
-                description: `A test results email has been sent to ${TEST_RECIPIENT_EMAIL}.`,
-            });
-        } else {
-            toast({
-                variant: 'destructive',
-                title: 'Email Failed',
-                description: result.error || 'Could not send the test results email.',
-            });
-        }
-    } catch(e: any) {
-         toast({
-            variant: 'destructive',
-            title: 'Client Error',
-            description: e.message,
-        });
-    }
-    
-    setIsSendingResults(false);
-  }
 
   const renderRuleDataTest = () => {
       if (authLoading || adminLoading) {
@@ -723,8 +690,8 @@ export default function TestAccessPage() {
                 <p className="text-sm text-muted-foreground pb-4">
                     Click this button to send a test email to yourself to verify the Resend integration.
                 </p>
-                <Button onClick={handleSendEmail} disabled={isSendingEmail || authLoading || !userProfile}>
-                    {isSendingEmail ? 'Sending...' : 'Send Test Email'}
+                <Button disabled>
+                    Test Email (Disabled)
                 </Button>
             </div>
 
@@ -743,3 +710,7 @@ export default function TestAccessPage() {
     </div>
   );
 }
+
+    
+
+    

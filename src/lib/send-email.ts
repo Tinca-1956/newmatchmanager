@@ -2,7 +2,7 @@
 'use server';
 
 import { Resend } from 'resend';
-import type { PublicMatch, Result, Club } from './types';
+import type { PublicMatch, Result, Club, Match } from './types';
 import { firestore } from './firebase-client';
 import { collection, doc, getDoc, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
@@ -116,6 +116,46 @@ ${description}
   return emailBody;
 };
 
+const createResultsEmailBody = (matchData: Match, clubName: string, results: Result[]): string => {
+  const formattedDate = format(matchData.date instanceof Timestamp ? matchData.date.toDate() : matchData.date, 'PPP');
+  let body = `Results for ${matchData.seriesName}, ${matchData.name} on ${formattedDate}\n\n`;
+
+  // Helper to format a results section
+  const formatResults = (title: string, sortedResults: Result[]) => {
+    body += `--- ${title} ---\n`;
+    sortedResults.forEach(r => {
+      body += `${r.position || '-'}. ${r.userName} - ${r.weight.toFixed(3)}kg (Peg: ${r.peg || 'N/A'}, Sec: ${r.section || 'N/A'})\n`;
+    });
+    body += '\n';
+  };
+
+  // Overall Results
+  const overallResults = [...results].sort((a, b) => (a.position || 999) - (b.position || 999));
+  formatResults('Overall Results', overallResults);
+
+  // Results by Section
+  const resultsBySection: { [key: string]: Result[] } = {};
+  results.forEach(r => {
+    const sectionKey = r.section || 'Unsectioned';
+    if (!resultsBySection[sectionKey]) {
+      resultsBySection[sectionKey] = [];
+    }
+    resultsBySection[sectionKey].push(r);
+  });
+
+  Object.keys(resultsBySection).sort().forEach(sectionKey => {
+    const sectionResults = resultsBySection[sectionKey].sort((a, b) => b.weight - a.weight);
+    formatResults(`Section: ${sectionKey}`, sectionResults);
+  });
+  
+  // Results by Peg
+  const pegResults = [...results].sort((a, b) => (a.peg || '').localeCompare(b.peg || '', undefined, { numeric: true }));
+  formatResults('Results by Peg', pegResults);
+
+
+  return body;
+};
+
 
 export const sendVerificationEmail = async (email: string, name: string, verificationLink: string) => {
   try {
@@ -140,25 +180,6 @@ export const sendVerificationEmail = async (email: string, name: string, verific
   }
 };
 
-export const sendTestEmail = async (email: string, name: string) => {
-    try {
-        const { data, error } = await resend.emails.send({
-            from: `Match Manager <${fromEmail}>`,
-            to: [email],
-            subject: 'Match Manager Test Email',
-            text: createTestEmailBody(name),
-        });
-
-        if (error) {
-            console.error('Resend error:', error);
-            throw new Error('Failed to send test email.');
-        }
-        return data;
-    } catch (error) {
-        console.error('Error in sendTestEmail:', error);
-        throw error;
-    }
-};
 
 export const sendWelcomeEmail = async (email: string, name: string, clubName: string, role: string, status: string, ccEmails: string[] = []) => {
     try {
@@ -246,79 +267,57 @@ export const sendMatchRegistrationConfirmationEmail = async (
 };
 
 export async function sendResultsEmail(matchId: string, recipientEmail: string) {
+    if (!process.env.RESEND_API_KEY || !process.env.FROM_EMAIL) {
+        throw new Error("Email server is not configured. Missing RESEND_API_KEY or FROM_EMAIL.");
+    }
     if (!firestore) {
         throw new Error("Firestore is not initialized.");
     }
     
     try {
-        // 1. Fetch Match and Club data
+        // Fetch match data
         const matchDocRef = doc(firestore, 'matches', matchId);
         const matchDoc = await getDoc(matchDocRef);
-        if (!matchDoc.exists()) throw new Error(`Match with ID ${matchId} not found.`);
-        const matchData = matchDoc.data() as PublicMatch;
-
+        if (!matchDoc.exists()) {
+            throw new Error(`Match with ID ${matchId} not found.`);
+        }
+        const matchData = matchDoc.data() as Match;
+        
+        // Fetch club data
         const clubDocRef = doc(firestore, 'clubs', matchData.clubId);
         const clubDoc = await getDoc(clubDocRef);
         const clubName = clubDoc.exists() ? clubDoc.data().name : 'Unknown Club';
-
-        // 2. Fetch Results data
+        
+        // Fetch results data
         const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', matchId));
         const resultsSnapshot = await getDocs(resultsQuery);
         const resultsData = resultsSnapshot.docs.map(doc => doc.data() as Result);
-        if (resultsData.length === 0) throw new Error("No results found for this match.");
-
-        // 3. Sort and Format the results
-        const byOverall = [...resultsData].sort((a, b) => (a.position || 999) - (b.position || 999));
-        const byPeg = [...resultsData].sort((a, b) => (a.peg || "").localeCompare(b.peg || "", undefined, { numeric: true }));
         
-        const resultsBySection: { [key: string]: Result[] } = {};
-        resultsData.forEach(r => {
-            const section = r.section || 'Uncategorized';
-            if (!resultsBySection[section]) resultsBySection[section] = [];
-            resultsBySection[section].push(r);
-        });
-        
-        const matchDate = matchData.date instanceof Timestamp ? matchData.date.toDate() : matchData.date;
-        const formattedDate = format(matchDate, 'PPP');
+        if (resultsData.length === 0) {
+            throw new Error("No results found for this match.");
+        }
 
-        let emailBody = `Results for ${matchData.seriesName}, ${matchData.name} on ${formattedDate}\n\n`;
-
-        emailBody += '--- OVERALL RESULTS ---\n';
-        byOverall.forEach(r => {
-            emailBody += `${r.position}. ${r.userName} - ${r.weight.toFixed(3)}kg (Peg ${r.peg})\n`;
-        });
-        emailBody += '\n';
-
-        emailBody += '--- PEG ORDER RESULTS ---\n';
-        byPeg.forEach(r => {
-            emailBody += `Peg ${r.peg}: ${r.userName} - ${r.weight.toFixed(3)}kg (Pos ${r.position})\n`;
-        });
-        emailBody += '\n';
-
-        emailBody += '--- SECTION RESULTS ---\n';
-        Object.keys(resultsBySection).sort().forEach(sectionName => {
-            emailBody += `Section: ${sectionName}\n`;
-            const sectionResults = resultsBySection[sectionName].sort((a, b) => (b.weight) - (a.weight));
-            sectionResults.forEach((r, index) => {
-                 emailBody += `${index + 1}. ${r.userName} - ${r.weight.toFixed(3)}kg (Peg ${r.peg})\n`;
-            });
-            emailBody += '\n';
-        });
-        
+        const emailBody = createResultsEmailBody(matchData, clubName, resultsData);
+        const formattedDate = format(matchData.date instanceof Timestamp ? matchData.date.toDate() : matchData.date, 'PPP');
         const subject = `${clubName} Results: ${matchData.seriesName} - ${matchData.name} - ${formattedDate}`;
 
-        // 4. Send the email
-        await resend.emails.send({
+        const { data, error } = await resend.emails.send({
             from: `Match Manager <${fromEmail}>`,
             to: [recipientEmail],
             subject: subject,
             text: emailBody,
         });
-        
-        return { success: true };
 
-    } catch (error: any) {
-        console.error("Failed to send results email:", error);
-        return { success: false, error: error.message };
+        if (error) {
+            console.error('Resend error:', error);
+            throw new Error('Failed to send results email.');
+        }
+
+        return { success: true, data };
+    } catch (error) {
+        console.error('Error in sendResultsEmail:', error);
+        throw error;
     }
 }
+
+    
