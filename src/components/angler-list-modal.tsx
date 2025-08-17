@@ -51,7 +51,12 @@ export function AnglerListModal({ isOpen, onClose, matchId }: AnglerListModalPro
           const matchData = { id: matchDoc.id, ...matchDoc.data() } as Match;
           setMatch(matchData);
 
-          const usersQuery = query(collection(firestore, 'users'), where('primaryClubId', '==', matchData.clubId));
+          // Corrected query to only fetch active members
+          const usersQuery = query(
+            collection(firestore, 'users'), 
+            where('primaryClubId', '==', matchData.clubId),
+            where('memberStatus', '==', 'Member')
+          );
           const usersSnapshot = await getDocs(usersQuery);
           const allClubUsers = usersSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as User));
 
