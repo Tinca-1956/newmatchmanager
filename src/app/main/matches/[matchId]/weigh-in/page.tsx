@@ -39,7 +39,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, List, LayoutGrid, SortAsc } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
-import { doc, getDoc, collection, query, where, onSnapshot, writeBatch, Timestamp, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, onSnapshot, writeBatch, Timestamp, getDocs, addDoc, setDoc } from 'firebase/firestore';
 import type { Match, User, Result, WeighInStatus, UserRole } from '@/lib/types';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
@@ -75,6 +75,43 @@ async function getDocsInChunks<T extends { id: string }>(ids: string[], collecti
     return resultsMap;
 }
 
+// Function to create missing result documents
+async function createMissingResults(matchData: Match, allUsersMap: Map<string, User>, existingResultsMap: Map<string, Result & { id: string }>) {
+    if (!firestore) return;
+
+    const batch = writeBatch(firestore);
+    let createdCount = 0;
+
+    matchData.registeredAnglers.forEach(anglerId => {
+        if (!existingResultsMap.has(anglerId)) {
+            const user = allUsersMap.get(anglerId);
+            if (user) {
+                const newResultRef = doc(collection(firestore, 'results'));
+                const newResultData: Omit<Result, 'id'> = {
+                    matchId: matchData.id,
+                    seriesId: matchData.seriesId,
+                    clubId: matchData.clubId,
+                    date: matchData.date,
+                    userId: user.id,
+                    userName: `${user.firstName} ${user.lastName}`,
+                    peg: '',
+                    section: '',
+                    weight: 0,
+                    status: 'NYW',
+                    position: null,
+                    payout: 0,
+                };
+                batch.set(newResultRef, newResultData);
+                createdCount++;
+            }
+        }
+    });
+
+    if (createdCount > 0) {
+        await batch.commit();
+        console.log(`Created ${createdCount} missing result document(s).`);
+    }
+}
 
 export default function WeighInPage() {
   const router = useRouter();
@@ -157,36 +194,46 @@ export default function WeighInPage() {
             const resultsSnapshot = await getDocs(resultsQuery);
             const existingResultsMap = new Map(resultsSnapshot.docs.map(d => [d.data().userId, { id: d.id, ...d.data() } as Result & { id: string }]));
 
-            // 3. Combine the data based on the registered anglers list
-            const combinedData: AnglerResultData[] = registeredAnglerIds.map(anglerId => {
-                const user = usersMap.get(anglerId);
-                const result = existingResultsMap.get(anglerId);
+            // 3. Create missing result documents if necessary
+            await createMissingResults(matchData, usersMap, existingResultsMap);
+            
+            // 4. Set up a real-time listener for the results collection to get live updates
+            const unsubscribeResults = onSnapshot(resultsQuery, (liveResultsSnapshot) => {
+                const liveExistingResultsMap = new Map(liveResultsSnapshot.docs.map(d => [d.data().userId, { id: d.id, ...d.data() } as Result & { id: string }]));
                 
-                if (!user) {
-                    return null;
-                }
+                // 5. Combine the data based on the registered anglers list
+                const combinedData: AnglerResultData[] = registeredAnglerIds.map(anglerId => {
+                    const user = usersMap.get(anglerId);
+                    const result = liveExistingResultsMap.get(anglerId);
+                    
+                    if (!user) {
+                        return null;
+                    }
 
-                return {
-                    userId: anglerId,
-                    userName: `${user.firstName} ${user.lastName}`,
-                    peg: result?.peg || '',
-                    section: result?.section || '',
-                    weight: result?.weight ?? 0,
-                    status: result?.status || 'NYW',
-                    position: result?.position || null,
-                    resultDocId: result?.id,
-                    payout: result?.payout ?? 0,
-                };
-            }).filter((item): item is AnglerResultData => item !== null);
+                    return {
+                        userId: anglerId,
+                        userName: `${user.firstName} ${user.lastName}`,
+                        peg: result?.peg || '',
+                        section: result?.section || '',
+                        weight: result?.weight ?? 0,
+                        status: result?.status || 'NYW',
+                        position: result?.position || null,
+                        resultDocId: result?.id,
+                        payout: result?.payout ?? 0,
+                    };
+                }).filter((item): item is AnglerResultData => item !== null);
 
-            // 4. Recalculate ranks and update state
-            const rankedResults = calculateRanks(combinedData);
-            setResults(rankedResults);
+                // 6. Recalculate ranks and update state
+                const rankedResults = calculateRanks(combinedData);
+                setResults(rankedResults);
+                setIsLoading(false); // Only set loading to false after the first successful data fetch
+            });
+            
+            return () => unsubscribeResults(); // This will be handled by the parent unsubscribe cleanup
 
         } catch (error) {
             console.error("Error fetching weigh-in data:", error);
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to load weigh-in data.' });
-        } finally {
             setIsLoading(false);
         }
     });
@@ -318,12 +365,15 @@ export default function WeighInPage() {
                 payout: Number(res.payout) || 0,
             };
             
-            // **FIX**: Use existing doc ID if available, otherwise create a new one
-            const docRefToUpdate = res.resultDocId 
-                ? doc(firestore, 'results', res.resultDocId)
-                : doc(collection(firestore, 'results'));
-            
-            batch.set(docRefToUpdate, resultToSave, { merge: true });
+            // Use existing doc ID to update the correct document
+            if (res.resultDocId) {
+                const docRefToUpdate = doc(firestore, 'results', res.resultDocId);
+                batch.update(docRefToUpdate, resultToSave as any);
+            } else {
+                // This case should ideally not be hit with the new logic, but as a fallback:
+                const newDocRef = doc(collection(firestore, 'results'));
+                batch.set(newDocRef, resultToSave);
+            }
         });
         
         await batch.commit();
@@ -660,4 +710,3 @@ export default function WeighInPage() {
     </div>
   );
 }
-
