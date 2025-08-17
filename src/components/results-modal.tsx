@@ -23,7 +23,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import type { Match, Result, Club } from '@/lib/types';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
@@ -51,69 +51,75 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
 
 
   useEffect(() => {
-    if (isOpen && match && firestore) {
-      const fetchResults = async () => {
-        setIsLoading(true);
-        try {
-          // Fetch Club info for logo
-          const clubDocRef = doc(firestore, 'clubs', match.clubId);
-          const clubDoc = await getDoc(clubDocRef);
-          if (clubDoc.exists()) {
-              setClub({ id: clubDoc.id, ...clubDoc.data() } as Club);
-          }
-
-          const resultsQuery = query(
-            collection(firestore, 'results'),
-            where('matchId', '==', match.id)
-          );
-          const resultsSnapshot = await getDocs(resultsQuery);
-          const resultsData = resultsSnapshot.docs.map(doc => doc.data() as Result);
-          
-          // Calculate section ranks
-          const resultsBySection: { [key: string]: Result[] } = {};
-          resultsData.forEach(result => {
-              if (result.section) {
-                  if (!resultsBySection[result.section]) {
-                      resultsBySection[result.section] = [];
-                  }
-                  resultsBySection[result.section].push(result);
-              }
-          });
-
-          const rankedResults: ResultWithSectionRank[] = [...resultsData].map(r => ({...r}));
-
-          for (const section in resultsBySection) {
-              const sectionResults = resultsBySection[section]
-                  .filter(r => r.status === 'OK' && r.weight > 0)
-                  .sort((a, b) => b.weight - a.weight);
-              
-              const lastSectionRank = sectionResults.length;
-              const dnwSectionRank = lastSectionRank + 1;
-
-              resultsBySection[section].forEach(result => {
-                  const originalResult = rankedResults.find(r => r.userId === result.userId);
-                  if (originalResult) {
-                      if(result.status === 'OK' && result.weight > 0) {
-                        const rank = sectionResults.findIndex(r => r.userId === result.userId);
-                        originalResult.sectionRank = rank !== -1 ? rank + 1 : undefined;
-                      } else if (['DNW', 'DNF', 'DSQ'].includes(result.status || '')) {
-                        originalResult.sectionRank = dnwSectionRank;
-                      }
-                  }
-              });
-          }
-          
-          setResults(rankedResults);
-        } catch (error) {
-          console.error("Error fetching match results:", error);
-          // Handle toast notification here if needed
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      fetchResults();
+    if (!isOpen || !match || !firestore) {
+      setResults([]);
+      return;
     }
-  }, [isOpen, match]);
+
+    setIsLoading(true);
+    
+    // Fetch Club info once
+    const clubDocRef = doc(firestore, 'clubs', match.clubId);
+    getDoc(clubDocRef).then(clubDoc => {
+        if (clubDoc.exists()) {
+            setClub({ id: clubDoc.id, ...clubDoc.data() } as Club);
+        }
+    });
+
+    // Subscribe to real-time updates for results
+    const resultsQuery = query(
+      collection(firestore, 'results'),
+      where('matchId', '==', match.id)
+    );
+    
+    const unsubscribe = onSnapshot(resultsQuery, (snapshot) => {
+        const resultsData = snapshot.docs.map(doc => doc.data() as Result);
+        
+        // Calculate ranks
+        const resultsBySection: { [key: string]: Result[] } = {};
+        resultsData.forEach(result => {
+            if (result.section) {
+                if (!resultsBySection[result.section]) {
+                    resultsBySection[result.section] = [];
+                }
+                resultsBySection[result.section].push(result);
+            }
+        });
+
+        const rankedResults: ResultWithSectionRank[] = [...resultsData].map(r => ({...r}));
+
+        for (const section in resultsBySection) {
+            const sectionResults = resultsBySection[section]
+                .filter(r => r.status === 'OK' && r.weight > 0)
+                .sort((a, b) => b.weight - a.weight);
+            
+            const lastSectionRank = sectionResults.length;
+            const dnwSectionRank = lastSectionRank + 1;
+
+            resultsBySection[section].forEach(result => {
+                const originalResult = rankedResults.find(r => r.userId === result.userId);
+                if (originalResult) {
+                    if(result.status === 'OK' && result.weight > 0) {
+                      const rank = sectionResults.findIndex(r => r.userId === result.userId);
+                      originalResult.sectionRank = rank !== -1 ? rank + 1 : undefined;
+                    } else if (['DNW', 'DNF', 'DSQ'].includes(result.status || '')) {
+                      originalResult.sectionRank = dnwSectionRank;
+                    }
+                }
+            });
+        }
+        
+        setResults(rankedResults);
+        setIsLoading(false);
+    }, (error) => {
+        console.error("Error fetching match results:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not load results.' });
+        setIsLoading(false);
+    });
+
+    return () => unsubscribe(); // Cleanup subscription on unmount or when modal closes/match changes
+
+  }, [isOpen, match, toast]);
 
   const sortedResults = useMemo(() => {
     const resultsCopy = [...results];
