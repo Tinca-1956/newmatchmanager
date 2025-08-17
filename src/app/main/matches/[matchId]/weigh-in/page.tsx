@@ -317,6 +317,8 @@ export default function WeighInPage() {
                 sectionRank: res.sectionRank,
                 payout: Number(res.payout) || 0,
             };
+            
+            // **FIX**: Use existing doc ID if available, otherwise create a new one
             const docRefToUpdate = res.resultDocId 
                 ? doc(firestore, 'results', res.resultDocId)
                 : doc(collection(firestore, 'results'));
