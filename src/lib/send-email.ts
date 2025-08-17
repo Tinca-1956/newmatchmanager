@@ -116,46 +116,6 @@ ${description}
   return emailBody;
 };
 
-const createResultsEmailBody = (matchData: Match, clubName: string, results: Result[]): string => {
-  const formattedDate = format(matchData.date instanceof Timestamp ? matchData.date.toDate() : matchData.date, 'PPP');
-  let body = `Results for ${matchData.seriesName}, ${matchData.name} on ${formattedDate}\n\n`;
-
-  // Helper to format a results section
-  const formatResults = (title: string, sortedResults: Result[]) => {
-    body += `--- ${title} ---\n`;
-    sortedResults.forEach(r => {
-      body += `${r.position || '-'}. ${r.userName} - ${r.weight.toFixed(3)}kg (Peg: ${r.peg || 'N/A'}, Sec: ${r.section || 'N/A'})\n`;
-    });
-    body += '\n';
-  };
-
-  // Overall Results
-  const overallResults = [...results].sort((a, b) => (a.position || 999) - (b.position || 999));
-  formatResults('Overall Results', overallResults);
-
-  // Results by Section
-  const resultsBySection: { [key: string]: Result[] } = {};
-  results.forEach(r => {
-    const sectionKey = r.section || 'Unsectioned';
-    if (!resultsBySection[sectionKey]) {
-      resultsBySection[sectionKey] = [];
-    }
-    resultsBySection[sectionKey].push(r);
-  });
-
-  Object.keys(resultsBySection).sort().forEach(sectionKey => {
-    const sectionResults = resultsBySection[sectionKey].sort((a, b) => b.weight - a.weight);
-    formatResults(`Section: ${sectionKey}`, sectionResults);
-  });
-  
-  // Results by Peg
-  const pegResults = [...results].sort((a, b) => (a.peg || '').localeCompare(b.peg || '', undefined, { numeric: true }));
-  formatResults('Results by Peg', pegResults);
-
-
-  return body;
-};
-
 
 export const sendVerificationEmail = async (email: string, name: string, verificationLink: string) => {
   try {
@@ -265,59 +225,3 @@ export const sendMatchRegistrationConfirmationEmail = async (
     throw error;
   }
 };
-
-export async function sendResultsEmail(matchId: string, recipientEmail: string) {
-    if (!process.env.RESEND_API_KEY || !process.env.FROM_EMAIL) {
-        throw new Error("Email server is not configured. Missing RESEND_API_KEY or FROM_EMAIL.");
-    }
-    if (!firestore) {
-        throw new Error("Firestore is not initialized.");
-    }
-    
-    try {
-        // Fetch match data
-        const matchDocRef = doc(firestore, 'matches', matchId);
-        const matchDoc = await getDoc(matchDocRef);
-        if (!matchDoc.exists()) {
-            throw new Error(`Match with ID ${matchId} not found.`);
-        }
-        const matchData = matchDoc.data() as Match;
-        
-        // Fetch club data
-        const clubDocRef = doc(firestore, 'clubs', matchData.clubId);
-        const clubDoc = await getDoc(clubDocRef);
-        const clubName = clubDoc.exists() ? clubDoc.data().name : 'Unknown Club';
-        
-        // Fetch results data
-        const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', matchId));
-        const resultsSnapshot = await getDocs(resultsQuery);
-        const resultsData = resultsSnapshot.docs.map(doc => doc.data() as Result);
-        
-        if (resultsData.length === 0) {
-            throw new Error("No results found for this match.");
-        }
-
-        const emailBody = createResultsEmailBody(matchData, clubName, resultsData);
-        const formattedDate = format(matchData.date instanceof Timestamp ? matchData.date.toDate() : matchData.date, 'PPP');
-        const subject = `${clubName} Results: ${matchData.seriesName} - ${matchData.name} - ${formattedDate}`;
-
-        const { data, error } = await resend.emails.send({
-            from: `Match Manager <${fromEmail}>`,
-            to: [recipientEmail],
-            subject: subject,
-            text: emailBody,
-        });
-
-        if (error) {
-            console.error('Resend error:', error);
-            throw new Error('Failed to send results email.');
-        }
-
-        return { success: true, data };
-    } catch (error) {
-        console.error('Error in sendResultsEmail:', error);
-        throw error;
-    }
-}
-
-    

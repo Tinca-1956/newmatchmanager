@@ -20,7 +20,6 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 // Hardcoded ID for the match to be used in tests
 const TEST_MATCH_ID = 'dwoFy4YJJVzLWwQqFow1';
 const TEST_CLUB_ID = 'eU9OuMHhRKwPqt3O59gS'; // ID for SYDNEY COARSE ANGLING
-const TEST_RECIPIENT_EMAIL = 'stwinton@me.com';
 
 interface ExpiryTestResult {
     clubName: string;
@@ -53,13 +52,11 @@ export default function TestAccessPage() {
   
   const [isUpdatingMatch, setIsUpdatingMatch] = useState(false);
 
-  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isCreatingAngler, setIsCreatingAngler] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [isTestingExpiry, setIsTestingExpiry] = useState(false);
   const [expiryTestResult, setExpiryTestResult] = useState<ExpiryTestResult | null>(null);
-  const [isSendingResults, setIsSendingResults] = useState(false);
 
   const handleGetAnglers = async () => {
     if (!firestore || !userProfile?.primaryClubId) {
@@ -261,24 +258,6 @@ export default function TestAccessPage() {
     } finally {
         setIsUpdatingMatch(false);
     }
-  };
-
-  const onSendResultsClick = async () => {
-    setIsSendingResults(true);
-    try {
-        await sendResultsEmail(TEST_MATCH_ID, TEST_RECIPIENT_EMAIL);
-        toast({
-            title: 'Email Sent!',
-            description: `A test results email has been sent to ${TEST_RECIPIENT_EMAIL}.`,
-        });
-    } catch (error: any) {
-        toast({
-            variant: 'destructive',
-            title: 'Email Failed',
-            description: error.message || 'Could not send the test results email. Check server logs.',
-        });
-    }
-    setIsSendingResults(false);
   };
 
   const handleCreateTestAngler = async () => {
@@ -508,16 +487,6 @@ export default function TestAccessPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           {renderRuleDataTest()}
-
-          <div className="space-y-2 rounded-md border p-4">
-            <h3 className="font-semibold mb-2">Send Test Results Email</h3>
-            <p className="text-sm text-muted-foreground pb-4">
-              Click to send a formatted results email for match <code className="bg-muted px-1 py-0.5 rounded">{TEST_MATCH_ID}</code> to <code className="bg-muted px-1 py-0.5 rounded">{TEST_RECIPIENT_EMAIL}</code>.
-            </p>
-            <Button onClick={onSendResultsClick} disabled={isSendingResults}>
-              {isSendingResults ? 'Sending Email...' : 'Send Test Results Email'}
-            </Button>
-          </div>
           
            <div className="space-y-2 rounded-md border p-4">
                 <h3 className="font-semibold mb-2">Step 1: Test Match Name Update (WRITE)</h3>
@@ -710,7 +679,3 @@ export default function TestAccessPage() {
     </div>
   );
 }
-
-    
-
-    
