@@ -7,19 +7,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
 import { collection, query, where, getDocs, Timestamp, doc, getDoc, addDoc, writeBatch, setDoc, updateDoc, arrayUnion, increment } from 'firebase/firestore';
-import type { User, Match, Club, PublicUpcomingMatch, Series } from '@/lib/types';
+import type { User, Match, Club, PublicUpcomingMatch, Series, Result } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import { format, addDays } from 'date-fns';
-import { sendTestEmail } from '@/lib/send-email';
+import { sendTestEmail, sendResultsEmail } from '@/lib/send-email';
 import NextImage from 'next/image';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 // Hardcoded ID for the match to be used in tests
 const TEST_MATCH_ID = 'dwoFy4YJJVzLWwQqFow1';
 const TEST_CLUB_ID = 'eU9OuMHhRKwPqt3O59gS'; // ID for SYDNEY COARSE ANGLING
+const TEST_RECIPIENT_EMAIL = 'stwinton@me.com';
 
 interface ExpiryTestResult {
     clubName: string;
@@ -27,6 +28,78 @@ interface ExpiryTestResult {
     thresholdDate: string;
     shouldTrigger: boolean;
 }
+
+// This server action will be called from the new test button.
+// It's placed here to keep test-related logic self-contained.
+async function handleSendTestResultsEmail() {
+    'use server';
+    if (!firestore) {
+        throw new Error("Firestore is not initialized.");
+    }
+    
+    try {
+        // 1. Fetch Match and Club data
+        const matchDocRef = doc(firestore, 'matches', TEST_MATCH_ID);
+        const matchDoc = await getDoc(matchDocRef);
+        if (!matchDoc.exists()) throw new Error(`Match with ID ${TEST_MATCH_ID} not found.`);
+        const matchData = matchDoc.data() as Match;
+
+        const clubDocRef = doc(firestore, 'clubs', matchData.clubId);
+        const clubDoc = await getDoc(clubDocRef);
+        const clubName = clubDoc.exists() ? clubDoc.data().name : 'Unknown Club';
+
+        // 2. Fetch Results data
+        const resultsQuery = query(collection(firestore, 'results'), where('matchId', '==', TEST_MATCH_ID));
+        const resultsSnapshot = await getDocs(resultsQuery);
+        const resultsData = resultsSnapshot.docs.map(doc => doc.data() as Result);
+        if (resultsData.length === 0) throw new Error("No results found for this match.");
+
+        // 3. Sort and Format the results
+        const byOverall = [...resultsData].sort((a, b) => (a.position || 999) - (b.position || 999));
+        const byPeg = [...resultsData].sort((a, b) => (a.peg || "").localeCompare(b.peg || "", undefined, { numeric: true }));
+        
+        const resultsBySection: { [key: string]: Result[] } = {};
+        resultsData.forEach(r => {
+            const section = r.section || 'Uncategorized';
+            if (!resultsBySection[section]) resultsBySection[section] = [];
+            resultsBySection[section].push(r);
+        });
+
+        let emailBody = `Results for ${matchData.name} on ${format(matchData.date instanceof Timestamp ? matchData.date.toDate() : matchData.date, 'PPP')}\n\n`;
+
+        emailBody += '--- OVERALL RESULTS ---\n';
+        byOverall.forEach(r => {
+            emailBody += `${r.position}. ${r.userName} - ${r.weight.toFixed(3)}kg (Peg ${r.peg})\n`;
+        });
+        emailBody += '\n';
+
+        emailBody += '--- PEG ORDER RESULTS ---\n';
+        byPeg.forEach(r => {
+            emailBody += `Peg ${r.peg}: ${r.userName} - ${r.weight.toFixed(3)}kg (Pos ${r.position})\n`;
+        });
+        emailBody += '\n';
+
+        emailBody += '--- SECTION RESULTS ---\n';
+        Object.keys(resultsBySection).forEach(sectionName => {
+            emailBody += `Section: ${sectionName}\n`;
+            const sectionResults = resultsBySection[sectionName].sort((a, b) => (b.weight) - (a.weight));
+            sectionResults.forEach((r, index) => {
+                 emailBody += `${index + 1}. ${r.userName} - ${r.weight.toFixed(3)}kg (Peg ${r.peg})\n`;
+            });
+            emailBody += '\n';
+        });
+
+        // 4. Send the email
+        await sendResultsEmail(TEST_RECIPIENT_EMAIL, `Test Results: ${matchData.name}`, emailBody);
+        
+        return { success: true };
+
+    } catch (error: any) {
+        console.error("Failed to send test results email:", error);
+        return { success: false, error: error.message };
+    }
+}
+
 
 export default function TestAccessPage() {
   const { user, userProfile, loading: authLoading } = useAuth();
@@ -58,6 +131,7 @@ export default function TestAccessPage() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [isTestingExpiry, setIsTestingExpiry] = useState(false);
   const [expiryTestResult, setExpiryTestResult] = useState<ExpiryTestResult | null>(null);
+  const [isSendingResults, setIsSendingResults] = useState(false);
 
 
   const handleGetAnglers = async () => {
@@ -262,7 +336,7 @@ export default function TestAccessPage() {
     }
   };
 
-  const handleSendTestEmail = async () => {
+  const handleSendEmail = async () => {
     if (!userProfile) {
         toast({ variant: 'destructive', title: 'Error', description: 'User profile not loaded.' });
         return;
@@ -424,6 +498,24 @@ export default function TestAccessPage() {
     }
   };
 
+  const onSendResultsClick = async () => {
+    setIsSendingResults(true);
+    const result = await handleSendTestResultsEmail();
+    if (result.success) {
+        toast({
+            title: 'Email Sent!',
+            description: `A test results email has been sent to ${TEST_RECIPIENT_EMAIL}.`,
+        });
+    } else {
+         toast({
+            variant: 'destructive',
+            title: 'Email Failed',
+            description: result.error || 'Could not send the test results email.',
+        });
+    }
+    setIsSendingResults(false);
+  }
+
   const renderRuleDataTest = () => {
       if (authLoading || adminLoading) {
           return (
@@ -512,6 +604,16 @@ export default function TestAccessPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           {renderRuleDataTest()}
+
+          <div className="space-y-2 rounded-md border p-4">
+            <h3 className="font-semibold mb-2">Send Test Results Email</h3>
+            <p className="text-sm text-muted-foreground pb-4">
+              Click to send a formatted results email for match <code className="bg-muted px-1 py-0.5 rounded">{TEST_MATCH_ID}</code> to <code className="bg-muted px-1 py-0.5 rounded">{TEST_RECIPIENT_EMAIL}</code>.
+            </p>
+            <Button onClick={onSendResultsClick} disabled={isSendingResults}>
+              {isSendingResults ? 'Sending Email...' : 'Send Test Results Email'}
+            </Button>
+          </div>
           
            <div className="space-y-2 rounded-md border p-4">
                 <h3 className="font-semibold mb-2">Step 1: Test Match Name Update (WRITE)</h3>
@@ -684,7 +786,7 @@ export default function TestAccessPage() {
                 <p className="text-sm text-muted-foreground pb-4">
                     Click this button to send a test email to yourself to verify the Resend integration.
                 </p>
-                <Button onClick={handleSendTestEmail} disabled={isSendingEmail || authLoading || !userProfile}>
+                <Button onClick={handleSendEmail} disabled={isSendingEmail || authLoading || !userProfile}>
                     {isSendingEmail ? 'Sending...' : 'Send Test Email'}
                 </Button>
             </div>

@@ -1,3 +1,4 @@
+
 'use server';
 
 import { Resend } from 'resend';
@@ -239,3 +240,23 @@ export const sendMatchRegistrationConfirmationEmail = async (
     throw error;
   }
 };
+
+export const sendResultsEmail = async (toEmail: string, subject: string, body: string) => {
+    try {
+        const { data, error } = await resend.emails.send({
+            from: `Match Manager <${fromEmail}>`,
+            to: [toEmail],
+            subject: subject,
+            text: body,
+        });
+
+        if (error) {
+            console.error('Resend (Results) error:', error);
+            throw new Error('Failed to send results email.');
+        }
+        return data;
+    } catch (error) {
+        console.error('Error in sendResultsEmail:', error);
+        throw error;
+    }
+}
