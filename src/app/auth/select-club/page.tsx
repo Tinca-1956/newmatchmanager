@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,7 +20,7 @@ import { firestore } from '@/lib/firebase-client';
 import { collection, onSnapshot, doc, setDoc, addDoc, getDoc, query, where, getDocs } from 'firebase/firestore';
 import type { Club, User } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { sendWelcomeEmail } from '@/lib/send-email';
@@ -31,6 +31,7 @@ export default function SelectClubPage() {
   const { toast } = useToast();
   
   const [clubs, setClubs] = useState<Club[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
@@ -72,6 +73,12 @@ export default function SelectClubPage() {
 
     return () => unsubscribe();
   }, [toast, isSiteAdmin]);
+  
+  const filteredClubs = useMemo(() => {
+    return clubs.filter(club => 
+        club.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [clubs, searchTerm]);
 
   const handleSelectClub = (clubId: string) => {
     setSelectedClubId(clubId);
@@ -223,7 +230,7 @@ export default function SelectClubPage() {
     }
     
     // Otherwise, show the list of clubs for selection.
-    return clubs.map((club) => (
+    return filteredClubs.map((club) => (
       <div
         key={club.id}
         className="flex items-center justify-between rounded-lg border p-4"
@@ -260,6 +267,16 @@ export default function SelectClubPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        <div className="relative mb-4">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input 
+                type="search"
+                placeholder="Search for a club..."
+                className="pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+            />
+        </div>
         <ScrollArea className="h-72">
           <div className="space-y-4 pr-6">
             {renderContent()}
