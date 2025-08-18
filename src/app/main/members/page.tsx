@@ -275,7 +275,7 @@ export default function MembersPage() {
     const matchesRole = roleFilter.length === 0 || roleFilter.includes(member.role);
     const notDeleted = member.memberStatus !== 'Deleted';
     return clubMatch && matchesSearch && matchesStatus && matchesRole && notDeleted;
-  });
+  }).sort((a, b) => a.lastName.localeCompare(b.lastName));
 
   const canEdit = isSiteAdmin;
   const canViewEmail = canEdit;
