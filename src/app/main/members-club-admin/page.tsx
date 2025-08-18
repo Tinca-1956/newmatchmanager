@@ -65,6 +65,7 @@ import { Label } from '@/components/ui/label';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
+import { sendStatusChangeEmail } from '@/lib/send-email';
 
 const sampleUsers = (clubId: string): Omit<User, 'id'>[] => [
   { firstName: 'John', lastName: 'Angler', email: `john.angler.${Date.now()}@test.com`, role: 'Angler', memberStatus: 'Pending', primaryClubId: clubId },
@@ -170,6 +171,19 @@ export default function MembersClubAdminPage() {
       const memberDocRef = doc(firestore, 'users', memberId);
       await updateDoc(memberDocRef, { memberStatus: newStatus });
       toast({ title: "Success", description: "Member status updated." });
+
+      // Send email notification
+      const member = allUsers.find(u => u.id === memberId);
+      if (member && member.email && !member.email.endsWith('@test.com') && clubName) {
+        try {
+          await sendStatusChangeEmail(member.email, `${member.firstName} ${member.lastName}`, clubName, newStatus);
+          toast({ title: "Notification Sent", description: `An email has been sent to ${member.email}.` });
+        } catch (emailError) {
+          console.error("Failed to send status change email:", emailError);
+          toast({ variant: 'destructive', title: 'Email Failed', description: 'The status was updated, but the notification email could not be sent.' });
+        }
+      }
+
     } catch (error) {
       console.error("Error updating status:", error);
       toast({ variant: 'destructive', title: 'Update Failed', description: 'Could not update member status.' });
