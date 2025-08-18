@@ -89,6 +89,7 @@ export default function MembersClubAdminPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<MembershipStatus[]>([]);
   const [roleFilter, setRoleFilter] = useState<UserRole[]>([]);
+  const [verifiedFilter, setVerifiedFilter] = useState(false);
   
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -259,8 +260,10 @@ export default function MembersClubAdminPage() {
     const matchesSearch = fullName.includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter.length === 0 || statusFilter.includes(member.memberStatus);
     const matchesRole = roleFilter.length === 0 || roleFilter.includes(member.role);
+    const isVerified = member.email && !member.email.endsWith('@test.com');
+    const matchesVerified = !verifiedFilter || isVerified;
     const notDeleted = member.memberStatus !== 'Deleted';
-    return matchesSearch && matchesStatus && matchesRole && notDeleted;
+    return matchesSearch && matchesStatus && matchesRole && notDeleted && matchesVerified;
   });
 
   const canEdit = isSiteAdmin || isClubAdmin;
@@ -492,6 +495,14 @@ export default function MembersClubAdminPage() {
                             Site Admin
                         </DropdownMenuCheckboxItem>
                     )}
+                     <DropdownMenuLabel>Other</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuCheckboxItem
+                        checked={verifiedFilter}
+                        onCheckedChange={() => setVerifiedFilter(!verifiedFilter)}
+                    >
+                        Verified Only
+                    </DropdownMenuCheckboxItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
               </div>
