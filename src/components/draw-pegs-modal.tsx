@@ -92,12 +92,13 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
 
           const data = match.registeredAnglers.map(id => {
             const user = usersMap.get(id);
+            const result = resultsMap.get(id);
             return {
               userId: id,
               userName: user ? `${user.firstName} ${user.lastName}` : 'Unknown Angler',
               peg: result?.peg || '',
               section: result?.section || '',
-              resultDocId: resultsMap.get(id)?.id,
+              resultDocId: result?.id,
             };
           }).filter(item => usersMap.has(item.userId));
 
