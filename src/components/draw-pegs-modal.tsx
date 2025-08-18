@@ -67,6 +67,12 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
+  const [startPeg, setStartPeg] = useState('');
+  const [endPeg, setEndPeg] = useState('');
+  const [excludePegs, setExcludePegs] = useState('');
+  const [pegList, setPegList] = useState('');
+
+
   useEffect(() => {
     if (isOpen && match && firestore) {
       const fetchAnglerData = async () => {
@@ -127,6 +133,32 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
     });
   };
   
+  const handleCreatePegList = () => {
+    const start = parseInt(startPeg, 10);
+    const end = parseInt(endPeg, 10);
+
+    if (isNaN(start) || isNaN(end) || start > end) {
+        toast({
+            variant: 'destructive',
+            title: 'Invalid Range',
+            description: 'Please enter a valid start and end number for the peg range.',
+        });
+        return;
+    }
+
+    const excluded = excludePegs.split(',').map(n => parseInt(n.trim(), 10)).filter(n => !isNaN(n));
+    const excludedSet = new Set(excluded);
+
+    const newList = [];
+    for (let i = start; i <= end; i++) {
+        if (!excludedSet.has(i)) {
+            newList.push(i);
+        }
+    }
+    setPegList(newList.join(', '));
+  };
+
+
   const handleSavePegs = async () => {
     if (!match || !firestore) return;
     setIsSaving(true);
@@ -182,19 +214,22 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
         </DialogHeader>
 
         <div className="space-y-4 pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 items-end">
             <div className="space-y-2">
               <Label htmlFor="start-peg">START#</Label>
-              <Input id="start-peg" type="number" />
+              <Input id="start-peg" type="number" value={startPeg} onChange={e => setStartPeg(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="end-peg">END#</Label>
-              <Input id="end-peg" type="number" />
+              <Input id="end-peg" type="number" value={endPeg} onChange={e => setEndPeg(e.target.value)} />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 col-span-2 md:col-span-1">
               <Label htmlFor="exclude-pegs">EXCL#</Label>
-              <Input id="exclude-pegs" placeholder="e.g. 5,12,19" />
+              <Input id="exclude-pegs" placeholder="e.g. 5,12" value={excludePegs} onChange={e => setExcludePegs(e.target.value)}/>
             </div>
+             <Button onClick={handleCreatePegList} variant="outline" className="w-full">
+                Create List
+            </Button>
             <Button onClick={handleShuffle} variant="outline" className="w-full">
               <Shuffle className="mr-2 h-4 w-4" />
               Shuffle
@@ -202,7 +237,7 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="peg-list">PEG LIST</Label>
-            <Textarea id="peg-list" readOnly className="min-h-[80px]" />
+            <Textarea id="peg-list" value={pegList} readOnly className="min-h-[80px]" />
           </div>
         </div>
         
