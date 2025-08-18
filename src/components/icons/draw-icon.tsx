@@ -1,3 +1,4 @@
+
 import * as React from 'react';
 
 export const DrawIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -11,8 +12,8 @@ export const DrawIcon = (props: React.SVGProps<SVGSVGElement>) => (
     strokeLinejoin="round"
     {...props}
   >
-    <circle cx="12" cy="12" r="10" />
-    <path d="M14.5 9.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
-    <path d="M12 14.5h2.5V9.5H10" />
+    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+    <circle cx="12" cy="10" r="2" />
+    <circle cx="12" cy="14" r="2" />
   </svg>
 );
