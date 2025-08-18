@@ -27,7 +27,7 @@ import { firestore } from '@/lib/firebase-client';
 import { collection, query, where, onSnapshot, doc, getDocs, writeBatch } from 'firebase/firestore';
 import type { Match, User, Result } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { Shuffle } from 'lucide-react';
+import { Shuffle, ArrowDownUp } from 'lucide-react';
 import { Textarea } from './ui/textarea';
 
 interface DrawPegsModalProps {
@@ -190,6 +190,25 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
     })
   };
 
+  const handleSortByPeg = () => {
+    setAnglerData(prev => {
+        const sorted = [...prev].sort((a, b) => {
+            const pegA = parseInt(a.peg, 10);
+            const pegB = parseInt(b.peg, 10);
+
+            if (isNaN(pegA) && isNaN(pegB)) return 0; // Both non-numeric, keep order
+            if (isNaN(pegA)) return 1; // Put non-numeric pegs at the end
+            if (isNaN(pegB)) return -1; // Keep non-numeric pegs at the end
+
+            return pegA - pegB;
+        });
+        return sorted;
+    });
+    toast({
+        title: 'Sorted by Peg',
+        description: 'The angler list has been sorted by peg number.'
+    });
+  };
 
   const handleSavePegs = async () => {
     if (!match || !firestore) return;
@@ -325,9 +344,15 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
         </div>
 
         <DialogFooter className="pt-4 items-center justify-between w-full">
-            <Button onClick={handleAssignPegs} variant="secondary" disabled={pegList.length === 0}>
-                Assign Pegs
-            </Button>
+            <div className="flex gap-2">
+                <Button onClick={handleAssignPegs} variant="secondary" disabled={pegList.length === 0}>
+                    Assign Pegs
+                </Button>
+                <Button onClick={handleSortByPeg} variant="secondary" disabled={anglerData.length === 0}>
+                    <ArrowDownUp className="mr-2 h-4 w-4" />
+                    Sort by Peg
+                </Button>
+            </div>
             <div className="flex gap-2">
                 <Button variant="ghost" onClick={onClose}>
                     Cancel
