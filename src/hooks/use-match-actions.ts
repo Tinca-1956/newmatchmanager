@@ -22,6 +22,7 @@ export const useMatchActions = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isRemoveAnglerModalOpen, setIsRemoveAnglerModalOpen] = useState(false);
   const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
+  const [isDrawPegsModalOpen, setIsDrawPegsModalOpen] = useState(false);
 
 
   const [selectedMatchForModal, setSelectedMatchForModal] = useState<Match | null>(null);
@@ -62,11 +63,9 @@ export const useMatchActions = () => {
     router.push(`/main/matches/${matchId}/images`);
   };
   
-  const handleManagePegs = (matchId: string) => {
-     toast({
-        title: 'Action Not Implemented',
-        description: `Angler List for match ${matchId} is not yet available.`,
-    });
+  const handleDrawPegs = (match: Match) => {
+     setSelectedMatchForModal(match);
+     setIsDrawPegsModalOpen(true);
   };
 
    const handleWeighIn = (matchId: string) => {
@@ -260,6 +259,11 @@ export const useMatchActions = () => {
     setIsDescriptionModalOpen(false);
     setSelectedMatchForModal(null);
   };
+  
+  const closeDrawPegsModal = () => {
+    setIsDrawPegsModalOpen(false);
+    setSelectedMatchForModal(null);
+  };
 
   return {
     isResultsModalOpen,
@@ -268,6 +272,7 @@ export const useMatchActions = () => {
     isEditModalOpen,
     isRemoveAnglerModalOpen,
     isDescriptionModalOpen,
+    isDrawPegsModalOpen,
     selectedMatchForModal,
     selectedMatchIdForModal,
     handleViewResults,
@@ -276,7 +281,7 @@ export const useMatchActions = () => {
     handleAddAnglers,
     handleRemoveAnglers,
     handleViewAnglerList,
-    handleManagePegs,
+    handleDrawPegs,
     handleWeighIn,
     handleManageImages,
     handlePublish,
@@ -288,5 +293,6 @@ export const useMatchActions = () => {
     closeEditModal,
     closeRemoveAnglerModal,
     closeDescriptionModal,
+    closeDrawPegsModal,
   };
 };

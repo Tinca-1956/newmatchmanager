@@ -68,6 +68,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { DrawIcon } from '@/components/icons/draw-icon';
+import { DrawPegsModal } from '@/components/draw-pegs-modal';
 
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
@@ -124,6 +125,7 @@ function MatchesClubAdminPageContent() {
     isEditModalOpen,
     isRemoveAnglerModalOpen,
     isDescriptionModalOpen,
+    isDrawPegsModalOpen,
     selectedMatchForModal,
     selectedMatchIdForModal,
     handleViewResults,
@@ -135,7 +137,8 @@ function MatchesClubAdminPageContent() {
     closeEditModal,
     closeRemoveAnglerModal,
     closeDescriptionModal,
-    handleManagePegs,
+    closeDrawPegsModal,
+    handleDrawPegs,
     handleWeighIn,
     handleAddAnglers,
     handleRemoveAnglers,
@@ -284,7 +287,7 @@ function MatchesClubAdminPageContent() {
                         <>
                            <Tooltip>
                               <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" onClick={() => {}}>
+                                  <Button variant="ghost" size="icon" onClick={() => handleDrawPegs(match)}>
                                       <DrawIcon className="h-4 w-4" />
                                   </Button>
                               </TooltipTrigger>
@@ -459,7 +462,7 @@ function MatchesClubAdminPageContent() {
                         <DropdownMenuContent align="end">
                             {canEdit && (
                                 <>
-                                    <DropdownMenuItem onClick={() => {}}>
+                                    <DropdownMenuItem onClick={() => handleDrawPegs(match)}>
                                         <DrawIcon className="mr-2 h-4 w-4" />
                                         <span>Draw Pegs</span>
                                     </DropdownMenuItem>
@@ -619,6 +622,11 @@ function MatchesClubAdminPageContent() {
             match={selectedMatchForModal}
             canEdit={canEdit}
           />
+          <DrawPegsModal
+            isOpen={isDrawPegsModalOpen}
+            onClose={closeDrawPegsModal}
+            match={selectedMatchForModal}
+           />
         </>
       )}
 
