@@ -71,6 +71,8 @@ export default function WeighInClubAdminSelectionPage() {
           date: (data.date as Timestamp).toDate(),
         } as Match;
       });
+      
+      matchesData.sort((a, b) => (b.date as Date).getTime() - (a.date as Date).getTime());
 
       setMatches(matchesData);
       setIsLoading(false);
