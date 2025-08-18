@@ -28,6 +28,7 @@ import { collection, query, where, onSnapshot, doc, getDocs, writeBatch } from '
 import type { Match, User, Result } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Shuffle } from 'lucide-react';
+import { Textarea } from './ui/textarea';
 
 interface DrawPegsModalProps {
   isOpen: boolean;
@@ -180,23 +181,29 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 items-end">
-          <div className="space-y-2">
-            <Label htmlFor="start-peg">START#</Label>
-            <Input id="start-peg" type="number" />
+        <div className="space-y-4 pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div className="space-y-2">
+              <Label htmlFor="start-peg">START#</Label>
+              <Input id="start-peg" type="number" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="end-peg">END#</Label>
+              <Input id="end-peg" type="number" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="exclude-pegs">EXCL#</Label>
+              <Input id="exclude-pegs" placeholder="e.g. 5,12,19" />
+            </div>
+            <Button onClick={handleShuffle} variant="outline" className="w-full">
+              <Shuffle className="mr-2 h-4 w-4" />
+              Shuffle
+            </Button>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="end-peg">END#</Label>
-            <Input id="end-peg" type="number" />
+            <Label htmlFor="peg-list">PEG LIST</Label>
+            <Textarea id="peg-list" readOnly className="min-h-[80px]" />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="exclude-pegs">EXCL#</Label>
-            <Input id="exclude-pegs" placeholder="e.g. 5,12,19" />
-          </div>
-           <Button onClick={handleShuffle} variant="outline" className="w-full">
-            <Shuffle className="mr-2 h-4 w-4" />
-            Shuffle
-          </Button>
         </div>
         
         <div className="flex-grow overflow-hidden pt-4">
