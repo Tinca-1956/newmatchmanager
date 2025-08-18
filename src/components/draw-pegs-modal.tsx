@@ -95,7 +95,7 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
             const result = resultsMap.get(id);
             return {
               userId: id,
-              userName: user ? `${'\'\'\''}firstName} ${'\'\'\''}lastName}` : 'Unknown Angler',
+              userName: user ? `${user.firstName} ${user.lastName}` : 'Unknown Angler',
               peg: result?.peg || '',
               section: result?.section || '',
               resultDocId: result?.id,
