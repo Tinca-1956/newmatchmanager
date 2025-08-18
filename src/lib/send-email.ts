@@ -2,7 +2,7 @@
 'use server';
 
 import { Resend } from 'resend';
-import type { PublicMatch, Result, Club, Match } from './types';
+import type { PublicMatch, Result, Club, Match, MembershipStatus } from './types';
 import { firestore } from './firebase-client';
 import { collection, doc, getDoc, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
@@ -116,6 +116,21 @@ ${description}
   return emailBody;
 };
 
+const createStatusChangeEmailBody = (name: string, clubName: string, newStatus: string): string => {
+  return `
+    Hello ${name},
+
+    This is a notification from Match Manager.
+
+    Your membership status for the club "${clubName}" has been updated to: ${newStatus}.
+
+    If you have any questions, please contact your club administrator.
+
+    Thanks,
+    The Match Manager Team
+  `;
+}
+
 
 export const sendVerificationEmail = async (email: string, name: string, verificationLink: string) => {
   try {
@@ -224,4 +239,24 @@ export const sendMatchRegistrationConfirmationEmail = async (
     console.error('Error in sendMatchRegistrationConfirmationEmail:', error);
     throw error;
   }
+};
+
+export const sendStatusChangeEmail = async (email: string, name: string, clubName: string, newStatus: MembershipStatus) => {
+    try {
+        const { data, error } = await resend.emails.send({
+            from: `Match Manager <${fromEmail}>`,
+            to: [email],
+            subject: 'Your Membership Status has been updated',
+            text: createStatusChangeEmailBody(name, clubName, newStatus),
+        });
+
+        if (error) {
+            console.error('Resend error:', error);
+            throw new Error('Failed to send status change email.');
+        }
+        return data;
+    } catch (error) {
+        console.error('Error in sendStatusChangeEmail:', error);
+        throw error;
+    }
 };
