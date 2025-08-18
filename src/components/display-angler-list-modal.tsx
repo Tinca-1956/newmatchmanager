@@ -22,12 +22,13 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, Timestamp } from 'firebase/firestore';
 import type { Match, User, Club } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Download } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { format } from 'date-fns';
 
 interface DisplayAnglerListModalProps {
   isOpen: boolean;
@@ -114,12 +115,13 @@ export function DisplayAnglerListModal({ isOpen, onClose, match }: DisplayAngler
     const doc = new jsPDF({ unit: 'mm' });
     
     const clubTitle = club.name;
-    const title = `Angler List: ${match.name}`;
+    const matchDate = match.date instanceof Timestamp ? match.date.toDate() : match.date;
+    const title = `Angler List: ${match.seriesName} ${match.name} ${match.location} ${format(matchDate, 'PPP')}`;
     
     doc.setFontSize(22);
     doc.text(clubTitle, 14, 22);
     doc.setFontSize(18);
-    doc.text(title, 14, 30);
+    doc.text(title, 14, 30, { maxWidth: 180 });
     
     (doc as any).autoTable({
         startY: 40,
