@@ -174,7 +174,7 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl h-auto max-h-[80vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="text-2xl">Draw Pegs: {match.name}</DialogTitle>
+          <DialogTitle className="text-2xl">Draw Pegs: {match.name} (Capacity = {match.capacity})</DialogTitle>
           <DialogDescription>
             Assign pegs and sections to the registered anglers.
           </DialogDescription>
