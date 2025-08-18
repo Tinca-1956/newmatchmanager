@@ -27,6 +27,7 @@ import { firestore } from '@/lib/firebase-client';
 import { collection, query, where, onSnapshot, doc, getDocs, writeBatch } from 'firebase/firestore';
 import type { Match, User, Result } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { Shuffle } from 'lucide-react';
 
 interface DrawPegsModalProps {
   isOpen: boolean;
@@ -114,6 +115,17 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
     );
   };
   
+  const handleShuffle = () => {
+    setAnglerData(prev => {
+        const shuffled = [...prev];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
+    });
+  };
+  
   const handleSavePegs = async () => {
     if (!match || !firestore) return;
     setIsSaving(true);
@@ -168,7 +180,7 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 items-end">
           <div className="space-y-2">
             <Label htmlFor="start-peg">START#</Label>
             <Input id="start-peg" type="number" />
@@ -181,6 +193,10 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
             <Label htmlFor="exclude-pegs">EXCL#</Label>
             <Input id="exclude-pegs" placeholder="e.g. 5,12,19" />
           </div>
+           <Button onClick={handleShuffle} variant="outline" className="w-full">
+            <Shuffle className="mr-2 h-4 w-4" />
+            Shuffle
+          </Button>
         </div>
         
         <div className="flex-grow overflow-hidden pt-4">
