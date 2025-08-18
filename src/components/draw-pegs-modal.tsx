@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
@@ -27,7 +28,7 @@ import { firestore } from '@/lib/firebase-client';
 import { collection, query, where, onSnapshot, doc, getDocs, writeBatch } from 'firebase/firestore';
 import type { Match, User, Result } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { Shuffle, ArrowDownUp } from 'lucide-react';
+import { Shuffle, ArrowDownUp, Scale } from 'lucide-react';
 import { Textarea } from './ui/textarea';
 
 interface DrawPegsModalProps {
@@ -62,6 +63,7 @@ async function getDocsInChunks<T extends { id: string }>(ids: string[], collecti
 }
 
 export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
+  const router = useRouter();
   const [anglerData, setAnglerData] = useState<AnglerDrawData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -252,6 +254,12 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
     }
   };
 
+  const handleGoToWeighIn = () => {
+    if (!match) return;
+    onClose();
+    router.push(`/main/matches/${match.id}/weigh-in`);
+  };
+
   if (!match) return null;
 
   return (
@@ -351,6 +359,10 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
                 <Button onClick={handleSortByPeg} variant="secondary" disabled={anglerData.length === 0}>
                     <ArrowDownUp className="mr-2 h-4 w-4" />
                     Sort by Peg
+                </Button>
+                 <Button onClick={handleGoToWeighIn} variant="secondary">
+                    <Scale className="mr-2 h-4 w-4" />
+                    Go to Weigh-in
                 </Button>
             </div>
             <div className="flex gap-2">
