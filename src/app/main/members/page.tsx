@@ -91,6 +91,7 @@ export default function MembersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<MembershipStatus[]>([]);
   const [roleFilter, setRoleFilter] = useState<UserRole[]>([]);
+  const [verifiedFilter, setVerifiedFilter] = useState(false);
   
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -288,8 +289,13 @@ export default function MembersPage() {
     const matchesSearch = fullName.includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter.length === 0 || statusFilter.includes(member.memberStatus);
     const matchesRole = roleFilter.length === 0 || roleFilter.includes(member.role);
+    
+    // The check icon is a proxy for verified. The email doesn't have @test.com
+    const isVerified = member.email && !member.email.endsWith('@test.com');
+    const matchesVerified = !verifiedFilter || isVerified;
+
     const notDeleted = member.memberStatus !== 'Deleted';
-    return clubMatch && matchesSearch && matchesStatus && matchesRole && notDeleted;
+    return clubMatch && matchesSearch && matchesStatus && matchesRole && notDeleted && matchesVerified;
   }).sort((a, b) => a.lastName.localeCompare(b.lastName));
 
   const canEdit = isSiteAdmin;
@@ -524,6 +530,14 @@ export default function MembersPage() {
                             Site Admin
                         </DropdownMenuCheckboxItem>
                     )}
+                    <DropdownMenuLabel>Other</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuCheckboxItem
+                        checked={verifiedFilter}
+                        onCheckedChange={() => setVerifiedFilter(!verifiedFilter)}
+                    >
+                        Verified Only
+                    </DropdownMenuCheckboxItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
               </div>
