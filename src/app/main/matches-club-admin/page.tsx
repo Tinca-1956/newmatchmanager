@@ -67,6 +67,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { DrawIcon } from '@/components/icons/draw-icon';
 
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
@@ -281,6 +282,14 @@ function MatchesClubAdminPageContent() {
                   <div className="flex items-center gap-1">
                       {canEdit && (
                         <>
+                           <Tooltip>
+                              <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" onClick={() => {}}>
+                                      <DrawIcon className="h-4 w-4" />
+                                  </Button>
+                              </TooltipTrigger>
+                              <TooltipContent><p>Draw Pegs</p></TooltipContent>
+                          </Tooltip>
                           <Tooltip>
                               <TooltipTrigger asChild>
                                   <Button variant="ghost" size="icon" onClick={() => handleViewDescription(match)}>
@@ -450,6 +459,10 @@ function MatchesClubAdminPageContent() {
                         <DropdownMenuContent align="end">
                             {canEdit && (
                                 <>
+                                    <DropdownMenuItem onClick={() => {}}>
+                                        <DrawIcon className="mr-2 h-4 w-4" />
+                                        <span>Draw Pegs</span>
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => handleViewDescription(match)}>
                                         <HelpCircle className="mr-2 h-4 w-4" />
                                         <span>Description</span>
