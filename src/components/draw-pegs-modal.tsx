@@ -92,13 +92,12 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
 
           const data = match.registeredAnglers.map(id => {
             const user = usersMap.get(id);
-            const result = resultsMap.get(id);
             return {
               userId: id,
               userName: user ? `${user.firstName} ${user.lastName}` : 'Unknown Angler',
               peg: result?.peg || '',
               section: result?.section || '',
-              resultDocId: result?.id,
+              resultDocId: resultsMap.get(id)?.id,
             };
           }).filter(item => usersMap.has(item.userId));
 
@@ -292,8 +291,8 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
           </div>
         </div>
         
-        <div className="flex-grow overflow-hidden pt-4">
-             <ScrollArea className="h-full pr-6">
+        <div className="flex-grow overflow-y-auto pt-4 pr-2">
+             <ScrollArea className="h-[300px]">
                 <Table>
                     <TableHeader>
                         <TableRow>
