@@ -36,13 +36,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, List, LayoutGrid, SortAsc } from 'lucide-react';
+import { ArrowLeft, List, LayoutGrid, SortAsc, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
 import { doc, getDoc, collection, query, where, onSnapshot, writeBatch, Timestamp, getDocs, addDoc, setDoc } from 'firebase/firestore';
 import type { Match, User, Result, WeighInStatus, UserRole } from '@/lib/types';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+
 
 interface AnglerResultData {
   userId: string;
@@ -386,6 +389,56 @@ export default function WeighInPage() {
         setIsSaving(null);
     }
   };
+  
+  const handleDownloadWeighSheet = () => {
+    if (!match || results.length === 0) {
+      toast({ variant: 'destructive', title: 'No Data', description: 'Cannot generate weigh sheet without anglers.' });
+      return;
+    }
+
+    const doc = new jsPDF({ unit: 'mm' });
+    const sortedByPeg = [...results].sort((a, b) => {
+        const pegA = parseInt(a.peg, 10);
+        const pegB = parseInt(b.peg, 10);
+        if (isNaN(pegA) && isNaN(pegB)) return 0;
+        if (isNaN(pegA)) return 1;
+        if (isNaN(pegB)) return -1;
+        return pegA - pegB;
+    });
+
+    const title = `Weigh Sheet: ${match.name}`;
+    const subtitle = `${match.seriesName} at ${match.location} - ${format(match.date, 'PPP')}`;
+
+    doc.setFontSize(18);
+    doc.text(title, 14, 22);
+    doc.setFontSize(12);
+    doc.text(subtitle, 14, 30);
+    
+    (doc as any).autoTable({
+        startY: 40,
+        head: [['Peg', 'Section', 'Angler Name', 'Weight']],
+        body: sortedByPeg.map(r => [
+            r.peg || '',
+            r.section || '',
+            r.userName,
+            '' // Empty weight column
+        ]),
+        theme: 'grid',
+        styles: { 
+            lineColor: [0, 0, 0], 
+            lineWidth: 0.1,
+            cellPadding: 3,
+        },
+        headStyles: { 
+            fillColor: [200, 200, 200], 
+            textColor: [0, 0, 0],
+            fontStyle: 'bold',
+        }
+    });
+
+    doc.save(`weigh-sheet-${match.name.replace(/\s+/g, '-')}.pdf`);
+  };
+
 
   const sortedResults = useMemo(() => {
     const resultsCopy = [...results];
@@ -478,6 +531,10 @@ export default function WeighInPage() {
 
             {/* Desktop Display Toggle */}
              <div className="hidden md:flex justify-end items-center order-3 md:w-auto gap-2">
+                <Button variant="outline" onClick={handleDownloadWeighSheet}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Weigh Sheet PDF
+                </Button>
                  <div className="flex flex-col gap-1.5">
                     <Label htmlFor="sort-by">Sort By</Label>
                     <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
@@ -715,5 +772,3 @@ export default function WeighInPage() {
     </div>
   );
 }
-
-    
