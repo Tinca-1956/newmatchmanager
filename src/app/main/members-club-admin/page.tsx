@@ -278,7 +278,7 @@ export default function MembersClubAdminPage() {
     const matchesVerified = !verifiedFilter || isVerified;
     const notDeleted = member.memberStatus !== 'Deleted';
     return matchesSearch && matchesStatus && matchesRole && notDeleted && matchesVerified;
-  });
+  }).sort((a, b) => a.lastName.localeCompare(b.lastName));
 
   const canEdit = isSiteAdmin || isClubAdmin;
   const canViewEmail = canEdit;
