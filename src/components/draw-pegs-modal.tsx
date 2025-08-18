@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -21,6 +22,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { firestore } from '@/lib/firebase-client';
 import { collection, query, where, onSnapshot, doc, getDocs, writeBatch } from 'firebase/firestore';
 import type { Match, User, Result } from '@/lib/types';
@@ -165,6 +167,21 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
             Assign pegs and sections to the registered anglers.
           </DialogDescription>
         </DialogHeader>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+          <div className="space-y-2">
+            <Label htmlFor="start-peg">START#</Label>
+            <Input id="start-peg" type="number" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="end-peg">END#</Label>
+            <Input id="end-peg" type="number" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="exclude-pegs">EXCL#</Label>
+            <Input id="exclude-pegs" placeholder="e.g. 5,12,19" />
+          </div>
+        </div>
         
         <div className="flex-grow overflow-hidden pt-4">
              <ScrollArea className="h-full pr-6">
