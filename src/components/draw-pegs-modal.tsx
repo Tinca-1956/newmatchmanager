@@ -95,7 +95,7 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
             const result = resultsMap.get(id);
             return {
               userId: id,
-              userName: user ? `${user.firstName} ${user.lastName}` : 'Unknown Angler',
+              userName: user ? `${'\'\'\''}firstName} ${'\'\'\''}lastName}` : 'Unknown Angler',
               peg: result?.peg || '',
               section: result?.section || '',
               resultDocId: result?.id,
@@ -156,6 +156,38 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
         }
     }
     setPegList(newList.join(', '));
+  };
+  
+   const handleAssignPegs = () => {
+    let availablePegs = pegList.split(',').map(p => p.trim()).filter(p => p !== '');
+    if (availablePegs.length < anglerData.length) {
+      toast({
+        variant: 'destructive',
+        title: 'Not Enough Pegs',
+        description: `There are ${availablePegs.length} pegs in the list, but ${anglerData.length} anglers need a peg.`,
+      });
+      return;
+    }
+
+    // Shuffle the available pegs for random assignment
+    for (let i = availablePegs.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [availablePegs[i], availablePegs[j]] = [availablePegs[j], availablePegs[i]];
+    }
+    
+    const updatedAnglerData = anglerData.map((angler, index) => {
+        return { ...angler, peg: availablePegs[index] };
+    });
+    
+    const remainingPegs = availablePegs.slice(anglerData.length);
+
+    setAnglerData(updatedAnglerData);
+    setPegList(remainingPegs.join(', '));
+
+    toast({
+        title: 'Pegs Assigned',
+        description: 'Pegs have been randomly assigned to all anglers.'
+    })
   };
 
 
@@ -292,13 +324,18 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
             </ScrollArea>
         </div>
 
-        <DialogFooter className="pt-4">
-            <Button variant="ghost" onClick={onClose}>
-                Cancel
+        <DialogFooter className="pt-4 items-center justify-between w-full">
+            <Button onClick={handleAssignPegs} variant="secondary" disabled={pegList.length === 0}>
+                Assign Pegs
             </Button>
-            <Button onClick={handleSavePegs} disabled={isSaving || isLoading}>
-                {isSaving ? 'Saving...' : 'Save Pegs'}
-            </Button>
+            <div className="flex gap-2">
+                <Button variant="ghost" onClick={onClose}>
+                    Cancel
+                </Button>
+                <Button onClick={handleSavePegs} disabled={isSaving || isLoading}>
+                    {isSaving ? 'Saving...' : 'Save Pegs'}
+                </Button>
+            </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
