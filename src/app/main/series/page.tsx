@@ -18,7 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trophy, HelpCircle, Trash2, ArrowRight, Download } from 'lucide-react';
+import { PlusCircle, Edit, Trophy, HelpCircle, Trash2, ArrowRight, Download, Check } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -434,6 +434,7 @@ export default function SeriesPage() {
          <TableRow key={i}>
             <TableCell><Skeleton className="h-4 w-[250px]" /></TableCell>
             <TableCell><Skeleton className="h-4 w-[50px]" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-[50px]" /></TableCell>
             <TableCell className="text-right"><Skeleton className="h-10 w-[160px]" /></TableCell>
           </TableRow>
       ));
@@ -453,6 +454,9 @@ export default function SeriesPage() {
        <TableRow key={series.id}>
           <TableCell className="font-medium">{series.name}</TableCell>
           <TableCell>{series.matchCount}</TableCell>
+          <TableCell>
+            {series.isCompleted && <Check className="h-5 w-5 text-green-600" />}
+          </TableCell>
           <TableCell className="text-right space-x-2">
             <TooltipProvider>
                 <Tooltip>
@@ -592,6 +596,7 @@ export default function SeriesPage() {
               <TableRow>
                 <TableHead>Series Name</TableHead>
                 <TableHead>Match Count</TableHead>
+                <TableHead>Completed</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
