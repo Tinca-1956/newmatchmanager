@@ -9,13 +9,17 @@ import { doc, getDoc, Timestamp } from 'firebase/firestore';
 import type { Club } from '@/lib/types';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { AlertCircle } from 'lucide-react';
 
 export default function SubscriptionsPage() {
-  const { userProfile } = useAuth();
+  const { userProfile, loading: authLoading } = useAuth();
   const [club, setClub] = useState<Club | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return;
     if (userProfile?.primaryClubId && firestore) {
       const clubDocRef = doc(firestore, 'clubs', userProfile.primaryClubId);
       getDoc(clubDocRef).then(docSnap => {
@@ -27,10 +31,12 @@ export default function SubscriptionsPage() {
     } else {
       setIsLoading(false);
     }
-  }, [userProfile]);
+  }, [userProfile, authLoading]);
   
+  const userName = userProfile ? `${userProfile.firstName} ${userProfile.lastName}` : 'User';
   const clubName = club?.name || '<PRIMARY CLUB>';
   const expiryDate = club?.subscriptionExpiryDate ? format((club.subscriptionExpiryDate as Timestamp).toDate(), 'PPP') : '<EXPIRY DATE>';
+  
   const subject = `RENEWED SUBSCRIPTION FOR ${clubName}`;
   const body = `Dear Match Manager,
 
@@ -46,13 +52,14 @@ Warmest regards`;
     subject
   )}&body=${encodeURIComponent(body)}`;
   
-  if (isLoading) {
+  if (isLoading || authLoading) {
     return (
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
             <div className="max-w-2xl mx-auto p-8 space-y-8">
                 <Skeleton className="h-10 w-64" />
                 <Skeleton className="h-8 w-80" />
-                <Skeleton className="h-6 w-96" />
+                <Skeleton className="h-20 w-96" />
+                <Skeleton className="h-6 w-96 mt-4" />
                 <Skeleton className="h-12 w-48" />
             </div>
         </div>
@@ -68,6 +75,17 @@ Warmest regards`;
             <p className="text-xl text-muted-foreground mb-8">
                 Annual subscription fee is U$50 per club.
             </p>
+
+            <Alert className="mb-8 text-left bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700">
+                <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <AlertTitle className="text-blue-800 dark:text-blue-300 font-semibold">
+                    ATTENTION: {userName} of {clubName}
+                </AlertTitle>
+                <AlertDescription className="text-blue-700 dark:text-blue-400">
+                    Your club subscription expires: <Badge variant="secondary">{expiryDate}</Badge>
+                </AlertDescription>
+            </Alert>
+            
             <p className="mb-8 text-sm text-muted-foreground">
                 Your email client will now open. Please review the details before sending.
             </p>
