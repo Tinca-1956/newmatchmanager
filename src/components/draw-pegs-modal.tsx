@@ -264,7 +264,7 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl h-auto max-h-[80vh] flex flex-col">
+      <DialogContent className="max-w-2xl h-auto max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-2xl">Draw Pegs: {match.name} (Capacity = {match.capacity})</DialogTitle>
           <DialogDescription>
@@ -272,36 +272,38 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 pt-4">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 items-end">
-            <div className="space-y-2">
-              <Label htmlFor="start-peg">START#</Label>
-              <Input id="start-peg" type="number" value={startPeg} onChange={e => setStartPeg(e.target.value)} />
+        <div className="flex-grow overflow-y-auto pr-4 space-y-4">
+            {/* Peg Generation Controls */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 items-end">
+                <div className="space-y-2">
+                  <Label htmlFor="start-peg">START#</Label>
+                  <Input id="start-peg" type="number" value={startPeg} onChange={e => setStartPeg(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="end-peg">END#</Label>
+                  <Input id="end-peg" type="number" value={endPeg} onChange={e => setEndPeg(e.target.value)} />
+                </div>
+                <div className="space-y-2 col-span-2 md:col-span-1">
+                  <Label htmlFor="exclude-pegs">EXCL#</Label>
+                  <Input id="exclude-pegs" placeholder="e.g. 5,12" value={excludePegs} onChange={e => setExcludePegs(e.target.value)}/>
+                </div>
+                <Button onClick={handleCreatePegList} variant="outline" className="w-full">
+                    Create List
+                </Button>
+                <Button onClick={handleShuffle} variant="outline" className="w-full">
+                  <Shuffle className="mr-2 h-4 w-4" />
+                  Shuffle
+                </Button>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="peg-list">PEG LIST</Label>
+                <Textarea id="peg-list" value={pegList} readOnly className="min-h-[80px]" />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="end-peg">END#</Label>
-              <Input id="end-peg" type="number" value={endPeg} onChange={e => setEndPeg(e.target.value)} />
-            </div>
-            <div className="space-y-2 col-span-2 md:col-span-1">
-              <Label htmlFor="exclude-pegs">EXCL#</Label>
-              <Input id="exclude-pegs" placeholder="e.g. 5,12" value={excludePegs} onChange={e => setExcludePegs(e.target.value)}/>
-            </div>
-             <Button onClick={handleCreatePegList} variant="outline" className="w-full">
-                Create List
-            </Button>
-            <Button onClick={handleShuffle} variant="outline" className="w-full">
-              <Shuffle className="mr-2 h-4 w-4" />
-              Shuffle
-            </Button>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="peg-list">PEG LIST</Label>
-            <Textarea id="peg-list" value={pegList} readOnly className="min-h-[80px]" />
-          </div>
-        </div>
-        
-        <div className="flex-grow overflow-y-auto pt-4 pr-2">
-             <ScrollArea className="h-[300px]">
+          
+            {/* Angler List Table */}
+            <div className="pt-4">
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -348,7 +350,7 @@ export function DrawPegsModal({ isOpen, onClose, match }: DrawPegsModalProps) {
                         )}
                     </TableBody>
                 </Table>
-            </ScrollArea>
+            </div>
         </div>
 
         <DialogFooter className="pt-4 items-center justify-between w-full">
