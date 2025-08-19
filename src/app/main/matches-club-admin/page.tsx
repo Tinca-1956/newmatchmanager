@@ -112,6 +112,11 @@ function MatchesClubAdminPageContent() {
   const matchIdFilter = searchParams.get('matchId');
   const seriesIdFilter = searchParams.get('seriesId');
 
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const [matches, setMatches] = useState<Match[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   
@@ -553,7 +558,7 @@ function MatchesClubAdminPageContent() {
           </div>
         </div>
         
-        {isMobile ? (
+        {isClient && isMobile ? (
              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                  {renderMatchCards()}
             </div>
