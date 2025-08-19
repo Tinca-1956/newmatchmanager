@@ -35,8 +35,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, List, LayoutGrid, SortAsc, FileText } from 'lucide-react';
+import { ArrowLeft, List, LayoutGrid, SortAsc, FileText, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { firestore } from '@/lib/firebase-client';
 import { doc, getDoc, collection, query, where, onSnapshot, writeBatch, Timestamp, getDocs, addDoc, setDoc } from 'firebase/firestore';
@@ -439,6 +450,38 @@ export default function WeighInPage() {
     doc.save(`weigh-sheet-${match.name.replace(/\s+/g, '-')}.pdf`);
   };
 
+  const handleResetSheet = async () => {
+    if (!firestore || !match || results.length === 0) {
+      toast({ variant: 'destructive', title: 'No Data', description: 'There is nothing to reset.' });
+      return;
+    }
+    setIsSaving('resetting');
+    try {
+      const batch = writeBatch(firestore);
+      results.forEach(angler => {
+        if (angler.resultDocId) {
+          const docRef = doc(firestore, 'results', angler.resultDocId);
+          batch.update(docRef, {
+            peg: '',
+            section: '',
+            weight: 0,
+            payout: 0,
+            status: 'NYW',
+            position: null,
+            sectionRank: null,
+          });
+        }
+      });
+      await batch.commit();
+      toast({ title: 'Success!', description: 'The weigh-in sheet has been reset.' });
+    } catch (error) {
+      console.error('Error resetting sheet:', error);
+      toast({ variant: 'destructive', title: 'Reset Failed', description: 'Could not reset the weigh-in sheet.' });
+    } finally {
+      setIsSaving(null);
+    }
+  };
+
 
   const sortedResults = useMemo(() => {
     const resultsCopy = [...results];
@@ -531,6 +574,26 @@ export default function WeighInPage() {
 
             {/* Desktop Display Toggle */}
              <div className="hidden md:flex justify-end items-center order-3 md:w-auto gap-2">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" disabled={!canEdit}>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Reset
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action will remove all weigh-in data (pegs, sections, weights, payouts) for this match and reset all angler statuses to 'NYW'. This cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleResetSheet}>Yes, reset the sheet</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
                 <Button variant="outline" onClick={handleDownloadWeighSheet}>
                     <FileText className="mr-2 h-4 w-4" />
                     Weigh Sheet PDF
@@ -772,3 +835,5 @@ export default function WeighInPage() {
     </div>
   );
 }
+
+    
