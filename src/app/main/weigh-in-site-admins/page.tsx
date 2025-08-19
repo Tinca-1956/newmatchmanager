@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -33,6 +32,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function WeighInSelectionPage() {
   const { isSiteAdmin, loading: adminLoading } = useAdminAuth();
@@ -45,6 +45,7 @@ export default function WeighInSelectionPage() {
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [hideCompleted, setHideCompleted] = useState(false);
 
   // Effect to fetch all clubs for Site Admin dropdown
   useEffect(() => {
@@ -109,11 +110,13 @@ export default function WeighInSelectionPage() {
   const filteredMatches = useMemo(() => {
     return matches.filter(match => {
         const term = searchTerm.toLowerCase();
-        if (!term) return true;
-        return match.seriesName.toLowerCase().includes(term) ||
+        const searchMatch = !term ||
+               match.seriesName.toLowerCase().includes(term) ||
                match.name.toLowerCase().includes(term);
+        const completedMatch = !hideCompleted || match.status !== 'Completed';
+        return searchMatch && completedMatch;
     });
-  }, [matches, searchTerm]);
+  }, [matches, searchTerm, hideCompleted]);
 
   const handleGoToWeighIn = (matchId: string) => {
     router.push(`/main/matches/${matchId}/weigh-in`);
@@ -170,15 +173,23 @@ export default function WeighInSelectionPage() {
                             This list shows all matches for the selected club.
                         </CardDescription>
                     </div>
-                     <div className="relative w-full max-w-sm">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            type="search"
-                            placeholder="Search series or match name..."
-                            className="pl-8"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                    <div className="flex items-center gap-4">
+                         <div className="relative">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                type="search"
+                                placeholder="Search series or match name..."
+                                className="pl-8"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <Checkbox id="hide-completed" checked={hideCompleted} onCheckedChange={(checked) => setHideCompleted(!!checked)} />
+                            <Label htmlFor="hide-completed" className="text-sm font-medium leading-none">
+                                Hide Completed
+                            </Label>
+                        </div>
                     </div>
                 </div>
             </CardHeader>
