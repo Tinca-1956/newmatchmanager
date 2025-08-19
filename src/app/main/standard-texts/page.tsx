@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -43,7 +43,7 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { firestore } from '@/lib/firebase-client';
 import { collection, query, where, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import type { StandardText } from '@/lib/types';
-import { PlusCircle, Edit, Trash2, Terminal } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Terminal, Search } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -61,6 +61,7 @@ export default function StandardTextsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentText, setCurrentText] = useState<Partial<StandardText> | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (authLoading || adminLoading || !userProfile?.primaryClubId || !firestore) {
@@ -85,6 +86,15 @@ export default function StandardTextsPage() {
 
     return () => unsubscribe();
   }, [userProfile, authLoading, adminLoading, toast]);
+
+  const filteredTexts = useMemo(() => {
+    if (!searchTerm) return texts;
+    const lowercasedTerm = searchTerm.toLowerCase();
+    return texts.filter(text => 
+      text.summary?.toLowerCase().includes(lowercasedTerm) ||
+      text.content.toLowerCase().includes(lowercasedTerm)
+    );
+  }, [texts, searchTerm]);
   
   const openDialog = (text: Partial<StandardText> | null = null) => {
     setCurrentText(text ? { ...text } : { summary: '', content: '', clubId: userProfile?.primaryClubId || '' });
@@ -176,6 +186,18 @@ export default function StandardTextsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="flex items-center gap-4 mb-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search summary or content..."
+                  className="pl-8"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -191,12 +213,14 @@ export default function StandardTextsPage() {
                       <TableCell className="text-right"><Skeleton className="h-10 w-24" /></TableCell>
                     </TableRow>
                   ))
-                ) : texts.length === 0 ? (
+                ) : filteredTexts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={2} className="h-24 text-center">No standard texts found.</TableCell>
+                    <TableCell colSpan={2} className="h-24 text-center">
+                      {searchTerm ? "No texts found matching your search." : "No standard texts found."}
+                    </TableCell>
                   </TableRow>
                 ) : (
-                  texts.map((text) => (
+                  filteredTexts.map((text) => (
                     <TableRow key={text.id}>
                       <TableCell className="font-medium">{text.summary}</TableCell>
                       <TableCell className="text-right space-x-2">
