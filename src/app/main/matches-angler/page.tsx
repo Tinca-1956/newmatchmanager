@@ -95,6 +95,11 @@ function MatchesPageContent() {
   const searchParams = useSearchParams();
   const matchIdFilter = searchParams.get('matchId');
   const seriesIdFilter = searchParams.get('seriesId');
+  
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
@@ -419,7 +424,7 @@ function MatchesPageContent() {
           </div>
         </div>
         
-        {isMobile ? (
+        {isClient && isMobile ? (
              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                  {renderMatchCards()}
             </div>
@@ -480,7 +485,7 @@ function MatchesPageContent() {
 
 export default function MatchesAnglerPage() {
     return (
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={<div className="w-full h-96 flex justify-center items-center"><Skeleton className="h-24 w-1/2" /></div>}>
             <MatchesPageContent />
         </Suspense>
     )

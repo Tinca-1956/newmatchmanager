@@ -648,7 +648,7 @@ function MatchesClubAdminPageContent() {
 
 export default function MatchesClubAdminPage() {
     return (
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={<div className="w-full h-96 flex justify-center items-center"><Skeleton className="h-24 w-1/2" /></div>}>
             <MatchesClubAdminPageContent />
         </Suspense>
     )
