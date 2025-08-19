@@ -1,4 +1,6 @@
+
 import PublicHeader from '@/components/public-header';
+import PublicFooter from '@/components/public-footer';
 
 export default function PublicLayout({
   children,
@@ -6,12 +8,10 @@ export default function PublicLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen w-full flex-col">
+    <div className="flex flex-col min-h-screen">
       <PublicHeader />
-      <main className="flex-grow bg-muted/40">{children}</main>
-      <footer className="text-center p-4 text-sm text-sidebar-foreground bg-sidebar border-t border-sidebar-border">
-          Copyright EMANCIUM 2025 - All rights reserved
-      </footer>
+      <main className="flex-grow">{children}</main>
+      <PublicFooter />
     </div>
   );
 }
