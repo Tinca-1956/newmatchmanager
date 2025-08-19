@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -89,6 +88,7 @@ export default function SeriesPage() {
   const [allClubs, setAllClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [hideCompleted, setHideCompleted] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -346,8 +346,8 @@ export default function SeriesPage() {
         setIsEditDialogOpen(false);
         setSelectedSeries(null);
     } catch (error) {
-        console.error('Error updating series:', error);
-        toast({ variant: 'destructive', title: 'Update Failed', description: 'Could not update series.' });
+      console.error('Error updating series:', error);
+      toast({ variant: 'destructive', title: 'Update Failed', description: 'Could not update series.' });
     } finally {
       setIsSaving(false);
     }
@@ -427,10 +427,12 @@ export default function SeriesPage() {
     };
 
   const filteredSeries = useMemo(() => {
-    return seriesList.filter(series => 
-        series.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [seriesList, searchTerm]);
+    return seriesList.filter(series => {
+        const searchMatch = series.name.toLowerCase().includes(searchTerm.toLowerCase());
+        const completedMatch = !hideCompleted || !series.isCompleted;
+        return searchMatch && completedMatch;
+    });
+  }, [seriesList, searchTerm, hideCompleted]);
 
 
   const canEdit = isSiteAdmin || isClubAdmin;
@@ -599,14 +601,26 @@ export default function SeriesPage() {
                     <CardTitle>{clubName || 'Select a club'} Series</CardTitle>
                     <CardDescription>A list of all match series for the selected club.</CardDescription>
                 </div>
-                <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Search series by name..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-8 w-full sm:w-64"
-                    />
+                <div className="flex items-center gap-4">
+                    <div className="relative">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search series..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-8 w-full sm:w-48"
+                        />
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <Checkbox 
+                            id="hide-completed"
+                            checked={hideCompleted}
+                            onCheckedChange={() => setHideCompleted(!hideCompleted)}
+                        />
+                        <Label htmlFor="hide-completed" className="text-sm font-medium">
+                            Hide Completed
+                        </Label>
+                    </div>
                 </div>
             </div>
         </CardHeader>

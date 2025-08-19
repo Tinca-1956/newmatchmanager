@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -48,6 +47,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface SeriesWithMatchCount extends Series {
     matchCount: number;
@@ -71,6 +71,7 @@ export default function SeriesAnglerPage() {
   const [allClubs, setAllClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [hideCompleted, setHideCompleted] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isStandingsModalOpen, setIsStandingsModalOpen] = useState(false);
@@ -262,10 +263,12 @@ export default function SeriesAnglerPage() {
   }
 
   const filteredSeries = useMemo(() => {
-    return seriesList.filter(series => 
-        series.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [seriesList, searchTerm]);
+    return seriesList.filter(series => {
+        const searchMatch = series.name.toLowerCase().includes(searchTerm.toLowerCase());
+        const completedMatch = !hideCompleted || !series.isCompleted;
+        return searchMatch && completedMatch;
+    });
+  }, [seriesList, searchTerm, hideCompleted]);
 
   const renderSeriesList = () => {
     if (isLoading) {
@@ -359,14 +362,26 @@ export default function SeriesAnglerPage() {
                     <CardTitle>{clubName || 'Select a club'} Series</CardTitle>
                     <CardDescription>A list of all match series for the selected club.</CardDescription>
                 </div>
-                 <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Search series by name..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-8 w-full sm:w-64"
-                    />
+                <div className="flex items-center gap-4">
+                    <div className="relative">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search series by name..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-8 w-full sm:w-48"
+                        />
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <Checkbox 
+                            id="hide-completed"
+                            checked={hideCompleted}
+                            onCheckedChange={() => setHideCompleted(!hideCompleted)}
+                        />
+                        <Label htmlFor="hide-completed" className="text-sm font-medium">
+                            Hide Completed
+                        </Label>
+                    </div>
                 </div>
             </div>
         </CardHeader>
