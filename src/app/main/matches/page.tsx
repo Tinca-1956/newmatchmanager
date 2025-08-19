@@ -19,7 +19,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, UserPlus, FileText, Trophy, Scale, LogIn, Edit, UserMinus, MapPin, MoreVertical, Image as ImageIcon, Globe, HelpCircle, Trash2 } from 'lucide-react';
+import { PlusCircle, UserPlus, FileText, Trophy, Scale, LogIn, Edit, UserMinus, MapPin, MoreVertical, Image as ImageIcon, Globe, HelpCircle, Trash2, Search } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -35,6 +35,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
@@ -119,6 +120,7 @@ function MatchesSiteAdminPageContent() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState('');
   
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -232,17 +234,26 @@ function MatchesSiteAdminPageContent() {
 
 
   const displayedMatches = useMemo(() => {
-    return matches.map(match => {
-      const newStatus = getCalculatedStatus(match);
-      if (newStatus !== match.status && firestore) {
-        updateDoc(doc(firestore, 'matches', match.id), { status: newStatus }).catch(e => console.error("Failed to auto-update status:", e));
-      }
-      return {
-        ...match,
-        calculatedStatus: newStatus,
-      };
-    });
-  }, [matches]);
+    return matches
+      .filter(match => {
+        const term = searchTerm.toLowerCase();
+        return (
+          match.seriesName.toLowerCase().includes(term) ||
+          match.name.toLowerCase().includes(term) ||
+          match.location.toLowerCase().includes(term)
+        );
+      })
+      .map(match => {
+        const newStatus = getCalculatedStatus(match);
+        if (newStatus !== match.status && firestore) {
+          updateDoc(doc(firestore, 'matches', match.id), { status: newStatus }).catch(e => console.error("Failed to auto-update status:", e));
+        }
+        return {
+          ...match,
+          calculatedStatus: newStatus,
+        };
+      });
+  }, [matches, searchTerm]);
   
   const handleClubSelectionChange = (clubId: string) => {
     if (matchIdFilter || seriesIdFilter) {
@@ -554,6 +565,16 @@ function MatchesSiteAdminPageContent() {
             <p className="text-muted-foreground">Manage your club's matches here.</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                      type="search"
+                      placeholder="Search series, match, location..."
+                      className="pl-8 sm:w-auto md:w-64"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+              </div>
               {isSiteAdmin && (
                   <div className="flex items-center gap-2">
                       <Label htmlFor="club-filter" className="text-nowrap">Club</Label>
