@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Card,
@@ -19,7 +19,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Scale, ArrowRight, Terminal } from 'lucide-react';
+import { Scale, ArrowRight, Terminal, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
@@ -32,6 +32,7 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 
 export default function WeighInSelectionPage() {
   const { isSiteAdmin, loading: adminLoading } = useAdminAuth();
@@ -43,6 +44,7 @@ export default function WeighInSelectionPage() {
   const [allClubs, setAllClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Effect to fetch all clubs for Site Admin dropdown
   useEffect(() => {
@@ -103,6 +105,15 @@ export default function WeighInSelectionPage() {
 
     return () => unsubscribe();
   }, [selectedClubId, toast]);
+  
+  const filteredMatches = useMemo(() => {
+    return matches.filter(match => {
+        const term = searchTerm.toLowerCase();
+        if (!term) return true;
+        return match.seriesName.toLowerCase().includes(term) ||
+               match.name.toLowerCase().includes(term);
+    });
+  }, [matches, searchTerm]);
 
   const handleGoToWeighIn = (matchId: string) => {
     router.push(`/main/matches/${matchId}/weigh-in`);
@@ -152,10 +163,24 @@ export default function WeighInSelectionPage() {
 
         <Card>
             <CardHeader>
-                <CardTitle>Matches for {selectedClubName}</CardTitle>
-                <CardDescription>
-                    This list shows all matches for the selected club.
-                </CardDescription>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <CardTitle>Matches for {selectedClubName}</CardTitle>
+                        <CardDescription>
+                            This list shows all matches for the selected club.
+                        </CardDescription>
+                    </div>
+                     <div className="relative w-full max-w-sm">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            type="search"
+                            placeholder="Search series or match name..."
+                            className="pl-8"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                </div>
             </CardHeader>
             <CardContent>
                 <Table>
@@ -179,14 +204,14 @@ export default function WeighInSelectionPage() {
                                 <TableCell className="text-right"><Skeleton className="h-10 w-28" /></TableCell>
                             </TableRow>
                         ))
-                    ) : matches.length === 0 ? (
+                    ) : filteredMatches.length === 0 ? (
                         <TableRow>
                             <TableCell colSpan={5} className="h-24 text-center">
                                 No matches found for this club.
                             </TableCell>
                         </TableRow>
                     ) : (
-                        matches.map(match => (
+                        filteredMatches.map(match => (
                             <TableRow key={match.id}>
                                 <TableCell>{format(match.date, 'PPP')}</TableCell>
                                 <TableCell>{match.seriesName}</TableCell>
