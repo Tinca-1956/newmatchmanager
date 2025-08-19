@@ -47,7 +47,7 @@ YOUR FULL NAME HERE`;
               <Fish className="h-12 w-12 text-primary" />
             </div>
             <CardTitle className="text-center">Match Manager Pro</CardTitle>
-            <CardDescription className="text-center">Version 1.0.0</CardDescription>
+            <CardDescription className="text-center">Version 1.1.0</CardDescription>
         </CardHeader>
         <CardContent>
             <div className="text-center text-muted-foreground space-y-4">
