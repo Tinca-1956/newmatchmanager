@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -18,7 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Trophy, ArrowRight } from 'lucide-react';
+import { Trophy, ArrowRight, Search } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -47,6 +47,7 @@ import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 interface SeriesWithMatchCount extends Series {
     matchCount: number;
@@ -69,6 +70,7 @@ export default function SeriesAnglerPage() {
   const [clubName, setClubName] = useState<string>('');
   const [allClubs, setAllClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [isLoading, setIsLoading] = useState(true);
   const [isStandingsModalOpen, setIsStandingsModalOpen] = useState(false);
@@ -259,6 +261,12 @@ export default function SeriesAnglerPage() {
     return resultsCopy;
   }
 
+  const filteredSeries = useMemo(() => {
+    return seriesList.filter(series => 
+        series.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [seriesList, searchTerm]);
+
   const renderSeriesList = () => {
     if (isLoading) {
       return Array.from({ length: 3 }).map((_, i) => (
@@ -270,17 +278,17 @@ export default function SeriesAnglerPage() {
       ));
     }
 
-    if (seriesList.length === 0) {
+    if (filteredSeries.length === 0) {
       return (
         <TableRow>
           <TableCell colSpan={3} className="h-24 text-center">
-            No series found for this club.
+            {searchTerm ? "No series found matching your search." : "No series found for this club."}
           </TableCell>
         </TableRow>
       );
     }
 
-    return seriesList.map((series) => (
+    return filteredSeries.map((series) => (
        <TableRow key={series.id}>
           <TableCell className="font-medium">{series.name}</TableCell>
           <TableCell>{series.matchCount}</TableCell>
@@ -346,8 +354,21 @@ export default function SeriesAnglerPage() {
 
       <Card>
         <CardHeader>
-            <CardTitle>{clubName || 'Select a club'} Series</CardTitle>
-            <CardDescription>A list of all match series for the selected club.</CardDescription>
+            <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
+                <div>
+                    <CardTitle>{clubName || 'Select a club'} Series</CardTitle>
+                    <CardDescription>A list of all match series for the selected club.</CardDescription>
+                </div>
+                 <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Search series by name..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-8 w-full sm:w-64"
+                    />
+                </div>
+            </div>
         </CardHeader>
         <CardContent>
           <Table>
