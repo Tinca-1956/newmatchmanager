@@ -68,6 +68,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 const getCalculatedStatus = (match: Match): MatchStatus => {
@@ -121,6 +122,7 @@ function MatchesSiteAdminPageContent() {
   const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [hideCompleted, setHideCompleted] = useState(false);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -235,13 +237,17 @@ function MatchesSiteAdminPageContent() {
 
   const displayedMatches = useMemo(() => {
     return matches
+      .map(match => ({ ...match, calculatedStatus: getCalculatedStatus(match) }))
       .filter(match => {
         const term = searchTerm.toLowerCase();
-        return (
+        const searchMatch = term === '' ||
           match.seriesName.toLowerCase().includes(term) ||
           match.name.toLowerCase().includes(term) ||
-          match.location.toLowerCase().includes(term)
-        );
+          match.location.toLowerCase().includes(term);
+
+        const completedMatch = !hideCompleted || match.calculatedStatus !== 'Completed';
+
+        return searchMatch && completedMatch;
       })
       .map(match => {
         const newStatus = getCalculatedStatus(match);
@@ -253,7 +259,7 @@ function MatchesSiteAdminPageContent() {
           calculatedStatus: newStatus,
         };
       });
-  }, [matches, searchTerm]);
+  }, [matches, searchTerm, hideCompleted]);
   
   const handleClubSelectionChange = (clubId: string) => {
     if (matchIdFilter || seriesIdFilter) {
@@ -574,6 +580,12 @@ function MatchesSiteAdminPageContent() {
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                   />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox id="hide-completed" checked={hideCompleted} onCheckedChange={(checked) => setHideCompleted(!!checked)} />
+                <Label htmlFor="hide-completed" className="text-sm font-medium leading-none">
+                  Hide Completed
+                </Label>
               </div>
               {isSiteAdmin && (
                   <div className="flex items-center gap-2">

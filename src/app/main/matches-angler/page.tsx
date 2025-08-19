@@ -54,6 +54,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAnglerMatchActions } from '@/hooks/use-angler-match-actions';
 import { ViewOnlyMatchDescriptionModal } from '@/components/view-only-match-description-modal';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const getCalculatedStatus = (match: Match): MatchStatus => {
   const now = new Date();
@@ -106,6 +107,7 @@ function MatchesPageContent() {
   const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [hideCompleted, setHideCompleted] = useState(false);
   
   const [isLoading, setIsLoading] = useState(true);
   
@@ -210,13 +212,17 @@ function MatchesPageContent() {
 
   const displayedMatches = useMemo(() => {
     return matches
+      .map(match => ({ ...match, calculatedStatus: getCalculatedStatus(match) }))
       .filter(match => {
         const term = searchTerm.toLowerCase();
-        return (
+        const searchMatch = term === '' ||
           match.seriesName.toLowerCase().includes(term) ||
           match.name.toLowerCase().includes(term) ||
-          match.location.toLowerCase().includes(term)
-        );
+          match.location.toLowerCase().includes(term);
+
+        const completedMatch = !hideCompleted || match.calculatedStatus !== 'Completed';
+
+        return searchMatch && completedMatch;
       })
       .map(match => {
         const newStatus = getCalculatedStatus(match);
@@ -228,7 +234,7 @@ function MatchesPageContent() {
           calculatedStatus: newStatus,
         };
       });
-  }, [matches, searchTerm]);
+  }, [matches, searchTerm, hideCompleted]);
   
   const handleClubSelectionChange = (clubId: string) => {
     if (matchIdFilter || seriesIdFilter) {
@@ -424,6 +430,12 @@ function MatchesPageContent() {
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                   />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox id="hide-completed" checked={hideCompleted} onCheckedChange={(checked) => setHideCompleted(!!checked)} />
+                <Label htmlFor="hide-completed" className="text-sm font-medium leading-none">
+                  Hide Completed
+                </Label>
               </div>
               {isSiteAdmin && (
                   <div className="flex items-center gap-2">
