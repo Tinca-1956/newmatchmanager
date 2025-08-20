@@ -200,36 +200,37 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="text-2xl">Full Results: {match.name}</DialogTitle>
-          <DialogDescription>
-            {match.seriesName} - {format(match.date as Date, 'PPP')}
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="flex justify-end">
-            <div className="flex flex-col gap-1.5 w-[180px]">
-                <Label htmlFor="sort-by">Sort by</Label>
-                <Select
-                    value={sortBy}
-                    onValueChange={(value) => setSortBy(value as 'Overall' | 'Section' | 'Peg')}
-                    disabled={results.length === 0}
-                >
-                    <SelectTrigger id="sort-by">
-                        <SelectValue placeholder="Sort by..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="Overall">Overall</SelectItem>
-                        <SelectItem value="Section">Section</SelectItem>
-                        <SelectItem value="Peg">Peg</SelectItem>
-                    </SelectContent>
-                </Select>
+      <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
+        <div className="p-6 pb-0">
+            <DialogHeader>
+            <DialogTitle className="text-2xl">Full Results: {match.name}</DialogTitle>
+            <DialogDescription>
+                {match.seriesName} - {format(match.date as Date, 'PPP')}
+            </DialogDescription>
+            </DialogHeader>
+            
+            <div className="flex justify-end pt-4">
+                <div className="flex flex-col gap-1.5 w-[180px]">
+                    <Label htmlFor="sort-by">Sort by</Label>
+                    <Select
+                        value={sortBy}
+                        onValueChange={(value) => setSortBy(value as 'Overall' | 'Section' | 'Peg')}
+                        disabled={results.length === 0}
+                    >
+                        <SelectTrigger id="sort-by">
+                            <SelectValue placeholder="Sort by..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Overall">Overall</SelectItem>
+                            <SelectItem value="Section">Section</SelectItem>
+                            <SelectItem value="Peg">Peg</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
         </div>
 
-        <div className="relative flex-1 -mx-6 px-6">
-            <ScrollArea className="absolute inset-0">
+        <div className="flex-grow px-6 overflow-y-auto">
             <Table>
                 <TableHeader>
                 <TableRow>
@@ -291,10 +292,9 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
                 )}
                 </TableBody>
             </Table>
-            </ScrollArea>
         </div>
 
-        <DialogFooter className="pt-4 sm:justify-between">
+        <DialogFooter className="p-6 pt-4 mt-auto border-t sm:justify-between">
             <div className="text-sm text-muted-foreground">
                 <p>Results by MATCHMANAGER.ME</p>
                 <p>NOTE: Anglers highlighted are those in overall paid places.</p>
