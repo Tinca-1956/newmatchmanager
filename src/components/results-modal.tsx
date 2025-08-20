@@ -200,7 +200,7 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-full flex flex-col sm:h-auto">
+      <DialogContent className="max-w-4xl h-auto max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-2xl">Full Results: {match.name}</DialogTitle>
           <DialogDescription>
