@@ -200,7 +200,7 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-auto max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-2xl">Full Results: {match.name}</DialogTitle>
           <DialogDescription>
@@ -228,8 +228,8 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
             </div>
         </div>
 
-        <div className="flex-grow overflow-hidden pt-2 min-h-0">
-            <ScrollArea className="h-full pr-6">
+        <div className="relative flex-1 -mx-6 px-6">
+            <ScrollArea className="absolute inset-0">
             <Table>
                 <TableHeader>
                 <TableRow>
