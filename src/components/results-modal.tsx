@@ -228,7 +228,7 @@ export function ResultsModal({ isOpen, onClose, match }: ResultsModalProps) {
             </div>
         </div>
 
-        <div className="flex-grow overflow-hidden pt-2">
+        <div className="flex-grow overflow-hidden pt-2 min-h-0">
             <ScrollArea className="h-full pr-6">
             <Table>
                 <TableHeader>
