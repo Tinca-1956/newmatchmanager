@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { RichTextEditor } from '@/components/rich-text-editor';
 import { useAuth } from '@/hooks/use-auth';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useToast } from '@/hooks/use-toast';
@@ -111,12 +111,11 @@ export default function CreateBlogPostPage() {
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="content">Content</Label>
-                        <Textarea
+                        <RichTextEditor
                             id="content"
                             value={content}
-                            onChange={(e) => setContent(e.target.value)}
+                            onChange={setContent}
                             placeholder="Write your blog post here..."
-                            className="min-h-[300px]"
                         />
                     </div>
                 </CardContent>

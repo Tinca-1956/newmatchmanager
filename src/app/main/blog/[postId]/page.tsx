@@ -155,11 +155,10 @@ export default function BlogPostPage() {
       </div>
 
       <Card>
-        <CardContent className="pt-6">
-          <div className="prose dark:prose-invert max-w-none whitespace-pre-wrap">
-            {post.content}
-          </div>
-        </CardContent>
+        <CardContent 
+          className="pt-6 prose dark:prose-invert max-w-none"
+          dangerouslySetInnerHTML={{ __html: post.content }}
+        />
       </Card>
       
       <Card>

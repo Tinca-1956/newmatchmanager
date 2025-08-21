@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { RichTextEditor } from '@/components/rich-text-editor';
 import { useAuth } from '@/hooks/use-auth';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useToast } from '@/hooks/use-toast';
@@ -83,12 +83,14 @@ export default function EditBlogPostPage() {
 
       let toastMessage = 'Blog post updated successfully.';
       if (notify) {
-        try {
-            await sendBlogPostNotificationEmail(post.clubId, subject, postId);
-            toastMessage += ' Notifications sent.';
-        } catch (emailError) {
-            console.error("Email notification failed:", emailError);
-            toastMessage += ' However, email notifications failed to send.';
+        if(post){
+            try {
+                await sendBlogPostNotificationEmail(post.clubId, subject, postId);
+                toastMessage += ' Notifications sent.';
+            } catch (emailError) {
+                console.error("Email notification failed:", emailError);
+                toastMessage += ' However, email notifications failed to send.';
+            }
         }
       }
       
@@ -138,11 +140,10 @@ export default function EditBlogPostPage() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="content">Content</Label>
-            <Textarea
+            <RichTextEditor
               id="content"
               value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="min-h-[300px]"
+              onChange={setContent}
             />
           </div>
         </CardContent>
