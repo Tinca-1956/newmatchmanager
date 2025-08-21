@@ -64,7 +64,7 @@ export default function MatchReportsPage() {
       });
       return () => unsubscribe();
     } else if (userProfile?.primaryClubId) {
-      // For Club Admins, fetch only their primary club for the name display
+      // For Club Admins and Anglers, fetch only their primary club for the name display
       const clubDocRef = doc(firestore, 'clubs', userProfile.primaryClubId);
       getDoc(clubDocRef).then(docSnap => {
         if(docSnap.exists()){
@@ -128,18 +128,6 @@ export default function MatchReportsPage() {
     return <Skeleton className="w-full h-96" />;
   }
 
-  if (!isSiteAdmin && !isClubAdmin) {
-    return (
-        <Alert variant="destructive">
-            <Terminal className="h-4 w-4" />
-            <AlertTitle>Access Denied</AlertTitle>
-            <AlertDescription>
-                You do not have permission to access this page.
-            </AlertDescription>
-        </Alert>
-    );
-  }
-
   const selectedClubName = allClubs.find(c => c.id === selectedClubId)?.name || 'Your Club';
 
   return (
@@ -157,7 +145,7 @@ export default function MatchReportsPage() {
                     <div>
                         <CardTitle>Completed Matches for {selectedClubName}</CardTitle>
                         <CardDescription>
-                            Select a match to view or add a report.
+                            Select a match to view its report and comments.
                         </CardDescription>
                     </div>
                      <div className="flex items-center gap-4">
@@ -229,7 +217,7 @@ export default function MatchReportsPage() {
                                 <TableCell className="text-right">
                                     <Button onClick={() => handleGoToReview(match.id)}>
                                         <NotebookText className="mr-2 h-4 w-4" />
-                                        View / Edit Report
+                                        View Report
                                     </Button>
                                 </TableCell>
                             </TableRow>
