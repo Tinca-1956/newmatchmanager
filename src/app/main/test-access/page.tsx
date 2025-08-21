@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import { format, addDays } from 'date-fns';
-import { sendResultsEmail } from '@/lib/send-email';
+import { sendMultiRecipientTestEmail } from '@/lib/send-email';
 import NextImage from 'next/image';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
@@ -57,6 +57,7 @@ export default function TestAccessPage() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [isTestingExpiry, setIsTestingExpiry] = useState(false);
   const [expiryTestResult, setExpiryTestResult] = useState<ExpiryTestResult | null>(null);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   const handleGetAnglers = async () => {
     if (!firestore || !userProfile?.primaryClubId) {
@@ -399,6 +400,19 @@ export default function TestAccessPage() {
     }
   };
 
+  const handleSendTestEmail = async () => {
+      setIsSendingEmail(true);
+      try {
+          await sendMultiRecipientTestEmail();
+          toast({ title: 'Success!', description: 'Multi-recipient test email has been sent.' });
+      } catch (error) {
+          console.error('Error sending test email:', error);
+          toast({ variant: 'destructive', title: 'Send Failed', description: 'Could not send the test email.' });
+      } finally {
+          setIsSendingEmail(false);
+      }
+  };
+
   const renderRuleDataTest = () => {
       if (authLoading || adminLoading) {
           return (
@@ -655,12 +669,12 @@ export default function TestAccessPage() {
            </div>
 
            <div className="space-y-2 rounded-md border p-4">
-                <h3 className="font-semibold mb-2">Send a Test Email</h3>
+                <h3 className="font-semibold mb-2">Send a Test Email to Multiple Recipients</h3>
                 <p className="text-sm text-muted-foreground pb-4">
-                    Click this button to send a test email to yourself to verify the Resend integration.
+                    Click this button to send a test email to a hardcoded list of verified users to test the Resend integration.
                 </p>
-                <Button disabled>
-                    Test Email (Disabled)
+                <Button onClick={handleSendTestEmail} disabled={isSendingEmail}>
+                    {isSendingEmail ? 'Sending...' : 'Send Multi-Recipient Email Test'}
                 </Button>
             </div>
 

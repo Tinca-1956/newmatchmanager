@@ -260,3 +260,24 @@ export const sendStatusChangeEmail = async (email: string, name: string, clubNam
         throw error;
     }
 };
+
+export const sendMultiRecipientTestEmail = async () => {
+    const recipients = ["stwinton@me.com", "stuart.thomas.winton@gmail.com"];
+    try {
+        const { data, error } = await resend.emails.send({
+            from: `Match Manager <${fromEmail}>`,
+            to: recipients,
+            subject: 'Multi Recipient Test',
+            text: 'This is a test email to 2 recipients',
+        });
+
+        if (error) {
+            console.error('Resend error:', error);
+            throw new Error('Failed to send multi-recipient test email.');
+        }
+        return data;
+    } catch (error) {
+        console.error('Error in sendMultiRecipientTestEmail:', error);
+        throw error;
+    }
+}
