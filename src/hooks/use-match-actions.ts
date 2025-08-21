@@ -73,7 +73,7 @@ export const useMatchActions = () => {
   };
   
   const handleReportAndReview = (matchId: string) => {
-    router.push(`/main/reports/${matchId}/review`);
+    router.push(`/main/matches/${matchId}/review`);
   };
 
   const handleDeleteMatch = async (matchId: string) => {
