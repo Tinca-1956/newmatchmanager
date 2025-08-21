@@ -19,7 +19,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, UserPlus, FileText, Trophy, Scale, LogIn, Edit, UserMinus, MapPin, MoreVertical, Image as ImageIcon, Globe, HelpCircle, Trash2, Search } from 'lucide-react';
+import { PlusCircle, UserPlus, FileText, Trophy, Scale, LogIn, Edit, UserMinus, MapPin, MoreVertical, Image as ImageIcon, Globe, HelpCircle, Trash2, Search, MessageSquare } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -325,6 +325,14 @@ function MatchesSiteAdminPageContent() {
                       {canEdit && (
                         <>
                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon">
+                                    <MessageSquare className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent><p>Report & Review</p></TooltipContent>
+                            </Tooltip>
+                           <Tooltip>
                               <TooltipTrigger asChild>
                                   <Button variant="ghost" size="icon" onClick={() => handleViewDescription(match)}>
                                       <HelpCircle className="h-4 w-4" />
@@ -493,6 +501,10 @@ function MatchesSiteAdminPageContent() {
                         <DropdownMenuContent align="end">
                             {canEdit && (
                                 <>
+                                    <DropdownMenuItem>
+                                        <MessageSquare className="mr-2 h-4 w-4" />
+                                        <span>Report & Review</span>
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => handleViewDescription(match)}>
                                         <HelpCircle className="mr-2 h-4 w-4" />
                                         <span>Description</span>
