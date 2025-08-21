@@ -200,10 +200,6 @@
         {
           "fieldPath": "clubId",
           "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
         }
       ]
     }

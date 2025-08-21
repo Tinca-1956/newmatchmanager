@@ -41,8 +41,7 @@ export default function BlogListPage() {
 
     const postsQuery = query(
         collection(firestore, 'blogs'),
-        where('clubId', '==', userProfile.primaryClubId),
-        orderBy('createdAt', 'desc')
+        where('clubId', '==', userProfile.primaryClubId)
     );
 
     const unsubscribe = onSnapshot(postsQuery, (snapshot) => {
@@ -51,6 +50,10 @@ export default function BlogListPage() {
             ...doc.data(),
             createdAt: (doc.data().createdAt as Timestamp),
         } as Blog));
+        
+        // Sort on the client-side to avoid complex indexing
+        postsData.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+        
         setPosts(postsData);
         setIsLoading(false);
     }, (error) => {
