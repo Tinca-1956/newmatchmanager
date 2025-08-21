@@ -192,6 +192,20 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "blogs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "clubId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []
