@@ -23,7 +23,7 @@ import { ArrowRight, NotebookText, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, onSnapshot, query, where, orderBy, Timestamp, doc } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy, Timestamp, doc, getDoc } from 'firebase/firestore';
 import type { Match, Club } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -64,6 +64,13 @@ export default function MatchReportsPage() {
       });
       return () => unsubscribe();
     } else if (userProfile?.primaryClubId) {
+      // For Club Admins, fetch only their primary club for the name display
+      const clubDocRef = doc(firestore, 'clubs', userProfile.primaryClubId);
+      getDoc(clubDocRef).then(docSnap => {
+        if(docSnap.exists()){
+            setAllClubs([{ id: docSnap.id, ...docSnap.data() } as Club]);
+        }
+      });
       setSelectedClubId(userProfile.primaryClubId);
     }
   }, [isSiteAdmin, adminLoading, userProfile, selectedClubId]);
@@ -114,15 +121,26 @@ export default function MatchReportsPage() {
   }, [matches, searchTerm]);
 
   const handleGoToReview = (matchId: string) => {
-    router.push(`/main/reports/${matchId}/review`);
+    router.push(`/main/matches/${matchId}/review`);
   };
   
   if (adminLoading) {
     return <Skeleton className="w-full h-96" />;
   }
 
-  const canManageReports = isSiteAdmin || isClubAdmin;
-  const selectedClubName = allClubs.find(c => c.id === selectedClubId)?.name || userProfile?.primaryClubId || 'Selected Club';
+  if (!isSiteAdmin && !isClubAdmin) {
+    return (
+        <Alert variant="destructive">
+            <Terminal className="h-4 w-4" />
+            <AlertTitle>Access Denied</AlertTitle>
+            <AlertDescription>
+                You do not have permission to access this page.
+            </AlertDescription>
+        </Alert>
+    );
+  }
+
+  const selectedClubName = allClubs.find(c => c.id === selectedClubId)?.name || 'Your Club';
 
   return (
     <div className="flex flex-col gap-8">
