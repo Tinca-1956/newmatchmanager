@@ -252,18 +252,17 @@ export default function MatchReviewPage() {
       <Card>
           <CardHeader>
               <CardTitle>Match Review</CardTitle>
-              {!review && !canManageReview && <CardDescription>No review has been written for this match yet.</CardDescription>}
               {canManageReview && <CardDescription>Write a review and add photos for this match. Click "Save Review" when you're done.</CardDescription>}
+              {!review && !canManageReview && <CardDescription>No review has been written for this match yet.</CardDescription>}
           </CardHeader>
           <CardContent className="space-y-4">
-              {canManageReview && (
-                  <div className="space-y-2">
-                      <Label htmlFor="reviewContent">Review Content</Label>
-                      <Textarea id="reviewContent" value={reviewContent} onChange={(e) => setReviewContent(e.target.value)} className="min-h-[200px]" placeholder="Write the match report here..." />
-                  </div>
-              )}
-              {canManageReview && (
-                  <div className="space-y-4">
+              {canManageReview ? (
+                  <>
+                    <div className="space-y-2">
+                        <Label htmlFor="reviewContent">Review Content</Label>
+                        <Textarea id="reviewContent" value={reviewContent} onChange={(e) => setReviewContent(e.target.value)} className="min-h-[200px]" placeholder="Write the match report here..." />
+                    </div>
+                    <div className="space-y-4">
                         <Label>Review Images</Label>
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                             {reviewImages.map((url, index) => (
@@ -280,29 +279,26 @@ export default function MatchReviewPage() {
                            <Upload className="mr-2 h-4 w-4" />{isUploading ? 'Uploading...' : 'Upload Images'}
                        </Button>
                        {isUploading && <Progress value={uploadProgress} className="w-full" />}
-                  </div>
-              )}
-              
-               {/* Public read-only view */}
-              {!canManageReview && review && (
-                  <div className="space-y-4">
-                      <p className="text-sm whitespace-pre-wrap p-4 bg-muted rounded-md">{review.reviewContent}</p>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                           {review.reviewImages?.map((url, index) => (
-                                <div key={index} className="relative aspect-video">
-                                    <NextImage src={url} alt={`Review image ${index+1}`} fill style={{objectFit: 'cover'}} className="rounded-md" />
-                                </div>
-                           ))}
-                      </div>
-                  </div>
-              )}
-              
-              {canManageReview && (
-                   <div className="flex justify-end pt-4 border-t">
+                    </div>
+                    <div className="flex justify-end pt-4 border-t">
                       <Button onClick={handleSaveReview} disabled={isSavingReview}>
                         {isSavingReview ? 'Saving...' : 'Save Review'}
                       </Button>
-                  </div>
+                    </div>
+                  </>
+              ) : (
+                 review ? (
+                      <div className="space-y-4">
+                          <p className="text-sm whitespace-pre-wrap p-4 bg-muted rounded-md">{review.reviewContent}</p>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            {review.reviewImages?.map((url, index) => (
+                                <div key={index} className="relative aspect-video">
+                                    <NextImage src={url} alt={`Review image ${index+1}`} fill style={{objectFit: 'cover'}} className="rounded-md" />
+                                </div>
+                            ))}
+                          </div>
+                      </div>
+                  ) : null
               )}
           </CardContent>
       </Card>
