@@ -138,3 +138,23 @@ export interface PublicUpcomingMatch {
     endTime: string;
     status: MatchStatus;
 }
+
+export interface Blog {
+  id: string;
+  clubId: string;
+  authorId: string;
+  authorName: string;
+  subject: string;
+  content: string;
+  mediaUrls?: { url: string; name: string; type: string }[];
+  createdAt: Timestamp;
+  lastUpdated: Timestamp;
+}
+
+export interface BlogComment {
+  id: string;
+  commentText: string;
+  authorId: string;
+  authorName: string;
+  createdAt: Timestamp;
+}

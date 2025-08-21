@@ -131,6 +131,20 @@ const createStatusChangeEmailBody = (name: string, clubName: string, newStatus: 
   `;
 }
 
+const createBlogPostEmailBody = (blogSubject: string, clubName: string, link: string): string => {
+    return `
+      A new blog post has been published in your club, ${clubName}.
+
+      Subject: ${blogSubject}
+
+      You can view the full post here:
+      ${link}
+
+      Thanks,
+      The Match Manager Team
+    `;
+};
+
 
 export const sendVerificationEmail = async (email: string, name: string, verificationLink: string) => {
   try {
@@ -281,4 +295,43 @@ export const sendMultiRecipientTestEmail = async () => {
         console.error('Error in sendMultiRecipientTestEmail:', error);
         throw error;
     }
+}
+
+export const sendBlogPostNotificationEmail = async (clubId: string, blogSubject: string, postId: string) => {
+  if (!firestore) {
+    throw new Error('Firestore not initialized');
+  }
+
+  const clubDoc = await getDoc(doc(firestore, 'clubs', clubId));
+  const clubName = clubDoc.exists() ? clubDoc.data().name : 'Your Club';
+
+  const usersQuery = query(
+    collection(firestore, 'users'),
+    where('primaryClubId', '==', clubId),
+    where('memberStatus', '==', 'Member')
+  );
+  const usersSnapshot = await getDocs(usersQuery);
+  const recipientEmails = usersSnapshot.docs.map(doc => doc.data().email).filter(email => email);
+
+  if (recipientEmails.length === 0) {
+    return;
+  }
+
+  // Generate a fully-qualified URL for the blog post
+  const postUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/main/blog/${postId}`;
+
+  const { data, error } = await resend.emails.send({
+    from: `Match Manager <${fromEmail}>`,
+    to: fromEmail,
+    bcc: recipientEmails,
+    subject: `New Blog Post from ${clubName}: ${blogSubject}`,
+    text: createBlogPostEmailBody(blogSubject, clubName, postUrl),
+  });
+
+  if (error) {
+    console.error('Resend error:', error);
+    throw new Error('Failed to send blog post notification email.');
+  }
+
+  return data;
 }
