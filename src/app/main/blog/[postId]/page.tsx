@@ -31,8 +31,9 @@ import {
 } from 'firebase/firestore';
 import type { Blog, BlogComment } from '@/lib/types';
 import { format, formatDistanceToNow } from 'date-fns';
-import { ArrowLeft, Send, Trash2, Edit } from 'lucide-react';
+import { ArrowLeft, Send, Trash2, Edit, FileText, Video } from 'lucide-react';
 import Link from 'next/link';
+import NextImage from 'next/image';
 
 export default function BlogPostPage() {
   const router = useRouter();
@@ -103,7 +104,6 @@ export default function BlogPostPage() {
   const handleDeletePost = async () => {
     if (!post) return;
     
-    // Simple confirmation dialog
     if (!window.confirm("Are you sure you want to delete this entire blog post and all its comments? This cannot be undone.")) {
         return;
     }
@@ -123,48 +123,72 @@ export default function BlogPostPage() {
   }
   
   if (!post) {
-    return null; // or a 'not found' component
+    return null;
   }
 
   const canManagePost = userProfile && (userProfile.id === post.authorId || isSiteAdmin || (isClubAdmin && userProfile.primaryClubId === post.clubId));
+
+  const renderMedia = () => {
+    if (!post.mediaUrls || post.mediaUrls.length === 0) return null;
+
+    const images = post.mediaUrls.filter(m => m.type.startsWith('image/'));
+    const files = post.mediaUrls.filter(m => !m.type.startsWith('image/'));
+
+    return (
+      <div className="space-y-4 mt-6">
+        {images.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {images.map(image => (
+              <a key={image.url} href={image.url} target="_blank" rel="noopener noreferrer" className="block relative aspect-square">
+                <NextImage src={image.url} alt={image.name} fill className="object-cover rounded-md" />
+              </a>
+            ))}
+          </div>
+        )}
+        {files.length > 0 && (
+            <div>
+                 <h4 className="font-semibold mb-2">Attached Files</h4>
+                 <div className="space-y-2">
+                    {files.map(file => (
+                        <a key={file.url} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-2 border rounded-md hover:bg-accent transition-colors">
+                            {file.type.startsWith('video/') ? <Video className="h-6 w-6 text-blue-500" /> : <FileText className="h-6 w-6 text-gray-500" />}
+                            <span className="text-sm font-medium">{file.name}</span>
+                        </a>
+                    ))}
+                 </div>
+            </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon" onClick={() => router.push('/main/blog')}>
-                <ArrowLeft className="h-4 w-4" />
-            </Button>
+            <Button variant="outline" size="icon" onClick={() => router.push('/main/blog')}><ArrowLeft className="h-4 w-4" /></Button>
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">{post.subject}</h1>
-                <p className="text-sm text-muted-foreground">
-                    By {post.authorName} on {format(post.createdAt.toDate(), 'PPP')}
-                </p>
+                <p className="text-sm text-muted-foreground">By {post.authorName} on {format(post.createdAt.toDate(), 'PPP')}</p>
             </div>
         </div>
         {canManagePost && (
             <div className="flex gap-2">
-                 <Button variant="outline" onClick={() => router.push(`/main/blog/${post.id}/edit`)}>
-                    <Edit className="mr-2 h-4 w-4" /> Edit
-                </Button>
-                <Button variant="destructive" onClick={handleDeletePost}>
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete Post
-                </Button>
+                 <Button variant="outline" onClick={() => router.push(`/main/blog/${post.id}/edit`)}><Edit className="mr-2 h-4 w-4" /> Edit</Button>
+                <Button variant="destructive" onClick={handleDeletePost}><Trash2 className="mr-2 h-4 w-4" /> Delete Post</Button>
             </div>
         )}
       </div>
 
       <Card>
-        <CardContent 
-          className="pt-6 prose dark:prose-invert max-w-none"
-          dangerouslySetInnerHTML={{ __html: post.content }}
-        />
+        <CardContent className="pt-6">
+            <div className="prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: post.content }} />
+            {renderMedia()}
+        </CardContent>
       </Card>
       
       <Card>
-          <CardHeader>
-              <CardTitle>Comments</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Comments</CardTitle></CardHeader>
           <CardContent className="space-y-6">
               <div className="space-y-4">
                 {comments.length === 0 ? (
@@ -172,15 +196,11 @@ export default function BlogPostPage() {
                 ) : (
                     comments.map(comment => (
                         <div key={comment.id} className="flex items-start gap-4">
-                            <Avatar>
-                                <AvatarFallback>{comment.authorName.charAt(0)}</AvatarFallback>
-                            </Avatar>
+                            <Avatar><AvatarFallback>{comment.authorName.charAt(0)}</AvatarFallback></Avatar>
                             <div className="w-full">
                                 <div className="flex items-center justify-between">
                                     <p className="font-semibold">{comment.authorName}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        {comment.createdAt ? formatDistanceToNow(comment.createdAt.toDate(), { addSuffix: true }) : 'Just now'}
-                                    </p>
+                                    <p className="text-xs text-muted-foreground">{comment.createdAt ? formatDistanceToNow(comment.createdAt.toDate(), { addSuffix: true }) : 'Just now'}</p>
                                 </div>
                                 <p className="text-sm text-foreground/90 p-2 bg-muted rounded-md mt-1 whitespace-pre-wrap">{comment.commentText}</p>
                             </div>
@@ -191,21 +211,11 @@ export default function BlogPostPage() {
               
             {userProfile?.memberStatus === 'Member' && (
               <div className="flex items-start gap-4 pt-6 border-t">
-                <Avatar>
-                    <AvatarFallback>{userProfile.firstName.charAt(0)}</AvatarFallback>
-                </Avatar>
+                <Avatar><AvatarFallback>{userProfile.firstName.charAt(0)}</AvatarFallback></Avatar>
                 <div className="w-full space-y-2">
-                    <Textarea
-                      placeholder="Write a comment..."
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      rows={2}
-                    />
+                    <Textarea placeholder="Write a comment..." value={newComment} onChange={(e) => setNewComment(e.target.value)} rows={2} />
                     <div className="flex justify-end">
-                      <Button onClick={handlePostComment} disabled={isPostingComment || !newComment.trim()}>
-                        <Send className="mr-2 h-4 w-4" />
-                        {isPostingComment ? 'Posting...' : 'Post Comment'}
-                      </Button>
+                      <Button onClick={handlePostComment} disabled={isPostingComment || !newComment.trim()}><Send className="mr-2 h-4 w-4" />{isPostingComment ? 'Posting...' : 'Post Comment'}</Button>
                     </div>
                 </div>
               </div>

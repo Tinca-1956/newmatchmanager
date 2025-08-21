@@ -91,19 +91,22 @@ export default function BlogListPage() {
         )
     }
 
-    return posts.map(post => (
-        <Card key={post.id} className="cursor-pointer hover:border-primary transition-colors" onClick={() => router.push(`/main/blog/${post.id}`)}>
-            <CardHeader>
-                <CardTitle>{post.subject}</CardTitle>
-                <CardDescription>
-                    By {post.authorName} on {format(post.createdAt.toDate(), 'PPP')}
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <p className="line-clamp-3 text-sm text-muted-foreground">{post.content}</p>
-            </CardContent>
-        </Card>
-    ));
+    return posts.map(post => {
+        const snippet = post.content.replace(/<[^>]*>?/gm, '').substring(0, 150);
+        return (
+            <Card key={post.id} className="cursor-pointer hover:border-primary transition-colors" onClick={() => router.push(`/main/blog/${post.id}`)}>
+                <CardHeader>
+                    <CardTitle>{post.subject}</CardTitle>
+                    <CardDescription>
+                        By {post.authorName} on {format(post.createdAt.toDate(), 'PPP')}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <p className="line-clamp-3 text-sm text-muted-foreground">{snippet}...</p>
+                </CardContent>
+            </Card>
+        );
+    });
   }
 
   return (
