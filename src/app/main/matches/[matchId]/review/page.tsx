@@ -36,6 +36,7 @@ import {
 } from 'firebase/storage';
 import type { Match, Club, User, MatchReview, Comment } from '@/lib/types';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { format, formatDistanceToNow } from 'date-fns';
 
 const MAX_IMAGE_WIDTH = 1024;
