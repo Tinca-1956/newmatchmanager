@@ -154,6 +154,7 @@ function MatchesSiteAdminPageContent() {
     handlePublish,
     handleViewDescription,
     handleDeleteMatch,
+    handleReportAndReview,
   } = useMatchActions();
 
   // Effect to set the initial club for fetching matches
@@ -326,7 +327,7 @@ function MatchesSiteAdminPageContent() {
                         <>
                            <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon">
+                                  <Button variant="ghost" size="icon" onClick={() => handleReportAndReview(match.id)}>
                                     <MessageSquare className="h-4 w-4" />
                                   </Button>
                                 </TooltipTrigger>
@@ -501,7 +502,7 @@ function MatchesSiteAdminPageContent() {
                         <DropdownMenuContent align="end">
                             {canEdit && (
                                 <>
-                                    <DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleReportAndReview(match.id)}>
                                         <MessageSquare className="mr-2 h-4 w-4" />
                                         <span>Report & Review</span>
                                     </DropdownMenuItem>
