@@ -266,7 +266,8 @@ export const sendMultiRecipientTestEmail = async () => {
     try {
         const { data, error } = await resend.emails.send({
             from: `Match Manager <${fromEmail}>`,
-            to: recipients,
+            to: [fromEmail], // Send to a single, non-sensitive address
+            bcc: recipients, // Use BCC for the actual recipient list
             subject: 'Multi Recipient Test',
             text: 'This is a test email to 2 recipients',
         });
