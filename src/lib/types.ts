@@ -80,6 +80,22 @@ export interface StandardText {
   content: string;
 }
 
+export interface MatchReview {
+  id: string;
+  reviewContent: string;
+  reviewImages?: string[];
+  authorId: string;
+  lastUpdated: Timestamp;
+}
+
+export interface Comment {
+  id: string;
+  commentText: string;
+  authorId: string;
+  authorName: string;
+  createdAt: Timestamp;
+}
+
 
 // Public-facing types for the publicMatches collection
 export interface PublicResult {

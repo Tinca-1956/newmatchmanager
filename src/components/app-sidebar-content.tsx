@@ -26,6 +26,7 @@ import {
   MessageSquare,
   FileText as FileTextIcon,
   CreditCard,
+  NotebookText,
 } from 'lucide-react';
 import { SheetClose } from './ui/sheet';
 import { useAuth } from '@/hooks/use-auth';
@@ -45,6 +46,7 @@ const navItems = [
   { href: '/main/matches', icon: Swords, label: 'Matches', roles: ['Site Admin'] },
   { href: '/main/matches-club-admin', icon: Swords, label: 'Matches', roles: ['Club Admin'] },
   { href: '/main/matches-angler', icon: Swords, label: 'Matches', roles: ['Angler'] },
+  { href: '/main/reports', icon: NotebookText, label: 'Match Reports', roles: ['Site Admin', 'Club Admin', 'Angler'] },
   { href: '/main/register', icon: LogIn, label: 'Register for Match', roles: ['Site Admin', 'Club Admin', 'Angler'] },
   { href: '/main/weigh-in-site-admins', icon: Scale, label: 'Weigh-in', roles: ['Site Admin'] },
   { href: '/main/weigh-in-club-admin', icon: Scale, label: 'Weigh-in', roles: ['Club Admin'] },
@@ -99,7 +101,7 @@ function NavMenu({ onLinkClick }: { onLinkClick?: () => void }) {
   });
   
   const linkClasses = (href: string) => `flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
-        (pathname === href || (pathname.startsWith(href) && href !== '/main/dashboard'))
+        (pathname.startsWith(href) && (href !== '/main/dashboard' || pathname === '/main/dashboard'))
             ? 'bg-sidebar-accent text-sidebar-accent-foreground'
             : 'text-sidebar-primary hover:text-sidebar-foreground/70'
     }`;
