@@ -7,94 +7,107 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-  CardFooter,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Fish } from 'lucide-react';
 import Link from 'next/link';
-import Image from 'next/image';
 
 export default function LearnMorePage() {
-  const features = [
-    'Centralized dashboard for all club activities.',
-    'Automated results calculation and league standings.',
-    'Easy match creation and management.',
-    'Seamless angler registration for events.',
-    'Public-facing pages to showcase your club.',
-    'Secure role-based access for admins and members.',
-  ];
+  const subject = "MATCH MANAGER - ADD NEW CLUB ENQUIRY";
+  const body = `Dear Stuart,
+
+I am interested in learning more about MATCH MANAGER for my club.
+
+Here are my club details:
+
+Club/association name			:	FILL IN DETAILS HERE
+Number of members			:	FILL IN MEMBER NUMBER HERE
+Number of matches per year	:	FILL IN MATCH NUMBER HERE
+Country						:	FILL IN COUNTRY HERE
+State/County/Province			:	FILL IN COUNTY HERE
+
+Warmest regards
+
+YOUR FULL NAME HERE`;
+
+  const mailtoLink = `mailto:stuart@emancium.com.au?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
   return (
-    <div className="container mx-auto max-w-5xl py-12 px-4 sm:px-6 lg:px-8">
-      <div className="flex flex-col items-center text-center">
-        <Fish className="h-16 w-16 text-primary mb-4" />
-        <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl">
-          Elevate Your Match Fishing Experience
+    <div className="container mx-auto px-4 py-12">
+      <div className="max-w-4xl mx-auto text-center">
+        <h1 className="text-4xl font-bold tracking-tight text-primary sm:text-5xl">
+          Elevate Your Club's Match Fishing Experience
         </h1>
-        <p className="mt-4 max-w-2xl text-xl text-muted-foreground">
-          Match Manager is the all-in-one platform designed to simplify the
-          administration of fishing clubs and competitions, letting you focus
-          on what you love—fishing.
+        <p className="mt-6 text-lg leading-8 text-muted-foreground">
+          Match Manager is the all-in-one solution designed specifically for angling clubs. Streamline your operations, engage your members, and focus on what truly matters: the fishing.
         </p>
-        <div className="mt-8 flex gap-4">
-            <Button asChild size="lg">
-                <Link href="/auth/register">Get Started Now</Link>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-                <Link href="/public/dashboard">View Public Dashboard</Link>
-            </Button>
-        </div>
       </div>
 
       <div className="mt-20">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-          <div className="space-y-6">
-            <h2 className="text-3xl font-bold tracking-tight">
-              Powerful Features, Simple Interface
-            </h2>
-            <p className="text-lg text-muted-foreground">
-              We've packed Match Manager with all the tools you need to run your
-              club efficiently, without the headache.
-            </p>
-            <ul className="space-y-4">
-              {features.map((feature, index) => (
-                <li key={index} className="flex items-start">
-                  <CheckCircle className="h-6 w-6 text-green-500 mr-3 mt-1 flex-shrink-0" />
-                  <span className="text-muted-foreground">{feature}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="aspect-video w-full relative rounded-lg overflow-hidden shadow-xl">
-             <Image
-                src="https://placehold.co/1280x720.png"
-                alt="Match Manager Dashboard Screenshot"
-                fill
-                className="object-cover"
-                data-ai-hint="fishing app dashboard"
-              />
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Automated Admin</CardTitle>
+              <CardDescription>
+                Reduce hours of manual work. Manage series, matches, and member registrations with ease.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-2">
+                    <li>Create and manage multi-match series</li>
+                    <li>Automate angler registration and communication</li>
+                    <li>Set match capacities and paid places</li>
+                    <li>Define match rules and details in one place</li>
+                </ul>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Live on the Bank</CardTitle>
+              <CardDescription>
+                From peg draw to final results, everything is handled in real-time, right from your phone.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+               <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-2">
+                    <li>Randomised digital peg draws</li>
+                    <li>Live weigh-in recording and submission</li>
+                    <li>Instant results calculation and display</li>
+                    <li>Public dashboards for spectators</li>
+                </ul>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Engaged Community</CardTitle>
+              <CardDescription>
+                Build a stronger club with features that connect and inform your members.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+                 <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-2">
+                    <li>Club news and blog posts</li>
+                    <li>Automated email notifications</li>
+                    <li>Member profiles and status management</li>
+                    <li>Centralized image galleries for every match</li>
+                </ul>
+            </CardContent>
+          </Card>
         </div>
       </div>
-
-       <div className="mt-20 text-center">
-           <Card className="max-w-2xl mx-auto">
-               <CardHeader>
-                   <CardTitle>Ready to get started?</CardTitle>
-                   <CardDescription>Join the growing community of clubs using Match Manager.</CardDescription>
-               </CardHeader>
-               <CardContent>
-                   <p className="text-muted-foreground">
-                       Create an account today to explore the features and see how Match Manager can benefit your club.
-                   </p>
-               </CardContent>
-               <CardFooter className="justify-center">
-                    <Button asChild size="lg">
-                        <Link href="/auth/register">Sign Up for Free</Link>
-                    </Button>
-               </CardFooter>
-           </Card>
-       </div>
+      
+       <div className="text-center mt-20">
+        <h2 className="text-3xl font-bold tracking-tight text-primary">
+          Ready to get started?
+        </h2>
+        <p className="mt-4 text-lg text-muted-foreground">
+          Contact us today to get your club set up on Match Manager.
+        </p>
+        <div className="mt-8">
+          <Button asChild size="lg">
+            <a href={mailtoLink}>Enquire About Your Club</a>
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
