@@ -151,6 +151,7 @@ export interface Blog {
 }
 
 export interface PublicPostData {
+  clubName: string;
   subject: string;
   snippet: string;
   coverImageUrl?: string;

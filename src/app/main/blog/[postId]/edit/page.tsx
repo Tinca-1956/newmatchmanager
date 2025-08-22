@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { firestore, storage } from '@/lib/firebase-client';
 import { doc, getDoc, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { Blog, PublicPostData } from '@/lib/types';
+import type { Blog, Club, PublicPostData } from '@/lib/types';
 import { ArrowLeft, Upload, FileText, Video, Trash2, TestTube, Eye, FlaskConical, Clipboard, Share2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
@@ -53,6 +53,7 @@ export default function EditBlogPostPage() {
   const { toast } = useToast();
 
   const [post, setPost] = useState<Blog | null>(null);
+  const [clubName, setClubName] = useState('');
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
@@ -83,6 +84,15 @@ export default function EditBlogPostPage() {
                 setSubject(postData.subject);
                 setContent(postData.content);
                 setMediaFiles(postData.mediaUrls || []);
+                
+                // Fetch club name
+                if (postData.clubId) {
+                  const clubDocRef = doc(firestore, 'clubs', postData.clubId);
+                  const clubDoc = await getDoc(clubDocRef);
+                  if (clubDoc.exists()) {
+                      setClubName(clubDoc.data().name);
+                  }
+                }
             } else {
                 toast({ variant: 'destructive', title: 'Error', description: 'Blog post not found.' });
                 router.push('/main/blog');
@@ -140,6 +150,7 @@ export default function EditBlogPostPage() {
       const coverImageUrl = mediaFiles.find(file => file.type.startsWith('image/'))?.url || '';
 
       const publicPostData: PublicPostData = {
+        clubName: clubName,
         subject: subject,
         snippet: snippet,
         coverImageUrl: coverImageUrl,
@@ -176,6 +187,7 @@ export default function EditBlogPostPage() {
 
       // 3. Save to Firestore
       const publicPostData: PublicPostData = {
+        clubName: clubName,
         subject: subject,
         snippet: snippet,
         coverImageUrl: coverImageUrl,
