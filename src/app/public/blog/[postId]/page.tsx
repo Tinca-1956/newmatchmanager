@@ -3,16 +3,17 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, getDoc, Timestamp } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase-client';
+import { doc, getDoc, Timestamp } from 'firebase/firestore';
 import type { PublicBlogPost } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import NextImage from 'next/image';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
-import { ArrowRight, LogIn } from 'lucide-react';
-import Link from 'next/link';
+import NextImage from 'next/image';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, LogIn } from 'lucide-react';
+import PublicHeader from '@/components/public-header';
+import PublicFooter from '@/components/public-footer';
 
 export default function PublicBlogPostPage() {
   const params = useParams();
@@ -24,105 +25,112 @@ export default function PublicBlogPostPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!postId || !firestore) {
-        setIsLoading(false);
-        return;
-    };
+    if (!postId || !firestore) return;
 
     const fetchPost = async () => {
       setIsLoading(true);
-      setError(null);
       try {
         const postDocRef = doc(firestore, 'publicBlogPosts', postId);
         const docSnap = await getDoc(postDocRef);
-
         if (docSnap.exists()) {
-          const data = docSnap.data() as PublicBlogPost;
-           setPost({
-                ...data,
-                id: docSnap.id,
-                publishedAt: (data.publishedAt as Timestamp)
-            });
+          const postData = docSnap.data() as PublicBlogPost;
+          setPost(postData);
         } else {
           setError('This blog post could not be found.');
         }
-      } catch (e: any) {
+      } catch (e) {
         console.error(e);
-        if (e.message.includes('permission-denied')) {
-             setError('You do not have permission to view this content. Please check your Firestore security rules.');
-        } else {
-            setError('Failed to load the blog post.');
-        }
+        setError('Failed to load the blog post.');
       } finally {
         setIsLoading(false);
       }
     };
-
     fetchPost();
   }, [postId]);
 
   if (isLoading) {
     return (
-        <div className="container mx-auto max-w-3xl py-8 px-4">
-            <Card>
-                <CardHeader>
-                    <Skeleton className="h-8 w-3/4 mb-2" />
-                    <Skeleton className="h-4 w-1/2" />
-                </CardHeader>
-                <CardContent>
-                    <Skeleton className="h-48 w-full" />
-                    <Skeleton className="h-6 w-full mt-4" />
-                </CardContent>
-            </Card>
+        <div className="flex flex-col min-h-screen">
+            <PublicHeader />
+            <main className="flex-grow flex items-center justify-center p-4 sm:p-6 lg:p-8">
+                <div className="w-full max-w-3xl space-y-6">
+                    <Skeleton className="h-10 w-3/4" />
+                    <Skeleton className="h-6 w-1/2" />
+                    <Skeleton className="aspect-video w-full" />
+                    <Skeleton className="h-24 w-full" />
+                </div>
+            </main>
+            <PublicFooter />
         </div>
     );
   }
-
-  if (error) {
-    return <div className="container mx-auto p-8 text-center text-red-500">{error}</div>;
-  }
   
+  if (error) {
+     return (
+        <div className="flex flex-col min-h-screen">
+            <PublicHeader />
+            <main className="flex-grow flex items-center justify-center p-4">
+                <Card className="w-full max-w-md">
+                    <CardHeader>
+                        <CardTitle>Error</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-destructive">{error}</p>
+                    </CardContent>
+                    <CardFooter>
+                        <Button onClick={() => router.push('/public/dashboard')}>
+                            <ArrowLeft className="mr-2 h-4 w-4" />
+                            Return to Dashboard
+                        </Button>
+                    </CardFooter>
+                </Card>
+            </main>
+            <PublicFooter />
+        </div>
+     )
+  }
+
   if (!post) {
-      return <div className="container mx-auto p-8 text-center">Blog post not found.</div>;
+    return null; // Should be handled by error state
   }
 
   return (
-    <div className="container mx-auto max-w-3xl py-12 px-4">
-      <Card className="overflow-hidden">
-        <CardHeader>
-            <p className="text-sm text-muted-foreground">{post.clubName}</p>
-            <CardTitle className="text-3xl lg:text-4xl">{post.subject}</CardTitle>
-            <CardDescription>
-                By {post.authorName} on {format(post.publishedAt.toDate(), 'PPP')}
-            </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-            {post.coverImageUrl && (
-                <div className="relative aspect-video w-full">
-                    <NextImage 
-                        src={post.coverImageUrl} 
-                        alt={post.subject}
-                        fill
-                        className="object-cover rounded-md"
-                        priority
-                    />
-                </div>
-            )}
-            <p className="text-lg text-muted-foreground italic">
-                {post.snippet}
-            </p>
-        </CardContent>
-        <CardFooter className="bg-muted/50 p-6 flex-col items-center text-center gap-4">
-            <h3 className="font-semibold text-lg">Want to read the full article?</h3>
-            <p className="text-muted-foreground">Join the club to get access to all posts, comments, match registrations, and more.</p>
-            <Button asChild size="lg">
-                <Link href="/auth/login">
-                    <LogIn className="mr-2 h-4 w-4" />
-                    Log in or Sign Up
-                </Link>
-            </Button>
-        </CardFooter>
-      </Card>
+    <div className="flex flex-col min-h-screen bg-muted/40">
+        <PublicHeader />
+        <main className="flex-grow flex items-center justify-center p-4 sm:p-6 lg:p-8">
+            <Card className="w-full max-w-3xl overflow-hidden">
+                {post.coverImageUrl && (
+                    <div className="relative w-full aspect-video">
+                        <NextImage
+                            src={post.coverImageUrl}
+                            alt={post.subject}
+                            fill
+                            className="object-cover"
+                        />
+                    </div>
+                )}
+                <CardHeader>
+                    <CardTitle className="text-3xl font-bold">{post.subject}</CardTitle>
+                    <CardDescription>
+                        By {post.authorName} for {post.clubName} on {format((post.publishedAt as Timestamp).toDate(), 'PPP')}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-muted-foreground">{post.snippet}</p>
+                </CardContent>
+                <CardFooter className="flex-col items-stretch gap-4 bg-muted/50 p-6">
+                     <h3 className="text-center font-semibold">Want to read more?</h3>
+                     <p className="text-center text-sm text-muted-foreground">Log in or sign up to view the full post and join the discussion.</p>
+                     <Button asChild>
+                        <a href="/auth/login">
+                           <LogIn className="mr-2 h-4 w-4" />
+                           Continue to Full Post
+                        </a>
+                    </Button>
+                </CardFooter>
+            </Card>
+        </main>
+        <PublicFooter />
     </div>
   );
 }
