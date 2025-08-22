@@ -151,6 +151,19 @@ export interface Blog {
   lastUpdated: Timestamp;
 }
 
+export interface PublicBlogPost {
+  id: string;
+  originalPostId: string;
+  clubId: string;
+  clubName: string;
+  authorName: string;
+  subject: string;
+  snippet: string;
+  coverImageUrl?: string;
+  publishedAt: Timestamp;
+}
+
+
 export interface BlogComment {
   id: string;
   commentText: string;
