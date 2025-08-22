@@ -15,7 +15,7 @@ import { firestore, storage } from '@/lib/firebase-client';
 import { doc, getDoc, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { Blog, PublicPostData } from '@/lib/types';
-import { ArrowLeft, Upload, FileText, Video, Trash2, TestTube, Eye, FlaskConical } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Video, Trash2, TestTube, Eye, FlaskConical, Clipboard } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -250,6 +250,29 @@ export default function EditBlogPostPage() {
         setIsFetchingPublicPost(false);
     }
   };
+
+  const handlePublishAndCopy = () => {
+    if (!postId) return;
+    // Construct the full URL for the public blog post page
+    const publicUrl = `${window.location.origin}/public/blog/${postId}`;
+
+    // Use the Clipboard API to copy the URL
+    navigator.clipboard.writeText(publicUrl).then(() => {
+        toast({
+            title: 'URL Copied!',
+            description: 'The public link has been copied to your clipboard.',
+        });
+        // Open the URL in a new tab after copying
+        window.open(publicUrl, '_blank');
+    }).catch(err => {
+        console.error('Failed to copy URL: ', err);
+        toast({
+            variant: 'destructive',
+            title: 'Copy Failed',
+            description: 'Could not copy the URL to your clipboard.',
+        });
+    });
+  };
     
   if (isLoading) {
     return <div className="space-y-4"><Skeleton className="h-12 w-1/4" /><Skeleton className="h-80 w-full" /></div>;
@@ -307,6 +330,10 @@ export default function EditBlogPostPage() {
           </CardContent>
           <CardFooter className="flex justify-between items-center">
             <div className="flex flex-wrap gap-2">
+                <Button onClick={handlePublishAndCopy}>
+                    <Clipboard className="mr-2 h-4 w-4" />
+                    Publish to public page
+                </Button>
                 <Button variant="secondary" onClick={handleTruncateClick}>
                     <TestTube className="mr-2 h-4 w-4" />
                     Truncate
