@@ -284,70 +284,6 @@ export default function EditBlogPostPage() {
     }
   };
     
-  const handleTruncateClick = () => {
-    const plainText = content.replace(/<[^>]*>?/gm, '');
-    const truncatedContent = plainText.substring(0, 100) + (plainText.length > 100 ? '...' : '');
-    const firstImage = mediaFiles.find(file => file.type.startsWith('image/'))?.url;
-
-    setTruncatePreview({
-        subject: subject,
-        content: truncatedContent,
-        imageUrl: firstImage,
-    });
-    setIsTruncateModalOpen(true);
-  };
-  
-  const handleViewSummary = async () => {
-    if (!postId || !firestore) return;
-    setIsFetchingPublicPost(true);
-    setIsSummaryModalOpen(true);
-    try {
-        const publicDocRef = doc(firestore, 'publicBlogPosts', postId);
-        const docSnap = await getDoc(publicDocRef);
-        if (docSnap.exists()) {
-            setPublicPost(docSnap.data() as PublicPostData);
-        } else {
-            setPublicPost(null);
-            toast({ variant: 'destructive', title: 'Not Found', description: 'This post has not been made public yet.' });
-            setIsSummaryModalOpen(false);
-        }
-    } catch (e) {
-        console.error("Error fetching public post:", e);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch the public summary.' });
-        setIsSummaryModalOpen(false);
-    } finally {
-        setIsFetchingPublicPost(false);
-    }
-  };
-
-  const handlePublishAndCopy = async () => {
-     if (hasUnsavedChanges()) {
-        toast({ variant: 'destructive', title: 'Unsaved Changes', description: 'Please save your changes before publishing.' });
-        return;
-    }
-    if (!postId) return;
-    
-    // Construct the full URL for the public blog post page
-    const publicUrl = `${window.location.origin}/public/blog/${postId}`;
-
-    // Use the Clipboard API to copy the URL
-    navigator.clipboard.writeText(publicUrl).then(() => {
-        toast({
-            title: 'URL Copied!',
-            description: 'The public link has been copied to your clipboard.',
-        });
-        // Open the URL in a new tab after copying
-        window.open(publicUrl, '_blank');
-    }).catch(err => {
-        console.error('Failed to copy URL: ', err);
-        toast({
-            variant: 'destructive',
-            title: 'Copy Failed',
-            description: 'Could not copy the URL to your clipboard.',
-        });
-    });
-  };
-    
   if (isLoading) {
     return <div className="space-y-4"><Skeleton className="h-12 w-1/4" /><Skeleton className="h-80 w-full" /></div>;
   }
@@ -423,27 +359,6 @@ export default function EditBlogPostPage() {
                     <Share2 className="mr-2 h-4 w-4" />
                     {isPublishingAndViewing ? 'Publishing...' : 'Publish & View'}
                 </Button>
-                <Button onClick={handlePublishAndCopy}>
-                    <Clipboard className="mr-2 h-4 w-4" />
-                    Publish to public page
-                </Button>
-                <Button variant="secondary" onClick={handleTruncateClick}>
-                    <TestTube className="mr-2 h-4 w-4" />
-                    Truncate
-                </Button>
-                 <Button onClick={() => {}} disabled={true}>
-                    Make Public (soon)
-                </Button>
-                 <Button variant="secondary" onClick={handleViewSummary} disabled={isFetchingPublicPost}>
-                    <Eye className="mr-2 h-4 w-4" />
-                    {isFetchingPublicPost ? 'Loading...' : 'View Summary'}
-                </Button>
-                <Button asChild variant="destructive" size="sm">
-                  <Link href={`/public/test?postId=${postId}`} target="_blank">
-                    <FlaskConical className="mr-2 h-4 w-4" />
-                    Test Public Access
-                  </Link>
-                </Button>
             </div>
             <div className="flex gap-4">
               <Button variant="outline" onClick={handleAttemptExit}>Cancel</Button>
@@ -454,63 +369,6 @@ export default function EditBlogPostPage() {
           </CardFooter>
         </Card>
       </div>
-
-      <Dialog open={isTruncateModalOpen} onOpenChange={setIsTruncateModalOpen}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Truncate Preview</DialogTitle>
-                <DialogDescription>This is a preview of how your truncated teaser will appear.</DialogDescription>
-            </DialogHeader>
-            {truncatePreview && (
-                <div className="py-4 space-y-4">
-                    <h3 className="text-lg font-semibold">{truncatePreview.subject}</h3>
-                    <p className="text-sm text-muted-foreground italic">"{truncatePreview.content}"</p>
-                    {truncatePreview.imageUrl ? (
-                        <div className="relative aspect-video w-full">
-                            <NextImage src={truncatePreview.imageUrl} alt="Cover image preview" fill className="object-cover rounded-md" />
-                        </div>
-                    ) : (
-                        <div className="flex items-center justify-center h-32 border border-dashed rounded-md bg-muted text-sm text-muted-foreground">
-                            No image available
-                        </div>
-                    )}
-                </div>
-            )}
-            <DialogFooter>
-                <Button onClick={() => setIsTruncateModalOpen(false)}>Close</Button>
-            </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      <Dialog open={isSummaryModalOpen} onOpenChange={setIsSummaryModalOpen}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Public Summary Preview</DialogTitle>
-                <DialogDescription>This is the content currently stored in the public blog post document.</DialogDescription>
-            </DialogHeader>
-            {isFetchingPublicPost ? <Skeleton className="h-48 w-full" /> : (
-                publicPost && (
-                    <div className="py-4 space-y-4">
-                        <h3 className="text-lg font-semibold">{publicPost.subject}</h3>
-                        <p className="text-sm text-muted-foreground italic">"{publicPost.snippet}"</p>
-                        <p className="text-xs text-muted-foreground">By: {publicPost.authorName}</p>
-                        {publicPost.coverImageUrl ? (
-                            <div className="relative aspect-video w-full">
-                                <NextImage src={publicPost.coverImageUrl} alt="Public cover image" fill className="object-cover rounded-md" />
-                            </div>
-                        ) : (
-                            <div className="flex items-center justify-center h-32 border border-dashed rounded-md bg-muted text-sm text-muted-foreground">
-                                No cover image was published.
-                            </div>
-                        )}
-                    </div>
-                )
-            )}
-            <DialogFooter>
-                <Button onClick={() => setIsSummaryModalOpen(false)}>Close</Button>
-            </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
