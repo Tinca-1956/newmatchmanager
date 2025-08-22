@@ -164,7 +164,7 @@ export default function BlogPostPage() {
   };
 
   const handleDeletePost = async () => {
-    if (!post) return;
+    if (!post || !firestore) return;
     
     setIsDeleting(true);
     try {
@@ -177,9 +177,8 @@ export default function BlogPostPage() {
                 try {
                     await deleteObject(fileRef);
                 } catch (storageError: any) {
-                    // It's okay if the object doesn't exist, we can still delete the firestore doc
                     if (storageError.code !== 'storage/object-not-found') {
-                        throw storageError; // Rethrow other storage errors
+                        throw storageError;
                     }
                 }
             }
@@ -192,13 +191,20 @@ export default function BlogPostPage() {
             batch.delete(commentDoc.ref);
         });
 
+        // Delete all notifications related to this blog post
+        const notificationsQuery = query(collection(firestore, 'notifications'), where('entityId', '==', post.id));
+        const notificationsSnapshot = await getDocs(notificationsQuery);
+        notificationsSnapshot.forEach(notificationDoc => {
+            batch.delete(notificationDoc.ref);
+        });
+
         // Delete the main post document
         const postDocRef = doc(firestore, 'blogs', post.id);
         batch.delete(postDocRef);
         
         await batch.commit();
 
-        toast({ title: 'Success', description: 'Blog post, its comments and media have been deleted.' });
+        toast({ title: 'Success', description: 'Blog post and all associated data have been deleted.' });
         router.push('/main/blog');
     } catch (error) {
         console.error("Error deleting post:", error);

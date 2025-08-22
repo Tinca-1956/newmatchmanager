@@ -15,8 +15,8 @@ import {
 import { ScrollArea } from './ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
 import { firestore } from '@/lib/firebase-client';
-import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
-import type { Notification } from '@/lib/types';
+import { collection, query, where, onSnapshot, orderBy, limit, getDocs } from 'firebase/firestore';
+import type { Notification, Blog } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 import { useRouter } from 'next/navigation';
 
@@ -35,23 +35,41 @@ export function NotificationBell() {
 
     const notificationsQuery = query(
       collection(firestore, 'notifications'),
-      where('userId', '==', user.uid),
-      limit(20)
+      where('userId', '==', user.uid)
     );
 
-    const unsubscribe = onSnapshot(notificationsQuery, (snapshot) => {
-      const notifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
+    const unsubscribe = onSnapshot(notificationsQuery, async (snapshot) => {
+      const notifsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
       
-      // Sort on the client side
-      notifs.sort((a, b) => {
+      // Get all unique blog post IDs from the notifications
+      const postIds = [...new Set(notifsData.map(n => n.entityId))];
+      
+      if (postIds.length === 0) {
+        setNotifications([]);
+        setHasUnread(false);
+        return;
+      }
+      
+      // Fetch the actual blog posts to ensure they still exist
+      const postsQuery = query(collection(firestore, 'blogs'), where('__name__', 'in', postIds));
+      const postsSnapshot = await getDocs(postsQuery);
+      const existingPostIds = new Set(postsSnapshot.docs.map(doc => doc.id));
+      
+      // Filter out notifications for deleted posts
+      const validNotifications = notifsData.filter(n => existingPostIds.has(n.entityId));
+
+      // Sort on the client side by date
+      validNotifications.sort((a, b) => {
           if (!a.createdAt) return 1;
           if (!b.createdAt) return -1;
           return b.createdAt.toMillis() - a.createdAt.toMillis();
       });
 
-      setNotifications(notifs);
+      // Limit to the latest 20 valid notifications
+      const limitedNotifications = validNotifications.slice(0, 20);
+      setNotifications(limitedNotifications);
       
-      const unread = notifs.some(n => !n.isRead);
+      const unread = limitedNotifications.some(n => !n.isRead);
       setHasUnread(unread);
     });
 
