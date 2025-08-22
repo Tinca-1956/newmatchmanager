@@ -14,8 +14,8 @@ import { useToast } from '@/hooks/use-toast';
 import { firestore, storage } from '@/lib/firebase-client';
 import { doc, getDoc, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { Blog, Club, PublicBlogPost } from '@/lib/types';
-import { ArrowLeft, Upload, FileText, Video, Trash2, Globe, TestTube } from 'lucide-react';
+import type { Blog } from '@/lib/types';
+import { ArrowLeft, Upload, FileText, Video, Trash2, TestTube } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -119,6 +119,41 @@ export default function EditBlogPostPage() {
     }
   };
   
+  const handleMakePublic = async () => {
+    if (!canEdit || !post || !firestore) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Cannot publish this post.' });
+        return;
+    }
+    setIsPublishing(true);
+
+    try {
+        const plainText = content.replace(/<[^>]*>?/gm, '');
+        const snippet = plainText.substring(0, 100) + (plainText.length > 100 ? '...' : '');
+        const coverImageUrl = mediaFiles.find(file => file.type.startsWith('image/'))?.url || '';
+
+        const publicPostData = {
+            originalPostId: postId,
+            clubId: post.clubId,
+            authorName: post.authorName,
+            subject: subject,
+            snippet: snippet,
+            coverImageUrl: coverImageUrl,
+            publishedAt: serverTimestamp(),
+        };
+
+        const publicDocRef = doc(firestore, 'publicBlogPosts', postId);
+        await setDoc(publicDocRef, publicPostData, { merge: true });
+        
+        toast({ title: 'Success!', description: 'The blog post teaser has been published.' });
+
+    } catch (error) {
+        console.error("Error publishing post:", error);
+        toast({ variant: 'destructive', title: 'Publish Failed', description: 'Could not publish the post teaser.' });
+    } finally {
+        setIsPublishing(false);
+    }
+  };
+
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files) return;
 
@@ -188,53 +223,6 @@ export default function EditBlogPostPage() {
     });
     setIsTruncateModalOpen(true);
   };
-  
-  const handlePublish = async () => {
-     if (!post || !userProfile || !firestore) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Cannot publish. Post or user data is missing.' });
-      return;
-    }
-    setIsPublishing(true);
-
-    try {
-      // 1. Fetch club name
-      const clubDocRef = doc(firestore, 'clubs', post.clubId);
-      const clubDoc = await getDoc(clubDocRef);
-      const clubName = clubDoc.exists() ? clubDoc.data().name : 'Unknown Club';
-      
-      // 2. Generate snippet and find cover image
-      const snippet = content.replace(/<[^>]*>?/gm, '').substring(0, 150) + '...';
-      const coverImageUrl = mediaFiles.find(f => f.type.startsWith('image/'))?.url;
-
-      // 3. Prepare public data
-      const publicPostData: PublicBlogPost = {
-        id: postId,
-        originalPostId: postId,
-        clubId: post.clubId,
-        clubName: clubName,
-        authorName: post.authorName,
-        subject: subject,
-        snippet: snippet,
-        coverImageUrl: coverImageUrl || '',
-        publishedAt: serverTimestamp() as any,
-      };
-
-      // 4. Save to the new collection
-      const publicDocRef = doc(firestore, 'publicBlogPosts', postId);
-      await setDoc(publicDocRef, publicPostData, { merge: true });
-
-      toast({
-        title: 'Published!',
-        description: 'Your blog post teaser is now live on the public dashboard.',
-      });
-      
-    } catch (error) {
-      console.error("Error publishing post:", error);
-      toast({ variant: 'destructive', title: 'Publish Failed', description: 'Could not publish the post teaser.' });
-    } finally {
-      setIsPublishing(false);
-    }
-  };
     
   if (isLoading) {
     return <div className="space-y-4"><Skeleton className="h-12 w-1/4" /><Skeleton className="h-80 w-full" /></div>;
@@ -292,14 +280,13 @@ export default function EditBlogPostPage() {
           </CardContent>
           <CardFooter className="flex justify-between items-center">
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={handleTruncateClick}>
-                <TestTube className="mr-2 h-4 w-4" />
-                Test Truncate
-              </Button>
-              <Button onClick={handlePublish} disabled={isPublishing}>
-                  <Globe className="mr-2 h-4 w-4" />
-                  {isPublishing ? 'Publishing...' : 'Publish Teaser'}
-              </Button>
+                <Button variant="secondary" onClick={handleTruncateClick}>
+                    <TestTube className="mr-2 h-4 w-4" />
+                    Truncate
+                </Button>
+                 <Button onClick={handleMakePublic} disabled={isPublishing}>
+                    {isPublishing ? 'Publishing...' : 'Make Public'}
+                </Button>
             </div>
             <div className="flex gap-4">
               <Button variant="outline" onClick={() => router.push(`/main/blog/${postId}`)}>Cancel</Button>

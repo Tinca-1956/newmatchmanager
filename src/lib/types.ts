@@ -91,7 +91,6 @@ export interface MatchReview {
 export interface Comment {
   id: string;
   commentText: string;
-  authorId: string;
   authorName: string;
   createdAt: Timestamp;
 }
@@ -150,19 +149,6 @@ export interface Blog {
   createdAt: Timestamp;
   lastUpdated: Timestamp;
 }
-
-export interface PublicBlogPost {
-  id: string;
-  originalPostId: string;
-  clubId: string;
-  clubName: string;
-  authorName: string;
-  subject: string;
-  snippet: string;
-  coverImageUrl?: string;
-  publishedAt: Timestamp;
-}
-
 
 export interface BlogComment {
   id: string;
