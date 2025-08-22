@@ -50,6 +50,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { ArrowLeft, Send, Trash2, Edit, FileText, Video } from 'lucide-react';
 import Link from 'next/link';
 import NextImage from 'next/image';
+import { Badge } from '@/components/ui/badge';
 
 export default function BlogPostPage() {
   const router = useRouter();
@@ -263,9 +264,16 @@ export default function BlogPostPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
             <Button variant="outline" size="icon" onClick={() => router.push('/main/blog')}><ArrowLeft className="h-4 w-4" /></Button>
-            <div>
+            <div className="space-y-2">
                 <h1 className="text-3xl font-bold tracking-tight">{post.subject}</h1>
                 <p className="text-sm text-muted-foreground">By {post.authorName} on {format(post.createdAt.toDate(), 'PPP')}</p>
+                 {post.tags && post.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                        {post.tags.map(tag => (
+                            <Badge key={tag} variant="secondary">{tag}</Badge>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
         {canManagePost && (
