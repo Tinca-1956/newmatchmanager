@@ -178,7 +178,7 @@ export default function EditBlogPostPage() {
             const coverImage = mediaFiles.find(file => file.type.startsWith('image/'));
 
             // 4. Create public blog post object
-            const publicPostData: PublicBlogPost = {
+            const publicPostData: Omit<PublicBlogPost, 'id'> = {
                 originalPostId: postId,
                 clubId: post.clubId,
                 clubName: clubName,
@@ -189,7 +189,7 @@ export default function EditBlogPostPage() {
                 publishedAt: serverTimestamp(),
             };
 
-            // 5. Save to the new collection
+            // 5. Save to the new collection, using the original post's ID as the public document ID
             const publicDocRef = doc(firestore, 'publicBlogPosts', postId);
             await setDoc(publicDocRef, publicPostData, { merge: true });
             

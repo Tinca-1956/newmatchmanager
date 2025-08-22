@@ -3,19 +3,16 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, getDoc, Timestamp } from 'firebase/firestore';
+import { doc, onSnapshot, Timestamp } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase-client';
 import type { PublicBlogPost } from '@/lib/types';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
-import NextImage from 'next/image';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 import { ArrowLeft, LogIn } from 'lucide-react';
-import PublicHeader from '@/components/public-header';
-import PublicFooter from '@/components/public-footer';
+import NextImage from 'next/image';
 
-function PublicBlogPostContent() {
+export default function PublicBlogPostPage() {
   const params = useParams();
   const router = useRouter();
   const postId = params.postId as string;
@@ -26,159 +23,106 @@ function PublicBlogPostContent() {
 
   useEffect(() => {
     if (!postId || !firestore) {
+      setError('Invalid post ID or database connection.');
       setIsLoading(false);
       return;
     }
 
-    const fetchPublicPost = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const postDocRef = doc(firestore, 'publicBlogPosts', postId);
-        const docSnap = await getDoc(postDocRef);
-
-        if (docSnap.exists()) {
-          setPost(docSnap.data() as PublicBlogPost);
-        } else {
-          setError('This blog post could not be found or is not public.');
-        }
-      } catch (e: any) {
-        console.error("Error fetching public blog post:", e);
-        if (e.message.includes('permission-denied') || e.message.includes('Missing or insufficient permissions')) {
-             setError('You do not have permission to view this content. Please log in.');
-        } else {
-            setError('An error occurred while fetching this post.');
-        }
-      } finally {
-        setIsLoading(false);
+    const postDocRef = doc(firestore, 'publicBlogPosts', postId);
+    const unsubscribe = onSnapshot(postDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data() as Omit<PublicBlogPost, 'id'>;
+        setPost({ id: docSnap.id, ...data });
+        setError(null);
+      } else {
+        setError('This blog post could not be found. It may have been removed.');
+        setPost(null);
       }
-    };
+      setIsLoading(false);
+    }, (err) => {
+      console.error("Error fetching public post:", err);
+      setError('There was an error loading this post.');
+      setIsLoading(false);
+    });
 
-    fetchPublicPost();
+    return () => unsubscribe();
   }, [postId]);
 
   if (isLoading) {
     return (
-      <div className="max-w-4xl mx-auto py-8 px-4 space-y-6">
-        <Skeleton className="h-10 w-24" />
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-8 w-3/4" />
-            <Skeleton className="h-4 w-1/2 mt-2" />
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-40 w-full" />
-            <div className="mt-4 space-y-2">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-5/6" />
-            </div>
-          </CardContent>
-          <CardFooter>
-             <Skeleton className="h-10 w-40" />
-          </CardFooter>
-        </Card>
+      <div className="container mx-auto max-w-4xl py-12 px-4">
+        <Skeleton className="h-12 w-3/4 mb-2" />
+        <Skeleton className="h-6 w-1/2 mb-8" />
+        <Skeleton className="aspect-video w-full mb-8" />
+        <Skeleton className="h-4 w-full mb-2" />
+        <Skeleton className="h-4 w-full mb-2" />
+        <Skeleton className="h-4 w-2/3" />
       </div>
     );
   }
-
+  
   if (error) {
-    return (
-        <div className="max-w-4xl mx-auto py-8 px-4">
-            <Card className="text-center">
-                <CardHeader>
-                    <CardTitle>Error</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-destructive">{error}</p>
-                </CardContent>
-                <CardFooter className="flex justify-center">
-                    <Button onClick={() => router.push('/public/dashboard')}>
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back to Dashboard
-                    </Button>
-                </CardFooter>
-            </Card>
-        </div>
-    );
+      return (
+          <div className="container mx-auto max-w-4xl py-12 px-4 text-center">
+              <h1 className="text-2xl font-bold text-destructive mb-4">Error</h1>
+              <p className="text-muted-foreground">{error}</p>
+               <Button onClick={() => router.push('/public/dashboard')} className="mt-8">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Return to Dashboard
+              </Button>
+          </div>
+      )
   }
 
   if (!post) {
-    return (
-         <div className="max-w-4xl mx-auto py-8 px-4">
-            <Card className="text-center">
-                <CardHeader>
-                    <CardTitle>Post Not Found</CardTitle>
-                </CardHeader>
-                 <CardContent>
-                    <p>The blog post you are looking for does not exist or may have been removed.</p>
-                </CardContent>
-                <CardFooter className="flex justify-center">
-                    <Button onClick={() => router.push('/public/dashboard')}>
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back to Dashboard
-                    </Button>
-                </CardFooter>
-            </Card>
-        </div>
-    );
+    return null; // Should be handled by error state
   }
   
   const publishedDate = post.publishedAt instanceof Timestamp 
-    ? post.publishedAt.toDate() 
-    : new Date();
+    ? post.publishedAt.toDate()
+    : new Date(); // Fallback
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 space-y-6">
-        <Button variant="outline" onClick={() => router.push('/public/dashboard')}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Dashboard
-        </Button>
-        <Card>
-            <CardHeader>
-                <CardTitle className="text-3xl font-bold">{post.subject}</CardTitle>
-                <CardDescription>
-                    By {post.authorName} for {post.clubName} on {format(publishedDate, 'PPP')}
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-                {post.coverImageUrl && (
-                    <div className="relative aspect-video w-full">
-                        <NextImage 
-                            src={post.coverImageUrl} 
-                            alt={post.subject}
-                            fill
-                            className="object-cover rounded-md"
-                        />
-                    </div>
-                )}
-                <p className="text-lg text-muted-foreground italic">
-                    {post.snippet}
-                </p>
-                
-                <div className="text-center pt-6 border-t">
-                    <h3 className="text-lg font-semibold">Want to read more?</h3>
-                    <p className="text-muted-foreground mt-2">The full article is available to club members.</p>
-                    <Button className="mt-4" onClick={() => router.push('/auth/login')}>
-                       <LogIn className="mr-2 h-4 w-4" />
-                       Login or Sign Up to Read More
-                    </Button>
-                </div>
-            </CardContent>
-        </Card>
+    <div className="container mx-auto max-w-4xl py-8 sm:py-12 px-4">
+      <article className="bg-card p-6 sm:p-8 rounded-lg shadow-md">
+        <header className="mb-8">
+            <p className="text-sm text-muted-foreground mb-2">
+                Published by {post.authorName} of {post.clubName} on {format(publishedDate, 'PPP')}
+            </p>
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight">
+            {post.subject}
+          </h1>
+        </header>
+        
+        {post.coverImageUrl && (
+            <div className="relative aspect-video w-full mb-8 rounded-md overflow-hidden">
+                <NextImage
+                    src={post.coverImageUrl}
+                    alt={`Cover image for ${post.subject}`}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 75vw, 66vw"
+                />
+            </div>
+        )}
+        
+        <div className="prose prose-lg dark:prose-invert max-w-none mb-12">
+            <p>{post.snippet}</p>
+        </div>
+
+        <footer className="text-center border-t pt-8">
+            <h2 className="text-xl font-semibold mb-2">Want to read more?</h2>
+            <p className="text-muted-foreground mb-4">
+                Log in or sign up to read the full article and join the conversation.
+            </p>
+            <Button asChild size="lg">
+                <a href="/auth/login">
+                    <LogIn className="mr-2 h-5 w-5" />
+                    Login to Read More
+                </a>
+            </Button>
+        </footer>
+      </article>
     </div>
   );
-}
-
-
-export default function PublicBlogPostPage() {
-    return (
-        <div className="flex flex-col min-h-screen bg-muted/40">
-            <PublicHeader />
-            <main className="flex-1">
-                <PublicBlogPostContent />
-            </main>
-            <PublicFooter />
-        </div>
-    )
 }
