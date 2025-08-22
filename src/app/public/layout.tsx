@@ -1,5 +1,6 @@
-import PublicFooter from '@/components/public-footer';
+
 import PublicHeader from '@/components/public-header';
+import PublicFooter from '@/components/public-footer';
 
 export default function PublicLayout({
   children,
@@ -9,11 +10,7 @@ export default function PublicLayout({
   return (
     <div className="flex flex-col min-h-screen">
       <PublicHeader />
-      <main className="flex-1 bg-muted/40">
-        <div className="container mx-auto p-4 sm:p-6 lg:p-8">
-          {children}
-        </div>
-      </main>
+      <main className="flex-grow">{children}</main>
       <PublicFooter />
     </div>
   );
