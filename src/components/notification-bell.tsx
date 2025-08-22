@@ -41,8 +41,8 @@ export function NotificationBell() {
     const unsubscribe = onSnapshot(notificationsQuery, async (snapshot) => {
       const notifsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
       
-      // Get all unique blog post IDs from the notifications
-      const postIds = [...new Set(notifsData.map(n => n.entityId))];
+      // Get all unique blog post IDs from the notifications, filtering out any undefined/null IDs
+      const postIds = [...new Set(notifsData.map(n => n.entityId).filter(id => !!id))];
       
       if (postIds.length === 0) {
         setNotifications([]);
