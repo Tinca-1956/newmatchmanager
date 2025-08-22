@@ -12,7 +12,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useToast } from '@/hooks/use-toast';
 import { firestore, storage } from '@/lib/firebase-client';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { Blog, PublicPostData } from '@/lib/types';
 import { ArrowLeft, Upload, FileText, Video, Trash2, TestTube, Eye, FlaskConical } from 'lucide-react';
@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/dialog';
 import NextImage from 'next/image';
 import Link from 'next/link';
-import { publishPost } from '@/lib/blog-actions';
+
 
 interface MediaFile {
   url: string;
@@ -126,21 +126,28 @@ export default function EditBlogPostPage() {
   };
   
   const handleMakePublic = async () => {
-    if (!canEdit || !post) {
+    if (!canEdit || !post || !firestore) {
       toast({ variant: 'destructive', title: 'Error', description: 'Cannot publish this post.' });
       return;
     }
     setIsPublishing(true);
 
     try {
-      await publishPost({
-        postId,
-        clubId: post.clubId,
-        authorName: post.authorName,
+      // Logic to create a summarized, public version of the post
+      const plainText = content.replace(/<[^>]*>?/gm, '');
+      const snippet = plainText.substring(0, 150) + (plainText.length > 150 ? '...' : '');
+      const coverImageUrl = mediaFiles.find(file => file.type.startsWith('image/'))?.url || '';
+
+      const publicPostData: PublicPostData = {
         subject: subject,
-        content: content,
-        mediaFiles: mediaFiles,
-      });
+        snippet: snippet,
+        coverImageUrl: coverImageUrl,
+        authorName: post.authorName,
+        publishedAt: serverTimestamp(),
+      };
+      
+      const publicDocRef = doc(firestore, 'publicBlogPosts', postId);
+      await setDoc(publicDocRef, publicPostData, { merge: true });
 
       toast({ title: 'Success!', description: 'The blog post teaser has been published.' });
     } catch (error) {
