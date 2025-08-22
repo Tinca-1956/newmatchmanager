@@ -59,7 +59,7 @@ const navItems = [
   { href: '/main/subscriptions', icon: CreditCard, label: 'Subscription', roles: ['Site Admin', 'Club Admin'] },
   { href: '/main/profile', icon: UserIcon, label: 'Profile', roles: ['Site Admin', 'Club Admin', 'Angler'] },
   { href: '/main/help', icon: HelpCircle, label: 'Help Admin', roles: ['Site Admin'] },
-  { href: '/main/help-user', icon: HelpCircle, label: 'Help', roles: ['Angler'] },
+  { href: '/main/help-user', icon: HelpCircle, label: 'Help', roles: ['Club Admin', 'Angler'] },
   { href: '/main/contact', icon: MessageSquare, label: 'Contact Admin', roles: ['Angler'] },
   { href: '/main/about', icon: Info, label: 'About', roles: ['Site Admin', 'Club Admin', 'Angler'] },
   { href: '/main/users/deleted', icon: Trash2, label: 'Deleted Users', roles: ['Site Admin'] },
