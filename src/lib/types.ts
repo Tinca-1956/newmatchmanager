@@ -150,6 +150,15 @@ export interface Blog {
   lastUpdated: Timestamp;
 }
 
+export interface PublicPostData {
+  subject: string;
+  snippet: string;
+  coverImageUrl?: string;
+  authorName?: string;
+  publishedAt?: any;
+}
+
+
 export interface BlogComment {
   id: string;
   commentText: string;

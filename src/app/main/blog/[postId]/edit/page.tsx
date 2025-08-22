@@ -12,9 +12,9 @@ import { useAuth } from '@/hooks/use-auth';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useToast } from '@/hooks/use-toast';
 import { firestore, storage } from '@/lib/firebase-client';
-import { doc, getDoc, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { Blog } from '@/lib/types';
+import type { Blog, PublicPostData } from '@/lib/types';
 import { ArrowLeft, Upload, FileText, Video, Trash2, TestTube, Eye, FlaskConical } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dialog';
 import NextImage from 'next/image';
 import Link from 'next/link';
+import { publishPost } from '@/lib/blog-actions';
 
 interface MediaFile {
   url: string;
@@ -40,15 +41,6 @@ interface TruncatePreviewData {
     content: string;
     imageUrl?: string;
 }
-
-interface PublicPostData {
-  subject: string;
-  snippet: string;
-  coverImageUrl?: string;
-  authorName?: string;
-  publishedAt?: any;
-}
-
 
 export default function EditBlogPostPage() {
   const router = useRouter();
@@ -134,37 +126,28 @@ export default function EditBlogPostPage() {
   };
   
   const handleMakePublic = async () => {
-    if (!canEdit || !post || !firestore) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Cannot publish this post.' });
-        return;
+    if (!canEdit || !post) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Cannot publish this post.' });
+      return;
     }
     setIsPublishing(true);
 
     try {
-        const plainText = content.replace(/<[^>]*>?/gm, '');
-        const snippet = plainText.substring(0, 100) + (plainText.length > 100 ? '...' : '');
-        const coverImageUrl = mediaFiles.find(file => file.type.startsWith('image/'))?.url || '';
+      await publishPost({
+        postId,
+        clubId: post.clubId,
+        authorName: post.authorName,
+        subject: subject,
+        content: content,
+        mediaFiles: mediaFiles,
+      });
 
-        const publicPostData = {
-            originalPostId: postId,
-            clubId: post.clubId,
-            authorName: post.authorName,
-            subject: subject,
-            snippet: snippet,
-            coverImageUrl: coverImageUrl,
-            publishedAt: serverTimestamp(),
-        };
-
-        const publicDocRef = doc(firestore, 'publicBlogPosts', postId);
-        await setDoc(publicDocRef, publicPostData, { merge: true });
-        
-        toast({ title: 'Success!', description: 'The blog post teaser has been published.' });
-
+      toast({ title: 'Success!', description: 'The blog post teaser has been published.' });
     } catch (error) {
-        console.error("Error publishing post:", error);
-        toast({ variant: 'destructive', title: 'Publish Failed', description: 'Could not publish the post teaser.' });
+      console.error("Error publishing post:", error);
+      toast({ variant: 'destructive', title: 'Publish Failed', description: 'Could not publish the post teaser.' });
     } finally {
-        setIsPublishing(false);
+      setIsPublishing(false);
     }
   };
 
