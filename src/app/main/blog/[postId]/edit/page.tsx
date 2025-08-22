@@ -59,6 +59,7 @@ export default function EditBlogPostPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   const [isTruncateModalOpen, setIsTruncateModalOpen] = useState(false);
   const [truncatePreview, setTruncatePreview] = useState<TruncatePreviewData | null>(null);
@@ -187,6 +188,53 @@ export default function EditBlogPostPage() {
     });
     setIsTruncateModalOpen(true);
   };
+  
+  const handlePublish = async () => {
+     if (!post || !userProfile || !firestore) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Cannot publish. Post or user data is missing.' });
+      return;
+    }
+    setIsPublishing(true);
+
+    try {
+      // 1. Fetch club name
+      const clubDocRef = doc(firestore, 'clubs', post.clubId);
+      const clubDoc = await getDoc(clubDocRef);
+      const clubName = clubDoc.exists() ? clubDoc.data().name : 'Unknown Club';
+      
+      // 2. Generate snippet and find cover image
+      const snippet = content.replace(/<[^>]*>?/gm, '').substring(0, 150) + '...';
+      const coverImageUrl = mediaFiles.find(f => f.type.startsWith('image/'))?.url;
+
+      // 3. Prepare public data
+      const publicPostData: PublicBlogPost = {
+        id: postId,
+        originalPostId: postId,
+        clubId: post.clubId,
+        clubName: clubName,
+        authorName: post.authorName,
+        subject: subject,
+        snippet: snippet,
+        coverImageUrl: coverImageUrl || '',
+        publishedAt: serverTimestamp() as any,
+      };
+
+      // 4. Save to the new collection
+      const publicDocRef = doc(firestore, 'publicBlogPosts', postId);
+      await setDoc(publicDocRef, publicPostData, { merge: true });
+
+      toast({
+        title: 'Published!',
+        description: 'Your blog post teaser is now live on the public dashboard.',
+      });
+      
+    } catch (error) {
+      console.error("Error publishing post:", error);
+      toast({ variant: 'destructive', title: 'Publish Failed', description: 'Could not publish the post teaser.' });
+    } finally {
+      setIsPublishing(false);
+    }
+  };
     
   if (isLoading) {
     return <div className="space-y-4"><Skeleton className="h-12 w-1/4" /><Skeleton className="h-80 w-full" /></div>;
@@ -242,11 +290,17 @@ export default function EditBlogPostPage() {
                 {isUploading && <Progress value={uploadProgress} className="w-full" />}
             </div>
           </CardContent>
-          <CardFooter className="flex justify-between">
-            <Button variant="secondary" onClick={handleTruncateClick}>
-              <TestTube className="mr-2 h-4 w-4" />
-              Truncate
-            </Button>
+          <CardFooter className="flex justify-between items-center">
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={handleTruncateClick}>
+                <TestTube className="mr-2 h-4 w-4" />
+                Test Truncate
+              </Button>
+              <Button onClick={handlePublish} disabled={isPublishing}>
+                  <Globe className="mr-2 h-4 w-4" />
+                  {isPublishing ? 'Publishing...' : 'Publish Teaser'}
+              </Button>
+            </div>
             <div className="flex gap-4">
               <Button variant="outline" onClick={() => router.push(`/main/blog/${postId}`)}>Cancel</Button>
               <Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Post'}</Button>
