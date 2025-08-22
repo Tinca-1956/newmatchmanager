@@ -6,6 +6,7 @@ import type { PublicMatch, Result, Club, Match, MembershipStatus } from './types
 import { firestore } from './firebase-client';
 import { collection, doc, getDoc, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
+import { headers } from 'next/headers';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -297,6 +298,26 @@ export const sendMultiRecipientTestEmail = async () => {
     }
 }
 
+const getBaseUrl = (): string => {
+  // If NEXT_PUBLIC_BASE_URL is set, use it.
+  if (process.env.NEXT_PUBLIC_BASE_URL) {
+    return process.env.NEXT_PUBLIC_BASE_URL;
+  }
+  
+  // Otherwise, try to construct from Vercel/Next.js headers.
+  const headersList = headers();
+  const host = headersList.get('host'); // e.g., 'your-project.vercel.app' or 'localhost:3000'
+  const protocol = headersList.get('x-forwarded-proto') || 'http'; // 'https' on Vercel
+  
+  if (host) {
+    return `${protocol}://${host}`;
+  }
+  
+  // Fallback for local development if headers are not available.
+  return 'http://localhost:3000';
+};
+
+
 export const sendBlogPostNotificationEmail = async (clubId: string, blogSubject: string, postId: string) => {
   if (!firestore) {
     throw new Error('Firestore not initialized');
@@ -318,7 +339,8 @@ export const sendBlogPostNotificationEmail = async (clubId: string, blogSubject:
   }
 
   // Generate a fully-qualified URL for the blog post
-  const postUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/main/blog/${postId}`;
+  const baseUrl = getBaseUrl();
+  const postUrl = `${baseUrl}/main/blog/${postId}`;
 
   const { data, error } = await resend.emails.send({
     from: `Match Manager <${fromEmail}>`,
