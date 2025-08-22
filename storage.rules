@@ -1,33 +1,37 @@
+
 rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Helper function to check if a user is an admin of a specific club
-    function isClubAdmin(userId, clubId) {
-      let userDoc = get(/databases/(default)/documents/users/$(userId));
-      return userDoc.data.primaryClubId == clubId &&
-             (userDoc.data.role == 'Club Admin' || userDoc.data.role == 'Site Admin');
+    
+    // Helper function to check if a user belongs to a club
+    function isClubMember(clubId) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
     }
     
-     function isSiteAdmin(userId) {
-      let userDoc = get(/databases/(default)/documents/users/$(userId));
-      return userDoc.data.role == 'Site Admin';
+    // Allow read access to club logos for any user
+    match /clubs/{clubId}/{allPaths=**} {
+      allow read;
+      allow write: if isClubMember(clubId) || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
     }
 
-    // Allow read access to anyone for club logos in the 'public' folder
-    match /clubs/{clubId}/{fileName} {
-      allow read: if true;
-      allow write: if request.auth != null && (isSiteAdmin(request.auth.uid) || isClubAdmin(request.auth.uid, clubId));
-    }
-    
-    match /matches/{matchId}/{fileName} {
-      allow read: if request.auth != null;
-       allow write: if request.auth != null;
+    // Allow read access to match media for any user
+    match /matches/{matchId}/{allPaths=**} {
+      allow read;
+      allow write: if request.auth != null; // Allow any authenticated user to upload to a match folder
     }
 
+    // Allow read access to help documents for any authenticated user
     match /help_documents/{allPaths=**} {
-      allow read: if true;
-      allow write: if request.auth != null && isSiteAdmin(request.auth.uid);
+        allow read: if request.auth != null;
+        allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Site Admin', 'Club Admin'];
+    }
+    
+    // Allow read/write to blog media for any authenticated user
+    // A more granular rule could be implemented to restrict writes to authors/admins
+    match /blog_media/{clubId}/{postId}/{allPaths=**} {
+       allow read;
+       allow write: if isClubMember(clubId);
     }
   }
 }

@@ -1,98 +1,82 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
   
-    // Helper functions
-    function isSiteAdmin() {
-      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
-    }
-
-    function isClubAdmin(clubId) {
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return request.auth != null &&
-        (userDoc.role == 'Club Admin' && userDoc.primaryClubId == clubId) || isSiteAdmin();
+    function isClubMember(clubId) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
     }
     
-    function isClubMember(clubId) {
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return request.auth != null && userDoc.primaryClubId == clubId || isSiteAdmin();
+    function isUserResource(userId) {
+        return request.auth.uid == userId;
     }
 
-    // Collection rules
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth.uid == userId || isSiteAdmin();
+      allow read;
+      allow create, update: if isUserResource(userId);
     }
     
     match /clubs/{clubId} {
-      allow read: if request.auth != null;
-      allow write: if isClubAdmin(clubId) || isSiteAdmin();
+        allow read;
+        allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
     }
     
-    match /series/{seriesId} {
-      allow read: if request.auth != null;
-      allow write: if isClubAdmin(resource.data.clubId) || isSiteAdmin();
+     match /series/{seriesId} {
+        allow read;
+        allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Site Admin', 'Club Admin'];
     }
     
     match /matches/{matchId} {
-      allow read: if request.auth != null;
-      allow create: if isClubAdmin(request.resource.data.clubId);
-      allow update: if (isClubAdmin(resource.data.clubId)) || 
-                      (request.auth != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['registeredAnglers', 'registeredCount']));
-      allow delete: if isClubAdmin(resource.data.clubId);
+        allow read;
+        allow update: if request.auth != null 
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['registeredAnglers', 'registeredCount']);
+        allow create, delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Site Admin', 'Club Admin'];
     }
-    
+
     match /results/{resultId} {
+        allow read;
+        allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Site Admin', 'Club Admin'];
+    }
+
+    match /Standard_Texts/{textId} {
+      allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Site Admin', 'Club Admin'];
+    }
+
+    match /helpDocuments/{docId} {
       allow read: if request.auth != null;
-      allow write: if isClubAdmin(resource.data.clubId) || isSiteAdmin();
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Site Admin', 'Club Admin'];
     }
     
-    match /blogs/{postId} {
-      allow read: if request.auth != null;
-      allow create, update: if isClubAdmin(request.resource.data.clubId);
-      allow delete: if isClubAdmin(resource.data.clubId);
-      
-      match /comments/{commentId} {
+    match /blogs/{blogId} {
         allow read: if request.auth != null;
-        allow create: if isClubMember(get(/databases/$(database)/documents/blogs/$(postId)).data.clubId);
-      }
+        allow create, update, delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Site Admin', 'Club Admin'] || request.auth.uid == resource.data.authorId;
+    }
+
+    match /blogs/{blogId}/comments/{commentId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth.uid == request.resource.data.authorId;
     }
     
     match /notifications/{notificationId} {
-      allow read, update: if request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null; // Server-side logic should validate this
-      allow delete: if isSiteAdmin();
+        allow read, write: if request.auth.uid == resource.data.userId;
     }
     
     match /tags/{tagId} {
-      allow read: if request.auth != null;
-      allow write: if isClubAdmin(resource.data.clubId);
+        allow read: if request.auth != null;
+        allow create, update, delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Site Admin', 'Club Admin'];
     }
     
-     match /helpDocuments/{docId} {
-      allow read: if request.auth != null;
-      allow write: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
-    }
-    
-    match /Standard_Texts/{textId} {
-      allow read: if request.auth != null;
-      allow write: if isClubAdmin(resource.data.clubId) || isSiteAdmin();
+    match /publicBlogPosts/{postId} {
+      allow read;
     }
 
-    // Public collections can be read by anyone
     match /publicMatches/{matchId} {
-        allow read: if true;
-        allow write: if false; // Only backend can write
+      allow read;
     }
-    
+
     match /publicUpcomingMatches/{matchId} {
-        allow read: if true;
-        allow write: if false; // Only backend can write
-    }
-     match /publicBlogPosts/{postId} {
-      allow read: if true;
-      allow write: if false; // Should be written from a secure environment
+        allow read;
     }
   }
 }
