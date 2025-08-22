@@ -12,10 +12,10 @@ import { useAuth } from '@/hooks/use-auth';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useToast } from '@/hooks/use-toast';
 import { firestore, storage } from '@/lib/firebase-client';
-import { doc, getDoc, updateDoc, serverTimestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { Blog } from '@/lib/types';
-import { ArrowLeft, Mail, Upload, FileText, Video, Trash2, Copy } from 'lucide-react';
+import type { Blog, Club, PublicBlogPost } from '@/lib/types';
+import { ArrowLeft, Upload, FileText, Video, Trash2, Globe } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 
@@ -44,6 +44,7 @@ export default function EditBlogPostPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   
   useEffect(() => {
     if (!postId || !firestore) return;
@@ -157,13 +158,56 @@ export default function EditBlogPostPage() {
       }
     };
     
-    const handleCopyUrl = () => {
-        const publicUrl = `${window.location.origin}/public/blog/${postId}`;
-        navigator.clipboard.writeText(publicUrl);
-        toast({
-            title: "URL Copied!",
-            description: "The public link to this post has been copied to your clipboard.",
-        });
+    const handlePublish = async () => {
+        if (!canEdit || !post || !firestore) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Cannot publish post.' });
+            return;
+        }
+
+        setIsPublishing(true);
+        try {
+            // 1. Fetch club name
+            const clubDocRef = doc(firestore, 'clubs', post.clubId);
+            const clubDoc = await getDoc(clubDocRef);
+            const clubName = clubDoc.exists() ? (clubDoc.data() as Club).name : 'A Club';
+
+            // 2. Create snippet
+            const snippet = content.replace(/<[^>]*>?/gm, '').substring(0, 200) + '...';
+
+            // 3. Find cover image
+            const coverImage = mediaFiles.find(file => file.type.startsWith('image/'));
+
+            // 4. Create public blog post object
+            const publicPostData: PublicBlogPost = {
+                originalPostId: post.id,
+                clubId: post.clubId,
+                clubName: clubName,
+                authorName: post.authorName,
+                subject: subject,
+                snippet: snippet,
+                coverImageUrl: coverImage?.url || '',
+                publishedAt: serverTimestamp(),
+            };
+
+            // 5. Save to the new collection
+            const publicDocRef = doc(firestore, 'publicBlogPosts', post.id);
+            await setDoc(publicDocRef, publicPostData, { merge: true });
+            
+            // 6. Copy URL to clipboard
+            const publicUrl = `${window.location.origin}/public/blog/${post.id}`;
+            navigator.clipboard.writeText(publicUrl);
+
+            toast({
+                title: 'Published & Copied!',
+                description: 'A public teaser has been published and the URL is in your clipboard.',
+            });
+
+        } catch (error) {
+            console.error("Error publishing post:", error);
+            toast({ variant: 'destructive', title: 'Publish Failed', description: 'Could not publish the blog post teaser.' });
+        } finally {
+            setIsPublishing(false);
+        }
     };
 
 
@@ -221,9 +265,9 @@ export default function EditBlogPostPage() {
           </div>
         </CardContent>
         <CardFooter className="flex justify-between">
-          <Button variant="secondary" onClick={handleCopyUrl}>
-            <Copy className="mr-2 h-4 w-4" />
-            Copy Public URL
+          <Button variant="secondary" onClick={handlePublish} disabled={isPublishing}>
+            <Globe className="mr-2 h-4 w-4" />
+            {isPublishing ? 'Publishing...' : 'Publish Teaser & Copy URL'}
           </Button>
           <div className="flex gap-4">
             <Button variant="outline" onClick={() => router.push(`/main/blog/${postId}`)}>Cancel</Button>
