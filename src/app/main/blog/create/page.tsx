@@ -12,7 +12,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useToast } from '@/hooks/use-toast';
 import { firestore, storage } from '@/lib/firebase-client';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { ArrowLeft, Upload, FileText, Video, Trash2, Mail } from 'lucide-react';
 import { sendBlogPostNotificationEmail } from '@/lib/send-email';
@@ -64,11 +64,34 @@ export default function CreateBlogPostPage() {
             
             const docRef = await addDoc(collection(firestore, 'blogs'), blogData);
             
+            // Create notifications for all club members
+            const usersQuery = query(collection(firestore, 'users'), where('primaryClubId', '==', userProfile.primaryClubId));
+            const usersSnapshot = await getDocs(usersQuery);
+            const batch = writeBatch(firestore);
+
+            usersSnapshot.forEach(userDoc => {
+                // Don't notify the author of their own post
+                if (userDoc.id === userProfile.id) return;
+                
+                const notificationRef = doc(collection(firestore, 'notifications'));
+                batch.set(notificationRef, {
+                    userId: userDoc.id,
+                    clubId: userProfile.primaryClubId,
+                    type: 'new_blog_post',
+                    entityId: docRef.id,
+                    message: `New post by ${blogData.authorName}: "${subject}"`,
+                    link: `/main/blog/${docRef.id}`,
+                    createdAt: serverTimestamp(),
+                    isRead: false,
+                });
+            });
+            await batch.commit();
+
             let toastMessage = 'Blog post created successfully.';
             if (notify) {
                 try {
                     await sendBlogPostNotificationEmail(userProfile.primaryClubId, subject, docRef.id);
-                    toastMessage += ' Notifications sent.';
+                    toastMessage += ' Email notifications sent.';
                 } catch (emailError) {
                     console.error("Email notification failed:", emailError);
                     toastMessage += ' However, email notifications failed to send.';

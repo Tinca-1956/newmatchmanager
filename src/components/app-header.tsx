@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Club } from '@/lib/types';
 import Image from 'next/image';
+import { NotificationBell } from './notification-bell';
 
 export default function AppHeader() {
   const { user, userProfile, loading } = useAuth();
@@ -106,7 +107,7 @@ export default function AppHeader() {
             </Tooltip>
         </TooltipProvider>
       </div>
-
+      <NotificationBell />
       <UserNav />
     </header>
   );

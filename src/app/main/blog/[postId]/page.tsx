@@ -40,6 +40,9 @@ import {
   deleteDoc,
   serverTimestamp,
   writeBatch,
+  getDocs,
+  where,
+  updateDoc
 } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import type { Blog, BlogComment } from '@/lib/types';
@@ -83,22 +86,43 @@ export default function BlogPostPage() {
       const commentsData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }) as BlogComment);
       setComments(commentsData);
     });
+    
+     // Mark notifications as read when the user views the post
+    if (user) {
+        const notificationsQuery = query(
+            collection(firestore, 'notifications'),
+            where('userId', '==', user.uid),
+            where('entityId', '==', postId),
+            where('isRead', '==', false)
+        );
+        getDocs(notificationsQuery).then(snapshot => {
+            if (!snapshot.empty) {
+                const batch = writeBatch(firestore);
+                snapshot.forEach(doc => {
+                    batch.update(doc.ref, { isRead: true, readAt: serverTimestamp() });
+                });
+                batch.commit();
+            }
+        });
+    }
 
     return () => {
       unsubscribePost();
       unsubscribeComments();
     };
-  }, [postId, router, toast]);
+  }, [postId, router, toast, user]);
 
   const handlePostComment = async () => {
-    if (!user || !userProfile || !newComment.trim()) return;
+    if (!user || !userProfile || !newComment.trim() || !post) return;
     if (userProfile.memberStatus !== 'Member') {
       toast({ variant: 'destructive', title: 'Not Authorized', description: 'Only verified members can post comments.' });
       return;
     }
     setIsPostingComment(true);
 
-    const commentsColRef = collection(firestore, 'blogs', postId, 'comments');
+    const reviewDocRef = doc(firestore, 'blogs', postId);
+    const commentsColRef = collection(reviewDocRef, 'comments');
+    
     try {
       await addDoc(commentsColRef, {
         commentText: newComment,
@@ -107,6 +131,30 @@ export default function BlogPostPage() {
         createdAt: serverTimestamp(),
       });
       setNewComment('');
+      
+      // Create notifications for all other club members
+      const usersQuery = query(collection(firestore, 'users'), where('primaryClubId', '==', post.clubId));
+      const usersSnapshot = await getDocs(usersQuery);
+      const batch = writeBatch(firestore);
+
+      usersSnapshot.forEach(userDoc => {
+          // Don't notify the author of their own comment
+          if (userDoc.id === userProfile.id) return;
+          
+          const notificationRef = doc(collection(firestore, 'notifications'));
+          batch.set(notificationRef, {
+              userId: userDoc.id,
+              clubId: post.clubId,
+              type: 'new_comment',
+              entityId: postId,
+              message: `${userProfile.firstName} commented on: "${post.subject}"`,
+              link: `/main/blog/${postId}`,
+              createdAt: serverTimestamp(),
+              isRead: false,
+          });
+      });
+      await batch.commit();
+      
     } catch (error) {
       console.error("Error posting comment: ", error);
       toast({ variant: 'destructive', title: 'Error', description: 'Could not post your comment.' });
@@ -136,16 +184,21 @@ export default function BlogPostPage() {
                 }
             }
         }
+        
+        // Delete all comments in the subcollection
+        const commentsQuery = query(collection(firestore, 'blogs', post.id, 'comments'));
+        const commentsSnapshot = await getDocs(commentsQuery);
+        commentsSnapshot.forEach(commentDoc => {
+            batch.delete(commentDoc.ref);
+        });
 
-        // Note: Deleting comments (a subcollection) should ideally be handled by a Cloud Function.
-        // We will just delete the main post document here.
-
+        // Delete the main post document
         const postDocRef = doc(firestore, 'blogs', post.id);
         batch.delete(postDocRef);
         
         await batch.commit();
 
-        toast({ title: 'Success', description: 'Blog post and its media have been deleted.' });
+        toast({ title: 'Success', description: 'Blog post, its comments and media have been deleted.' });
         router.push('/main/blog');
     } catch (error) {
         console.error("Error deleting post:", error);

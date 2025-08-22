@@ -158,3 +158,16 @@ export interface BlogComment {
   authorName: string;
   createdAt: Timestamp;
 }
+
+export interface Notification {
+  id: string;
+  userId: string;
+  clubId: string;
+  type: 'new_blog_post' | 'new_comment';
+  entityId: string; // ID of the blog post
+  message: string;
+  link: string;
+  createdAt: Timestamp;
+  isRead: boolean;
+  readAt?: Timestamp;
+}
