@@ -17,7 +17,6 @@ import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebas
 import type { Blog } from '@/lib/types';
 import { ArrowLeft, Mail, Upload, FileText, Video, Trash2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { sendBlogPostNotificationEmail } from '@/lib/send-email';
 import { Progress } from '@/components/ui/progress';
 
 interface MediaFile {
@@ -45,7 +44,6 @@ export default function EditBlogPostPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const [isSavingAndNotifying, setIsSavingAndNotifying] = useState(false);
   
   useEffect(() => {
     if (!postId || !firestore) return;
@@ -75,14 +73,13 @@ export default function EditBlogPostPage() {
 
   const canEdit = post && userProfile && (userProfile.id === post.authorId || isSiteAdmin || (isClubAdmin && userProfile.primaryClubId === post.clubId));
 
-  const handleSave = async (notify: boolean) => {
+  const handleSave = async () => {
     if (!canEdit || !subject.trim()) {
       toast({ variant: 'destructive', title: 'Error', description: 'Subject is required.' });
       return;
     }
     
-    if (notify) setIsSavingAndNotifying(true);
-    else setIsSaving(true);
+    setIsSaving(true);
 
     try {
       const postDocRef = doc(firestore, 'blogs', postId);
@@ -92,28 +89,14 @@ export default function EditBlogPostPage() {
         mediaUrls: mediaFiles,
         lastUpdated: serverTimestamp(),
       });
-
-      let toastMessage = 'Blog post updated successfully.';
-      if (notify) {
-        if(post){
-            try {
-                await sendBlogPostNotificationEmail(post.clubId, subject, postId);
-                toastMessage += ' Notifications sent.';
-            } catch (emailError) {
-                console.error("Email notification failed:", emailError);
-                toastMessage += ' However, email notifications failed to send.';
-            }
-        }
-      }
       
-      toast({ title: 'Success!', description: toastMessage });
+      toast({ title: 'Success!', description: 'Blog post updated successfully.' });
       router.push(`/main/blog/${postId}`);
     } catch (error) {
       console.error('Error updating blog post:', error);
       toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not update the blog post.' });
     } finally {
       setIsSaving(false);
-      setIsSavingAndNotifying(false);
     }
   };
   
@@ -231,8 +214,7 @@ export default function EditBlogPostPage() {
         </CardContent>
         <CardFooter className="flex justify-end gap-4">
           <Button variant="outline" onClick={() => router.push(`/main/blog/${postId}`)}>Cancel</Button>
-          <Button onClick={() => handleSave(false)} disabled={isSaving || isSavingAndNotifying}>{isSaving ? 'Saving...' : 'Save Changes'}</Button>
-          <Button onClick={() => handleSave(true)} disabled={isSaving || isSavingAndNotifying}><Mail className="mr-2 h-4 w-4" />{isSavingAndNotifying ? 'Saving & Notifying...' : 'Save & Notify Members'}</Button>
+          <Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Post'}</Button>
         </CardFooter>
       </Card>
     </div>
