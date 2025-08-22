@@ -179,7 +179,7 @@ export default function EditBlogPostPage() {
 
             // 4. Create public blog post object
             const publicPostData: PublicBlogPost = {
-                originalPostId: post.id,
+                originalPostId: postId,
                 clubId: post.clubId,
                 clubName: clubName,
                 authorName: post.authorName,
@@ -190,11 +190,11 @@ export default function EditBlogPostPage() {
             };
 
             // 5. Save to the new collection
-            const publicDocRef = doc(firestore, 'publicBlogPosts', post.id);
+            const publicDocRef = doc(firestore, 'publicBlogPosts', postId);
             await setDoc(publicDocRef, publicPostData, { merge: true });
             
             // 6. Copy URL to clipboard
-            const publicUrl = `${window.location.origin}/public/blog/${post.id}`;
+            const publicUrl = `${window.location.origin}/public/blog/${postId}`;
             navigator.clipboard.writeText(publicUrl);
 
             toast({
