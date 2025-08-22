@@ -2,119 +2,111 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
+    
     // Helper Functions
-    function isSignedIn() {
+    function isAuth() {
       return request.auth != null;
     }
 
     function isUser(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+      return isAuth() && request.auth.uid == userId;
     }
 
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
-    
-    function isClubMember(clubId) {
-      return isSignedIn() && getUserData().primaryClubId == clubId;
-    }
 
+    function isClubMember(clubId) {
+      return isAuth() && getUserData().primaryClubId == clubId;
+    }
+    
     function isSiteAdmin() {
-      return isSignedIn() && getUserData().role == 'Site Admin';
+      return isAuth() && getUserData().role == 'Site Admin';
     }
 
     function isClubAdmin(clubId) {
-      return isSignedIn() && isClubMember(clubId) && getUserData().role == 'Club Admin';
+        return isClubMember(clubId) && (isSiteAdmin() || getUserData().role == 'Club Admin');
     }
-    
+
     // Rules
     match /users/{userId} {
-      allow read: if isSignedIn();
+      allow read: if isAuth();
       allow write: if isUser(userId) || isSiteAdmin();
     }
-    
+
     match /clubs/{clubId} {
-      allow read: if isSignedIn();
+      allow read: if isAuth();
       allow write: if isSiteAdmin() || isClubAdmin(clubId);
     }
     
     match /series/{seriesId} {
-      allow read: if isSignedIn();
-      allow write: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
+      allow read: if isAuth();
+      allow write: if isClubAdmin(request.resource.data.clubId);
     }
 
     match /matches/{matchId} {
-      allow read: if isSignedIn();
+      allow read: if isAuth();
       
-      // Allow creation if user is a club admin or site admin.
-      allow create: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
+      // Allow creation if the user is a club admin for the club being assigned
+      allow create: if isClubAdmin(request.resource.data.clubId);
       
-      // Allow update for two specific cases:
-      // 1. Admins can update any field.
+      // Allow update for two scenarios:
+      // 1. A club admin can update any field.
       // 2. Any authenticated user can update ONLY to register/unregister themselves.
-      allow update: if (isSiteAdmin() || isClubAdmin(resource.data.clubId)) 
+      allow update: if (isClubAdmin(resource.data.clubId))
                     || 
-                    (
-                      isSignedIn() &&
-                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['registeredAnglers', 'registeredCount']) &&
-                      (
-                        // Check for adding self to list
-                        request.resource.data.registeredAnglers == resource.data.registeredAnglers.concat([request.auth.uid]) ||
-                        // Check for removing self from list
-                        resource.data.registeredAnglers == request.resource.data.registeredAnglers.concat([request.auth.uid])
-                      )
-                    );
-      
-      // Allow deletion if user is a club admin or site admin.
-      allow delete: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
+                    (isAuth() && 
+                      request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['registeredAnglers', 'registeredCount']));
+                        
+      allow delete: if isClubAdmin(resource.data.clubId);
     }
     
     match /results/{resultId} {
-      allow read: if isSignedIn();
-      allow write: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
-    }
-    
-    match /Standard_Texts/{textId} {
-      allow read: if isSignedIn();
-      allow write: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
-    }
-    
-    match /tags/{tagId} {
-      allow read: if isSignedIn();
-      allow write: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
+      allow read: if isAuth();
+      allow write: if isClubAdmin(request.resource.data.clubId);
     }
 
     match /blogs/{blogId} {
-        allow read: if isSignedIn();
-        allow create, update: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
-        allow delete: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
+      allow read: if isAuth();
+      allow create, update, delete: if isClubAdmin(request.resource.data.clubId) || (isClubAdmin(resource.data.clubId) && request.auth.uid == resource.data.authorId);
+      
+      match /comments/{commentId} {
+        allow read: if isAuth();
+        allow create: if isAuth(); // Any authenticated user can comment
+      }
+    }
+    
+    match /tags/{tagId} {
+      allow read: if isAuth();
+      allow write: if isClubAdmin(request.resource.data.clubId);
+    }
 
-        match /comments/{commentId} {
-            allow read: if isSignedIn();
-            allow create: if isSignedIn() && isClubMember(get(/databases/$(database)/documents/blogs/$(blogId)).data.clubId);
-        }
-    }
-    
      match /notifications/{notificationId} {
-      allow read, update: if isUser(resource.data.userId);
-      allow create: if isSignedIn();
+      allow read, write: if isUser(resource.data.userId);
+      allow create: if isAuth();
     }
     
-    // PUBLIC COLLECTIONS
+    match /Standard_Texts/{textId} {
+      allow read: if isAuth();
+      allow write: if isClubAdmin(request.resource.data.clubId);
+    }
+
+    // Public collections are read-only for all, writeable by no one from the client.
+    // They are managed by server-side logic (e.g., cloud functions or admin actions).
     match /publicMatches/{matchId} {
       allow read: if true;
-      allow write: if false; // Only backend can write
+      allow write: if false;
     }
     
     match /publicUpcomingMatches/{matchId} {
       allow read: if true;
-      allow write: if false; // Only backend can write
+      allow write: if false;
     }
     
     match /publicBlogPosts/{postId} {
       allow read: if true;
-      allow write: if false; // Only backend can write
+      allow write: if false;
     }
   }
 }
