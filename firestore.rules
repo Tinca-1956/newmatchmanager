@@ -1,100 +1,94 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
+    
     function isSiteAdmin() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Site Admin';
     }
 
     function isClubAdmin(clubId) {
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      return userDoc.data.role == 'Club Admin' && userDoc.data.primaryClubId == clubId;
-    }
-
-    function isOwner(userId) {
-      return request.auth.uid == userId;
+      let userProfile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return userProfile.role == 'Club Admin' && userProfile.primaryClubId == clubId;
     }
     
-    function isMemberOfClub(clubId) {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryClubId == clubId;
+    function isClubMember(clubId) {
+      let userProfile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return (userProfile.role == 'Club Admin' || userProfile.role == 'Member') && userProfile.primaryClubId == clubId;
+    }
+
+    function userProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
     match /users/{userId} {
-      allow read: if isOwner(userId) || isSiteAdmin() || isMemberOfClub(resource.data.primaryClubId);
-      allow update: if isOwner(userId) || isSiteAdmin() || isClubAdmin(resource.data.primaryClubId);
+      allow read, update: if request.auth.uid == userId || isSiteAdmin();
       allow create: if request.auth.uid != null;
       allow delete: if isSiteAdmin();
     }
 
     match /clubs/{clubId} {
       allow read: if request.auth.uid != null;
-      allow update: if isSiteAdmin() || isClubAdmin(clubId);
-      allow create, delete: if isSiteAdmin();
-    }
-    
-    match /series/{seriesId} {
-        allow read: if request.auth.uid != null;
-        allow create, update: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
-        allow delete: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
+      allow create, update: if isSiteAdmin();
+      allow delete: if isSiteAdmin();
     }
 
-    match /matches/{matchId} {
+    match /series/{seriesId} {
       allow read: if request.auth.uid != null;
-      allow create: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
-      allow update: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
+      allow create, update: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
       allow delete: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
     }
     
-    match /results/{resultId} {
+    match /matches/{matchId} {
         allow read: if request.auth.uid != null;
-        allow write: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
+        allow create: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
+        allow update: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId) || (request.auth.uid in resource.data.registeredAnglers);
+        allow delete: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
     }
-    
-    match /notifications/{notificationId} {
-      allow read: if request.auth.uid == get(/databases/$(database)/documents/notifications/$(notificationId)).data.userId;
-      allow write: if request.auth.uid != null; // Allow users to create/update their own notifications
+
+    match /results/{resultId} {
+      allow read: if request.auth.uid != null;
+      allow write: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
     }
-    
+
     match /publicMatches/{matchId} {
       allow read: if true;
-      allow write: if isSiteAdmin() || isClubAdmin(get(/databases/$(database)/documents/matches/$(matchId)).data.clubId);
+      allow write: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
     }
-    
+
     match /publicUpcomingMatches/{matchId} {
       allow read: if true;
-      allow write: if isSiteAdmin() || isClubAdmin(get(/databases/$(database)/documents/matches/$(matchId)).data.clubId);
+      allow write: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
     }
     
     match /Standard_Texts/{textId} {
-      allow read, write: if isSiteAdmin() || isMemberOfClub(resource.data.clubId);
+      allow read, write: if isSiteAdmin() || userProfile().primaryClubId == resource.data.clubId;
+    }
+
+    match /blogs/{blogId} {
+      allow read: if request.auth.uid != null;
+      allow write: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
+
+      match /comments/{commentId} {
+        allow read: if request.auth.uid != null;
+        allow create: if isSiteAdmin() || isClubMember(get(/databases/$(database)/documents/blogs/$(blogId)).data.clubId);
+      }
+    }
+    
+    match /notifications/{notificationId} {
+        allow read: if request.auth.uid == get(path).data.userId;
+        allow write: if isSiteAdmin() || isClubAdmin(get(/databases/$(database)/documents/blogs/$(request.resource.data.entityId)).data.clubId);
+    }
+    
+    match /tags/{tagId} {
+      allow read: if request.auth.uid != null;
+      allow write: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
     }
     
      match /helpDocuments/{docId} {
       allow read: if request.auth.uid != null;
       allow write: if isSiteAdmin();
     }
-    
-    match /blogs/{postId} {
-      allow read: if request.auth.uid != null;
-      allow create, update: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
-      allow delete: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
-    }
-    
-    match /blogs/{postId}/comments/{commentId} {
-      allow read: if request.auth.uid != null;
-      allow create: if request.auth.uid != null;
-    }
-    
-    match /publicBlogPosts/{postId} {
-        allow read: if true;
-        allow write: if isSiteAdmin() || isClubAdmin(get(/databases/$(database)/documents/blogs/$(postId)).data.clubId);
-    }
-
-    match /tags/{tagId} {
-      allow read: if request.auth.uid != null;
-      allow write: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
-    }
-
   }
 }
