@@ -36,12 +36,19 @@ export function NotificationBell() {
     const notificationsQuery = query(
       collection(firestore, 'notifications'),
       where('userId', '==', user.uid),
-      orderBy('createdAt', 'desc'),
       limit(20)
     );
 
     const unsubscribe = onSnapshot(notificationsQuery, (snapshot) => {
       const notifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
+      
+      // Sort on the client side
+      notifs.sort((a, b) => {
+          if (!a.createdAt) return 1;
+          if (!b.createdAt) return -1;
+          return b.createdAt.toMillis() - a.createdAt.toMillis();
+      });
+
       setNotifications(notifs);
       
       const unread = notifs.some(n => !n.isRead);
