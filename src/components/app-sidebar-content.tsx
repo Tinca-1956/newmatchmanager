@@ -28,6 +28,7 @@ import {
   CreditCard,
   NotebookText,
   Rss,
+  Tags,
 } from 'lucide-react';
 import { SheetClose } from './ui/sheet';
 import { useAuth } from '@/hooks/use-auth';
@@ -43,6 +44,7 @@ const navItems = [
   { href: '/main/members', icon: Users, label: 'Members', roles: ['Site Admin'] },
   { href: '/main/members-club-admin', icon: Users, label: 'Club Members', roles: ['Club Admin'] },
   { href: '/main/blog', icon: Rss, label: 'Blog', roles: ['Site Admin', 'Club Admin', 'Angler'] },
+  { href: '/main/tags', icon: Tags, label: 'Tags', roles: ['Site Admin', 'Club Admin'] },
   { href: '/main/series', icon: Trophy, label: 'Series', roles: ['Site Admin', 'Club Admin'] },
   { href: '/main/series-angler', icon: Trophy, label: 'Series', roles: ['Angler'] },
   { href: '/main/matches', icon: Swords, label: 'Matches', roles: ['Site Admin'] },

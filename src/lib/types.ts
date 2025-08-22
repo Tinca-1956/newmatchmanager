@@ -180,3 +180,9 @@ export interface Notification {
   isRead: boolean;
   readAt?: Timestamp;
 }
+
+export interface Tag {
+  id: string;
+  clubId: string;
+  name: string;
+}
