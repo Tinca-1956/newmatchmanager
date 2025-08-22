@@ -15,7 +15,7 @@ import { firestore, storage } from '@/lib/firebase-client';
 import { doc, getDoc, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { Blog } from '@/lib/types';
-import { ArrowLeft, Upload, FileText, Video, Trash2, TestTube, Eye } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Video, Trash2, TestTube, Eye, FlaskConical } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -27,6 +27,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import NextImage from 'next/image';
+import Link from 'next/link';
 
 interface MediaFile {
   url: string;
@@ -315,7 +316,7 @@ export default function EditBlogPostPage() {
             </div>
           </CardContent>
           <CardFooter className="flex justify-between items-center">
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
                 <Button variant="secondary" onClick={handleTruncateClick}>
                     <TestTube className="mr-2 h-4 w-4" />
                     Truncate
@@ -326,6 +327,12 @@ export default function EditBlogPostPage() {
                  <Button variant="secondary" onClick={handleViewSummary} disabled={isFetchingPublicPost}>
                     <Eye className="mr-2 h-4 w-4" />
                     {isFetchingPublicPost ? 'Loading...' : 'View Summary'}
+                </Button>
+                <Button asChild variant="destructive" size="sm">
+                  <Link href={`/public/test?postId=${postId}`} target="_blank">
+                    <FlaskConical className="mr-2 h-4 w-4" />
+                    Test Public Access
+                  </Link>
                 </Button>
             </div>
             <div className="flex gap-4">
@@ -395,4 +402,3 @@ export default function EditBlogPostPage() {
     </>
   );
 }
-
