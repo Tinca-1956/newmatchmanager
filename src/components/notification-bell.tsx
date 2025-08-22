@@ -60,7 +60,9 @@ export function NotificationBell() {
 
   const handleNotificationClick = (notification: Notification) => {
     // The logic to mark as read is handled on the target page itself.
-    router.push(notification.link);
+    if (notification && notification.link) {
+      router.push(notification.link);
+    }
   };
 
   return (
