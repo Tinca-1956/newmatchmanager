@@ -15,17 +15,9 @@ import { firestore, storage } from '@/lib/firebase-client';
 import { doc, getDoc, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { Blog, Club, PublicPostData } from '@/lib/types';
-import { ArrowLeft, Upload, FileText, Video, Trash2, TestTube, Eye, FlaskConical, Clipboard, Share2 } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Video, Trash2, Share2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,19 +28,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import NextImage from 'next/image';
-import Link from 'next/link';
 
 interface MediaFile {
   url: string;
   name: string;
   type: string;
-}
-
-interface TruncatePreviewData {
-    subject: string;
-    content: string;
-    imageUrl?: string;
 }
 
 // State to track saved data
@@ -83,15 +67,7 @@ export default function EditBlogPostPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const [isPublishing, setIsPublishing] = useState(false);
   const [isPublishingAndViewing, setIsPublishingAndViewing] = useState(false);
-
-  const [isTruncateModalOpen, setIsTruncateModalOpen] = useState(false);
-  const [truncatePreview, setTruncatePreview] = useState<TruncatePreviewData | null>(null);
-  
-  const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
-  const [publicPost, setPublicPost] = useState<PublicPostData | null>(null);
-  const [isFetchingPublicPost, setIsFetchingPublicPost] = useState(false);
   
   const [isConfirmExitDialogOpen, setIsConfirmExitDialogOpen] = useState(false);
 
@@ -170,7 +146,6 @@ export default function EditBlogPostPage() {
       setSavedState({ subject, content, mediaFiles });
 
       toast({ title: 'Success!', description: 'Blog post updated successfully.' });
-      // Removed router.push to keep user on the page
     } catch (error) {
       console.error('Error updating blog post:', error);
       toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not update the blog post.' });
@@ -353,18 +328,16 @@ export default function EditBlogPostPage() {
                 {isUploading && <Progress value={uploadProgress} className="w-full" />}
             </div>
           </CardContent>
-          <CardFooter className="flex justify-between items-center">
-            <div className="flex flex-wrap gap-2">
-                <Button onClick={handlePublishAndOpen} disabled={isPublishingAndViewing}>
-                    <Share2 className="mr-2 h-4 w-4" />
-                    {isPublishingAndViewing ? 'Publishing...' : 'Publish & View'}
-                </Button>
-            </div>
+          <CardFooter className="flex justify-end items-center">
             <div className="flex gap-4">
               <Button variant="outline" onClick={handleAttemptExit}>Cancel</Button>
               <Button onClick={handleSave} disabled={isSaving || !hasUnsavedChanges()}>
                 {isSaving ? 'Saving...' : 'Save Post'}
               </Button>
+               <Button onClick={handlePublishAndOpen} disabled={isPublishingAndViewing || hasUnsavedChanges()}>
+                    <Share2 className="mr-2 h-4 w-4" />
+                    {isPublishingAndViewing ? 'Publishing...' : 'Publish & View'}
+                </Button>
             </div>
           </CardFooter>
         </Card>
