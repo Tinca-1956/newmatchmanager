@@ -15,7 +15,7 @@ import { firestore, storage } from '@/lib/firebase-client';
 import { doc, getDoc, updateDoc, serverTimestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { Blog } from '@/lib/types';
-import { ArrowLeft, Mail, Upload, FileText, Video, Trash2 } from 'lucide-react';
+import { ArrowLeft, Mail, Upload, FileText, Video, Trash2, Copy } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 
@@ -141,21 +141,29 @@ export default function EditBlogPostPage() {
     };
     
     const handleRemoveMedia = async (fileToRemove: MediaFile) => {
-      // Optimistically update the UI
       setMediaFiles(prev => prev.filter(file => file.url !== fileToRemove.url));
 
       try {
-        // Delete from Firebase Storage
         const fileRef = ref(storage, fileToRemove.url);
         await deleteObject(fileRef);
-
-        // Remove from Firestore document on save, but for immediate UI consistency we can do this.
-        // The final source of truth will be the `mediaFiles` state when save is clicked.
-        toast({ title: 'Ready to Remove', description: `${fileToRemove.name} will be removed when you save.` });
-      } catch (error) {
-        console.error("Error deleting file from storage:", error);
-        toast({ variant: 'destructive', title: 'Delete Failed', description: 'Could not delete file from storage. It will be removed from the post on save.' });
+        toast({ title: 'Ready to Remove', description: `${fileToRemove.name} will be removed from storage when you save.` });
+      } catch (error: any) {
+        if (error.code === 'storage/object-not-found') {
+            console.log("File not in storage, removing from list only.");
+        } else {
+            console.error("Error deleting file from storage:", error);
+            toast({ variant: 'destructive', title: 'Delete Failed', description: 'Could not delete file from storage. It will be removed from the post on save.' });
+        }
       }
+    };
+    
+    const handleCopyUrl = () => {
+        const publicUrl = `${window.location.origin}/public/blog/${postId}`;
+        navigator.clipboard.writeText(publicUrl);
+        toast({
+            title: "URL Copied!",
+            description: "The public link to this post has been copied to your clipboard.",
+        });
     };
 
 
@@ -212,9 +220,15 @@ export default function EditBlogPostPage() {
               {isUploading && <Progress value={uploadProgress} className="w-full" />}
           </div>
         </CardContent>
-        <CardFooter className="flex justify-end gap-4">
-          <Button variant="outline" onClick={() => router.push(`/main/blog/${postId}`)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Post'}</Button>
+        <CardFooter className="flex justify-between">
+          <Button variant="secondary" onClick={handleCopyUrl}>
+            <Copy className="mr-2 h-4 w-4" />
+            Copy Public URL
+          </Button>
+          <div className="flex gap-4">
+            <Button variant="outline" onClick={() => router.push(`/main/blog/${postId}`)}>Cancel</Button>
+            <Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Post'}</Button>
+          </div>
         </CardFooter>
       </Card>
     </div>
