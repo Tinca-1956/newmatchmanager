@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -26,9 +26,18 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import NextImage from 'next/image';
 import Link from 'next/link';
-
 
 interface MediaFile {
   url: string;
@@ -40,6 +49,13 @@ interface TruncatePreviewData {
     subject: string;
     content: string;
     imageUrl?: string;
+}
+
+// State to track saved data
+interface SavedState {
+    subject: string;
+    content: string;
+    mediaFiles: MediaFile[];
 }
 
 export default function EditBlogPostPage() {
@@ -54,9 +70,14 @@ export default function EditBlogPostPage() {
 
   const [post, setPost] = useState<Blog | null>(null);
   const [clubName, setClubName] = useState('');
+  
+  // Working state for the form
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
+  
+  // State to compare against for unsaved changes
+  const [savedState, setSavedState] = useState<SavedState | null>(null);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -72,6 +93,18 @@ export default function EditBlogPostPage() {
   const [publicPost, setPublicPost] = useState<PublicPostData | null>(null);
   const [isFetchingPublicPost, setIsFetchingPublicPost] = useState(false);
   
+  const [isConfirmExitDialogOpen, setIsConfirmExitDialogOpen] = useState(false);
+
+  // Helper to check for unsaved changes
+  const hasUnsavedChanges = useCallback(() => {
+    if (!savedState) return false;
+    const subjectChanged = subject !== savedState.subject;
+    const contentChanged = content !== savedState.content;
+    const mediaChanged = JSON.stringify(mediaFiles) !== JSON.stringify(savedState.mediaFiles);
+    return subjectChanged || contentChanged || mediaChanged;
+  }, [subject, content, mediaFiles, savedState]);
+
+
   useEffect(() => {
     if (!postId || !firestore) return;
     const fetchPost = async () => {
@@ -80,10 +113,17 @@ export default function EditBlogPostPage() {
             const docSnap = await getDoc(postDocRef);
             if (docSnap.exists()) {
                 const postData = docSnap.data() as Blog;
+                const currentData = {
+                  subject: postData.subject,
+                  content: postData.content,
+                  mediaFiles: postData.mediaUrls || [],
+                };
+                
                 setPost(postData);
-                setSubject(postData.subject);
-                setContent(postData.content);
-                setMediaFiles(postData.mediaUrls || []);
+                setSubject(currentData.subject);
+                setContent(currentData.content);
+                setMediaFiles(currentData.mediaFiles);
+                setSavedState(currentData); // Initialize saved state
                 
                 // Fetch club name
                 if (postData.clubId) {
@@ -116,18 +156,21 @@ export default function EditBlogPostPage() {
     }
     
     setIsSaving(true);
-
     try {
       const postDocRef = doc(firestore, 'blogs', postId);
-      await updateDoc(postDocRef, {
+      const updatedData = {
         subject,
         content,
         mediaUrls: mediaFiles,
         lastUpdated: serverTimestamp(),
-      });
+      };
+      await updateDoc(postDocRef, updatedData);
       
+      // Update the saved state to reflect the new reality
+      setSavedState({ subject, content, mediaFiles });
+
       toast({ title: 'Success!', description: 'Blog post updated successfully.' });
-      router.push(`/main/blog/${postId}`);
+      // Removed router.push to keep user on the page
     } catch (error) {
       console.error('Error updating blog post:', error);
       toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not update the blog post.' });
@@ -136,41 +179,24 @@ export default function EditBlogPostPage() {
     }
   };
   
-  const handleMakePublic = async () => {
-    if (!canEdit || !post || !firestore) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Cannot publish this post.' });
-      return;
+  const handleAttemptExit = () => {
+    if (hasUnsavedChanges()) {
+      setIsConfirmExitDialogOpen(true);
+    } else {
+      router.back();
     }
-    setIsPublishing(true);
+  };
 
-    try {
-      // Logic to create a summarized, public version of the post
-      const plainText = content.replace(/<[^>]*>?/gm, '');
-      const snippet = plainText.substring(0, 150) + (plainText.length > 150 ? '...' : '');
-      const coverImageUrl = mediaFiles.find(file => file.type.startsWith('image/'))?.url || '';
-
-      const publicPostData: PublicPostData = {
-        clubName: clubName,
-        subject: subject,
-        snippet: snippet,
-        coverImageUrl: coverImageUrl,
-        authorName: post.authorName,
-        publishedAt: serverTimestamp(),
-      };
-      
-      const publicDocRef = doc(firestore, 'publicBlogPosts', postId);
-      await setDoc(publicDocRef, publicPostData, { merge: true });
-
-      toast({ title: 'Success!', description: 'The blog post teaser has been published.' });
-    } catch (error) {
-      console.error("Error publishing post:", error);
-      toast({ variant: 'destructive', title: 'Publish Failed', description: 'Could not publish the post teaser.' });
-    } finally {
-      setIsPublishing(false);
-    }
+  const handleConfirmExit = () => {
+    setIsConfirmExitDialogOpen(false);
+    router.back();
   };
   
   const handlePublishAndOpen = async () => {
+    if (hasUnsavedChanges()) {
+        toast({ variant: 'destructive', title: 'Unsaved Changes', description: 'Please save your changes before publishing.' });
+        return;
+    }
     if (!canEdit || !post || !firestore || !postId) {
       toast({ variant: 'destructive', title: 'Error', description: 'Cannot publish this post.' });
       return;
@@ -178,14 +204,10 @@ export default function EditBlogPostPage() {
     setIsPublishingAndViewing(true);
     
     try {
-      // 1. Truncate content
       const plainText = content.replace(/<[^>]*>?/gm, '');
       const snippet = plainText.substring(0, 150) + (plainText.length > 150 ? '...' : '');
-      
-      // 2. Find cover image
       const coverImageUrl = mediaFiles.find(file => file.type.startsWith('image/'))?.url || '';
 
-      // 3. Save to Firestore
       const publicPostData: PublicPostData = {
         clubName: clubName,
         subject: subject,
@@ -198,14 +220,10 @@ export default function EditBlogPostPage() {
       await setDoc(publicDocRef, publicPostData, { merge: true });
       toast({ title: 'Published!', description: 'Your post is now public.' });
       
-      // 4. Construct URL
       const publicUrl = `${window.location.origin}/public/blog/${postId}`;
-
-      // 5. Copy URL to clipboard
       await navigator.clipboard.writeText(publicUrl);
       toast({ title: 'URL Copied!', description: 'Link to public post copied.' });
       
-      // 6. Open in new tab
       window.open(publicUrl, '_blank');
 
     } catch (error) {
@@ -218,10 +236,8 @@ export default function EditBlogPostPage() {
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files) return;
-
     const files = Array.from(event.target.files);
     if (files.length === 0) return;
-
     setIsUploading(true);
     setUploadProgress(0);
 
@@ -229,7 +245,6 @@ export default function EditBlogPostPage() {
         const file = files[i];
         const storageRef = ref(storage, `blog_media/${post?.clubId}/${postId}/${Date.now()}-${file.name}`);
         const uploadTask = uploadBytesResumable(storageRef, file);
-
         try {
             const downloadURL = await new Promise<string>((resolve, reject) => {
                 uploadTask.on('state_changed',
@@ -241,16 +256,13 @@ export default function EditBlogPostPage() {
                     async () => resolve(await getDownloadURL(uploadTask.snapshot.ref))
                 );
             });
-            
             setMediaFiles(prev => [...prev, { url: downloadURL, name: file.name, type: file.type }]);
-
         } catch (error) {
             console.error(`Error uploading ${file.name}:`, error)
             toast({ variant: 'destructive', title: 'Upload Failed', description: `Could not upload ${file.name}.`});
             break;
         }
     }
-    
     setIsUploading(false);
     toast({ title: 'Upload Complete', description: 'File(s) added. Remember to save the post.'});
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -258,7 +270,6 @@ export default function EditBlogPostPage() {
     
   const handleRemoveMedia = async (fileToRemove: MediaFile) => {
     setMediaFiles(prev => prev.filter(file => file.url !== fileToRemove.url));
-
     try {
       const fileRef = ref(storage, fileToRemove.url);
       await deleteObject(fileRef);
@@ -309,8 +320,13 @@ export default function EditBlogPostPage() {
     }
   };
 
-  const handlePublishAndCopy = () => {
+  const handlePublishAndCopy = async () => {
+     if (hasUnsavedChanges()) {
+        toast({ variant: 'destructive', title: 'Unsaved Changes', description: 'Please save your changes before publishing.' });
+        return;
+    }
     if (!postId) return;
+    
     // Construct the full URL for the public blog post page
     const publicUrl = `${window.location.origin}/public/blog/${postId}`;
 
@@ -342,9 +358,24 @@ export default function EditBlogPostPage() {
 
   return (
     <>
+      <AlertDialog open={isConfirmExitDialogOpen} onOpenChange={setIsConfirmExitDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes. Are you sure you want to discard them and leave the page?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmExit}>Discard Changes</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" onClick={() => router.back()}><ArrowLeft className="h-4 w-4" /></Button>
+          <Button variant="outline" size="icon" onClick={handleAttemptExit}><ArrowLeft className="h-4 w-4" /></Button>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Edit Blog Post</h1>
             <p className="text-muted-foreground">Make changes to your post.</p>
@@ -400,8 +431,8 @@ export default function EditBlogPostPage() {
                     <TestTube className="mr-2 h-4 w-4" />
                     Truncate
                 </Button>
-                 <Button onClick={handleMakePublic} disabled={isPublishing}>
-                    {isPublishing ? 'Publishing...' : 'Make Public'}
+                 <Button onClick={() => {}} disabled={true}>
+                    Make Public (soon)
                 </Button>
                  <Button variant="secondary" onClick={handleViewSummary} disabled={isFetchingPublicPost}>
                     <Eye className="mr-2 h-4 w-4" />
@@ -415,8 +446,10 @@ export default function EditBlogPostPage() {
                 </Button>
             </div>
             <div className="flex gap-4">
-              <Button variant="outline" onClick={() => router.push(`/main/blog/${postId}`)}>Cancel</Button>
-              <Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Post'}</Button>
+              <Button variant="outline" onClick={handleAttemptExit}>Cancel</Button>
+              <Button onClick={handleSave} disabled={isSaving || !hasUnsavedChanges()}>
+                {isSaving ? 'Saving...' : 'Save Post'}
+              </Button>
             </div>
           </CardFooter>
         </Card>
