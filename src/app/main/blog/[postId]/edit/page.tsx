@@ -12,12 +12,15 @@ import { useAuth } from '@/hooks/use-auth';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useToast } from '@/hooks/use-toast';
 import { firestore, storage } from '@/lib/firebase-client';
-import { doc, getDoc, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp, setDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { Blog, Club, PublicPostData } from '@/lib/types';
-import { ArrowLeft, Upload, FileText, Video, Trash2, Share2 } from 'lucide-react';
+import type { Blog, Club, PublicPostData, Tag } from '@/lib/types';
+import { ArrowLeft, Upload, FileText, Video, Trash2, Share2, Tags } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +43,7 @@ interface SavedState {
     subject: string;
     content: string;
     mediaFiles: MediaFile[];
+    tags: string[];
 }
 
 export default function EditBlogPostPage() {
@@ -59,6 +63,7 @@ export default function EditBlogPostPage() {
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
   
   // State to compare against for unsaved changes
   const [savedState, setSavedState] = useState<SavedState | null>(null);
@@ -70,6 +75,10 @@ export default function EditBlogPostPage() {
   const [isPublishingAndViewing, setIsPublishingAndViewing] = useState(false);
   
   const [isConfirmExitDialogOpen, setIsConfirmExitDialogOpen] = useState(false);
+  const [isManageTagsDialogOpen, setIsManageTagsDialogOpen] = useState(false);
+  
+  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
+  const [isLoadingTags, setIsLoadingTags] = useState(false);
 
   // Helper to check for unsaved changes
   const hasUnsavedChanges = useCallback(() => {
@@ -77,8 +86,9 @@ export default function EditBlogPostPage() {
     const subjectChanged = subject !== savedState.subject;
     const contentChanged = content !== savedState.content;
     const mediaChanged = JSON.stringify(mediaFiles) !== JSON.stringify(savedState.mediaFiles);
-    return subjectChanged || contentChanged || mediaChanged;
-  }, [subject, content, mediaFiles, savedState]);
+    const tagsChanged = JSON.stringify(tags.sort()) !== JSON.stringify(savedState.tags.sort());
+    return subjectChanged || contentChanged || mediaChanged || tagsChanged;
+  }, [subject, content, mediaFiles, tags, savedState]);
 
 
   useEffect(() => {
@@ -93,12 +103,14 @@ export default function EditBlogPostPage() {
                   subject: postData.subject,
                   content: postData.content,
                   mediaFiles: postData.mediaUrls || [],
+                  tags: postData.tags || [],
                 };
                 
                 setPost(postData);
                 setSubject(currentData.subject);
                 setContent(currentData.content);
                 setMediaFiles(currentData.mediaFiles);
+                setTags(currentData.tags);
                 setSavedState(currentData); // Initialize saved state
                 
                 // Fetch club name
@@ -122,6 +134,23 @@ export default function EditBlogPostPage() {
     };
     fetchPost();
   }, [postId, router, toast]);
+  
+  useEffect(() => {
+    if (isManageTagsDialogOpen && post?.clubId && firestore) {
+        setIsLoadingTags(true);
+        const tagsQuery = query(collection(firestore, 'tags'), where('clubId', '==', post.clubId));
+        const unsubscribe = onSnapshot(tagsQuery, (snapshot) => {
+            const tagsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Tag));
+            setAvailableTags(tagsData);
+            setIsLoadingTags(false);
+        }, (error) => {
+            console.error("Error fetching tags:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load tags.' });
+            setIsLoadingTags(false);
+        });
+        return () => unsubscribe();
+    }
+  }, [isManageTagsDialogOpen, post, toast]);
 
   const canEdit = post && userProfile && (userProfile.id === post.authorId || isSiteAdmin || (isClubAdmin && userProfile.primaryClubId === post.clubId));
 
@@ -138,12 +167,13 @@ export default function EditBlogPostPage() {
         subject,
         content,
         mediaUrls: mediaFiles,
+        tags,
         lastUpdated: serverTimestamp(),
       };
       await updateDoc(postDocRef, updatedData);
       
       // Update the saved state to reflect the new reality
-      setSavedState({ subject, content, mediaFiles });
+      setSavedState({ subject, content, mediaFiles, tags });
 
       toast({ title: 'Success!', description: 'Blog post updated successfully.' });
     } catch (error) {
@@ -258,6 +288,14 @@ export default function EditBlogPostPage() {
       }
     }
   };
+  
+  const handleTagToggle = (tagName: string) => {
+    setTags(prev => 
+        prev.includes(tagName) 
+        ? prev.filter(t => t !== tagName) 
+        : [...prev, tagName]
+    );
+  };
     
   if (isLoading) {
     return <div className="space-y-4"><Skeleton className="h-12 w-1/4" /><Skeleton className="h-80 w-full" /></div>;
@@ -284,6 +322,36 @@ export default function EditBlogPostPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <Dialog open={isManageTagsDialogOpen} onOpenChange={setIsManageTagsDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Manage Tags</DialogTitle>
+                <DialogDescription>Select the tags for this blog post.</DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-2 max-h-64 overflow-y-auto">
+                {isLoadingTags ? (
+                    <Skeleton className="h-24 w-full" />
+                ) : availableTags.length > 0 ? (
+                    availableTags.map(tag => (
+                        <div key={tag.id} className="flex items-center space-x-2">
+                            <Checkbox
+                                id={`tag-${tag.id}`}
+                                checked={tags.includes(tag.name)}
+                                onCheckedChange={() => handleTagToggle(tag.name)}
+                            />
+                            <Label htmlFor={`tag-${tag.id}`} className="font-normal">{tag.name}</Label>
+                        </div>
+                    ))
+                ) : (
+                    <p className="text-sm text-muted-foreground">No tags have been created for this club.</p>
+                )}
+            </div>
+            <DialogFooter>
+                <Button onClick={() => setIsManageTagsDialogOpen(false)}>Done</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <Button variant="outline" size="icon" onClick={handleAttemptExit}><ArrowLeft className="h-4 w-4" /></Button>
@@ -306,6 +374,19 @@ export default function EditBlogPostPage() {
               <Label htmlFor="content">Content</Label>
               <RichTextEditor id="content" value={content} onChange={setContent} />
             </div>
+            
+            <div className="space-y-2">
+                <Label>Tags</Label>
+                <div className="flex flex-wrap items-center gap-2 border p-3 rounded-md min-h-[40px]">
+                    {tags.length > 0 ? tags.map(tag => (
+                        <Badge key={tag} variant="secondary">{tag}</Badge>
+                    )) : <p className="text-sm text-muted-foreground">No tags selected.</p>}
+                </div>
+                 <Button variant="outline" size="sm" onClick={() => setIsManageTagsDialogOpen(true)}>
+                    <Tags className="mr-2 h-4 w-4" /> Manage Tags
+                </Button>
+            </div>
+
             <div className="space-y-4">
                 <Label>Media</Label>
                 <div className="grid gap-2">

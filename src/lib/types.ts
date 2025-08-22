@@ -146,6 +146,7 @@ export interface Blog {
   subject: string;
   content: string;
   mediaUrls?: { url: string; name: string; type: string }[];
+  tags?: string[];
   createdAt: Timestamp;
   lastUpdated: Timestamp;
 }
