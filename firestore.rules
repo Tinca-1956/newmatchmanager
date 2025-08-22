@@ -3,146 +3,123 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper functions
-    function isAuth() {
+    
+    // Helper Functions
+    function isSignedIn() {
       return request.auth != null;
     }
-    
-    function userId() {
-      return request.auth.uid;
-    }
-    
-    function getUserData(uid) {
-      return get(/databases/$(database)/documents/users/$(uid)).data;
-    }
-    
-    function isSiteAdmin() {
-      return isAuth() && getUserData(userId()).role == 'Site Admin';
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
     
     function isClubAdmin(clubId) {
-      let user = getUserData(userId());
-      return isAuth() && user.role == 'Club Admin' && user.primaryClubId == clubId;
+      let user = getUserData();
+      return isSignedIn() && (user.role == 'Club Admin' && user.primaryClubId == clubId);
     }
     
-    function isClubMember(clubId) {
-       let user = getUserData(userId());
-       return isAuth() && user.primaryClubId == clubId && user.memberStatus == 'Member';
-    }
-    
-    function isAuthor(docId) {
-       return isAuth() && resource.data.authorId == userId();
-    }
-    
-    function isCommentAuthor(docId) {
-      return isAuth() && get(/databases/$(database)/documents/blogs/{postId}/comments/$(docId)).data.authorId == userId();
-    }
-    
-    // Allow anyone to read public match and blog data
-    match /publicMatches/{matchId} {
-      allow read: if true;
-      allow write: if false; // Should be written from backend/server action
+    function isSiteAdmin() {
+      let user = getUserData();
+      return isSignedIn() && user.role == 'Site Admin';
     }
 
-    match /publicUpcomingMatches/{matchId} {
-      allow read: if true;
-      allow write: if isSiteAdmin();
+    function isMember(clubId) {
+      let user = getUserData();
+      return isSignedIn() && (isSiteAdmin() || (user.primaryClubId == clubId && (user.role == 'Club Admin' || user.role == 'Angler')));
     }
+
+    // Rules for collections
     
-    match /publicBlogPosts/{postId} {
-      allow read: if true;
-      allow write: if false; // Should be written from backend/server action
+    match /users/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && request.auth.uid == userId;
+      // Admins can manage users in their club
+      allow write: if isSiteAdmin() || isClubAdmin(resource.data.primaryClubId);
     }
 
-    // Users can manage their own profile. Site admins can manage anyone.
-    match /users/{uid} {
-      allow read: if isAuth();
-      allow create: if isAuth(); // Allow creation during signup process
-      allow update: if userId() == uid || isSiteAdmin();
-      allow delete: if isSiteAdmin();
-    }
-
-    // Clubs can be read by any authenticated user, but only managed by Site Admins.
-    // Club Admins can update their own club.
     match /clubs/{clubId} {
-      allow read: if isAuth();
+      allow read: if isSignedIn();
       allow create, delete: if isSiteAdmin();
       allow update: if isSiteAdmin() || isClubAdmin(clubId);
     }
     
-    // Series can be read by any authenticated user, but only managed by admins of that club.
     match /series/{seriesId} {
-      allow read: if isAuth();
-      allow create, update, delete: if isAuth() && (isSiteAdmin() || isClubAdmin(resource.data.clubId));
-    }
-    
-    // Tags can only be managed by admins of that club.
-    match /tags/{tagId} {
-        allow read, write: if isAuth() && (isSiteAdmin() || isClubAdmin(resource.data.clubId));
+      allow read: if isMember(resource.data.clubId);
+      allow write: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
     }
 
-    // Matches can be read by authenticated users, but only managed by admins of that club.
-    // Allow any authenticated user to register (update registeredAnglers array).
     match /matches/{matchId} {
-      allow read: if isAuth();
-      allow create: if isAuth() && (isSiteAdmin() || isClubAdmin(request.resource.data.clubId));
-      allow update: if isAuth() && (isSiteAdmin() || isClubAdmin(resource.data.clubId));
-      allow delete: if isAuth() && (isSiteAdmin() || isClubAdmin(resource.data.clubId));
+      allow read: if isMember(resource.data.clubId);
+      // Allow any signed-in user to register (arrayUnion) if they are a member.
+      // Other writes are restricted to admins.
+      allow update: if isSiteAdmin() || isClubAdmin(resource.data.clubId) || 
+                     (isMember(resource.data.clubId) && request.resource.data.keys().hasOnly(['registeredAnglers', 'registeredCount']));
+      allow create, delete: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
     }
-    
-    // Results can be read by authenticated users, but only written by admins of that club.
+
     match /results/{resultId} {
-      allow read: if isAuth();
-      allow write: if isAuth() && (isSiteAdmin() || isClubAdmin(resource.data.clubId));
-    }
-
-    // Blogs can be read by any authenticated user.
-    // Write access is limited to club admins or site admins.
-    match /blogs/{postId} {
-        allow read: if isAuth();
-        allow write: if isAuth() && (isSiteAdmin() || isClubAdmin(resource.data.clubId));
-
-        // Comments can be read by any authenticated user.
-        // Creation is limited to club members.
-        // Deletion is limited to admins or the author.
-        match /comments/{commentId} {
-            allow read: if isAuth();
-            allow create: if isAuth() && isClubMember(get(/databases/$(database)/documents/blogs/$(postId)).data.clubId);
-            allow delete: if isAuth() && (
-                isSiteAdmin() || 
-                isClubAdmin(get(/databases/$(database)/documents/blogs/$(postId)).data.clubId) ||
-                isCommentAuthor(commentId)
-            );
-        }
+      allow read: if isMember(resource.data.clubId);
+      allow write: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
     }
     
-    match /matchReviews/{reviewId} {
-      allow read: if isAuth();
-      allow write: if isAuth() && (isSiteAdmin() || isClubAdmin(get(/databases/$(database)/documents/matches/$(reviewId)).data.clubId));
-      
+    match /Standard_Texts/{textId} {
+      allow read: if isMember(resource.data.clubId);
+      allow write: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
+    }
+
+    match /tags/{tagId} {
+      allow read, write: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId) || isClubAdmin(resource.data.clubId);
+    }
+    
+    // Blog and Comments
+    match /blogs/{blogId} {
+      allow read: if isMember(resource.data.clubId);
+      allow write: if isSiteAdmin() || isClubAdmin(resource.data.clubId);
+
       match /comments/{commentId} {
-        allow read: if isAuth();
-        allow create: if isAuth(); // Allow any authenticated user to comment on a review
-        allow delete: if isAuth() && (isSiteAdmin() || isClubAdmin(get(/databases/$(database)/documents/matches/$(reviewId)).data.clubId) || request.auth.uid == resource.data.authorId);
+        allow read: if isMember(get(/databases/$(database)/documents/blogs/$(blogId)).data.clubId);
+        allow create: if isMember(get(/databases/$(database)/documents/blogs/$(blogId)).data.clubId);
+        allow delete: if isSiteAdmin() || 
+                       isClubAdmin(get(/databases/$(database)/documents/blogs/$(blogId)).data.clubId) ||
+                       (isSignedIn() && request.auth.uid == resource.data.authorId);
       }
     }
 
-    // Notifications are private to the user.
+    // Match Reviews and Comments
+    match /matchReviews/{matchId} {
+      allow read: if isMember(get(/databases/$(database)/documents/matches/$(matchId)).data.clubId);
+      allow write: if isSiteAdmin() || isClubAdmin(get(/databases/$(database)/documents/matches/$(matchId)).data.clubId);
+      
+      match /comments/{commentId} {
+         allow read: if isMember(get(/databases/$(database)/documents/matches/$(matchId)).data.clubId);
+         allow create: if isMember(get(/databases/$(database)/documents/matches/$(matchId)).data.clubId);
+         allow delete: if isSiteAdmin() || 
+                        isClubAdmin(get(/databases/$(database)/documents/matches/$(matchId)).data.clubId) ||
+                        (isSignedIn() && request.auth.uid == resource.data.authorId);
+      }
+    }
+    
+    // Notifications
     match /notifications/{notificationId} {
-        allow read, write: if isAuth() && resource.data.userId == userId();
+        allow read, write: if isSignedIn() && request.auth.uid == resource.data.userId;
     }
     
-     // Standard Texts can be read by any authenticated user, but only managed by admins of that club.
-    match /Standard_Texts/{textId} {
-      allow read: if isAuth();
-      allow write: if isAuth() && (isSiteAdmin() || isClubAdmin(resource.data.clubId));
+    // Public collections
+    match /publicMatches/{matchId} {
+      allow read: if true;
+      // Only backend processes should write here, secured by admin role check for safety
+      allow write: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
     }
-    
-     // Help Documents can be read by any authenticated user, but only managed by site admin.
-    match /helpDocuments/{docId} {
-      allow read: if isAuth();
-      allow write: if isSiteAdmin();
+
+    match /publicUpcomingMatches/{matchId} {
+      allow read: if true;
+      allow write: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
+    }
+
+    match /publicBlogPosts/{postId} {
+      allow read: if true;
+      allow write: if isSiteAdmin() || isClubAdmin(request.resource.data.clubId);
     }
   }
 }
