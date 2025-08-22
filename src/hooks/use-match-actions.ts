@@ -72,10 +72,6 @@ export const useMatchActions = () => {
      router.push(`/main/matches/${matchId}/weigh-in`);
   };
   
-  const handleReportAndReview = (matchId: string) => {
-    router.push(`/main/matches/${matchId}/review`);
-  };
-
   const handleDeleteMatch = async (matchId: string) => {
     if (!firestore) {
       toast({ variant: 'destructive', title: 'Error', description: 'Database connection not available.' });
@@ -291,7 +287,6 @@ export const useMatchActions = () => {
     handlePublish,
     handleViewDescription,
     handleDeleteMatch,
-    handleReportAndReview,
     closeResultsModal,
     closeAnglerListModal,
     closeDisplayAnglerListModal,

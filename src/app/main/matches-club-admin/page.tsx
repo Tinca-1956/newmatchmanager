@@ -156,7 +156,6 @@ function MatchesClubAdminPageContent() {
     handlePublish,
     handleViewDescription,
     handleDeleteMatch,
-    handleReportAndReview,
   } = useMatchActions();
 
   // Effect to set the initial club for fetching matches
@@ -308,14 +307,6 @@ function MatchesClubAdminPageContent() {
                   <div className="flex items-center gap-1">
                       {canEdit && (
                         <>
-                           <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" onClick={() => handleReportAndReview(match.id)}>
-                                    <MessageSquare className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent><p>Report & Review</p></TooltipContent>
-                            </Tooltip>
                            <Tooltip>
                               <TooltipTrigger asChild>
                                   <Button variant="ghost" size="icon" onClick={() => handleDrawPegs(match)}>
@@ -493,10 +484,6 @@ function MatchesClubAdminPageContent() {
                         <DropdownMenuContent align="end">
                             {canEdit && (
                                 <>
-                                    <DropdownMenuItem onClick={() => handleReportAndReview(match.id)}>
-                                        <MessageSquare className="mr-2 h-4 w-4" />
-                                        <span>Report & Review</span>
-                                    </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => handleDrawPegs(match)}>
                                         <DrawIcon className="mr-2 h-4 w-4" />
                                         <span>Draw Pegs</span>
