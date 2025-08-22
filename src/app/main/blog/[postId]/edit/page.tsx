@@ -15,7 +15,7 @@ import { firestore, storage } from '@/lib/firebase-client';
 import { doc, getDoc, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { Blog, PublicPostData } from '@/lib/types';
-import { ArrowLeft, Upload, FileText, Video, Trash2, TestTube, Eye, FlaskConical, Clipboard } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Video, Trash2, TestTube, Eye, FlaskConical, Clipboard, Share2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -62,6 +62,7 @@ export default function EditBlogPostPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isPublishingAndViewing, setIsPublishingAndViewing] = useState(false);
 
   const [isTruncateModalOpen, setIsTruncateModalOpen] = useState(false);
   const [truncatePreview, setTruncatePreview] = useState<TruncatePreviewData | null>(null);
@@ -155,6 +156,51 @@ export default function EditBlogPostPage() {
       toast({ variant: 'destructive', title: 'Publish Failed', description: 'Could not publish the post teaser.' });
     } finally {
       setIsPublishing(false);
+    }
+  };
+  
+  const handlePublishAndOpen = async () => {
+    if (!canEdit || !post || !firestore || !postId) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Cannot publish this post.' });
+      return;
+    }
+    setIsPublishingAndViewing(true);
+    
+    try {
+      // 1. Truncate content
+      const plainText = content.replace(/<[^>]*>?/gm, '');
+      const snippet = plainText.substring(0, 150) + (plainText.length > 150 ? '...' : '');
+      
+      // 2. Find cover image
+      const coverImageUrl = mediaFiles.find(file => file.type.startsWith('image/'))?.url || '';
+
+      // 3. Save to Firestore
+      const publicPostData: PublicPostData = {
+        subject: subject,
+        snippet: snippet,
+        coverImageUrl: coverImageUrl,
+        authorName: post.authorName,
+        publishedAt: serverTimestamp(),
+      };
+      const publicDocRef = doc(firestore, 'publicBlogPosts', postId);
+      await setDoc(publicDocRef, publicPostData, { merge: true });
+      toast({ title: 'Published!', description: 'Your post is now public.' });
+      
+      // 4. Construct URL
+      const publicUrl = `${window.location.origin}/public/blog/${postId}`;
+
+      // 5. Copy URL to clipboard
+      await navigator.clipboard.writeText(publicUrl);
+      toast({ title: 'URL Copied!', description: 'Link to public post copied.' });
+      
+      // 6. Open in new tab
+      window.open(publicUrl, '_blank');
+
+    } catch (error) {
+       console.error("Error in publish & view process:", error);
+       toast({ variant: 'destructive', title: 'Process Failed', description: 'An error occurred during the process.' });
+    } finally {
+        setIsPublishingAndViewing(false);
     }
   };
 
@@ -330,6 +376,10 @@ export default function EditBlogPostPage() {
           </CardContent>
           <CardFooter className="flex justify-between items-center">
             <div className="flex flex-wrap gap-2">
+                <Button onClick={handlePublishAndOpen} disabled={isPublishingAndViewing}>
+                    <Share2 className="mr-2 h-4 w-4" />
+                    {isPublishingAndViewing ? 'Publishing...' : 'Publish & View'}
+                </Button>
                 <Button onClick={handlePublishAndCopy}>
                     <Clipboard className="mr-2 h-4 w-4" />
                     Publish to public page
