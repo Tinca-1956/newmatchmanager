@@ -15,14 +15,29 @@ import { firestore, storage } from '@/lib/firebase-client';
 import { doc, getDoc, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { Blog, Club, PublicBlogPost } from '@/lib/types';
-import { ArrowLeft, Upload, FileText, Video, Trash2, Globe } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Video, Trash2, Globe, TestTube } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import NextImage from 'next/image';
 
 interface MediaFile {
   url: string;
   name: string;
   type: string;
+}
+
+interface TruncatePreviewData {
+    subject: string;
+    content: string;
+    imageUrl?: string;
 }
 
 export default function EditBlogPostPage() {
@@ -44,7 +59,9 @@ export default function EditBlogPostPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const [isPublishing, setIsPublishing] = useState(false);
+
+  const [isTruncateModalOpen, setIsTruncateModalOpen] = useState(false);
+  const [truncatePreview, setTruncatePreview] = useState<TruncatePreviewData | null>(null);
   
   useEffect(() => {
     if (!postId || !firestore) return;
@@ -101,62 +118,75 @@ export default function EditBlogPostPage() {
     }
   };
   
-    const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        if (!event.target.files) return;
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files) return;
 
-        const files = Array.from(event.target.files);
-        if (files.length === 0) return;
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
 
-        setIsUploading(true);
-        setUploadProgress(0);
+    setIsUploading(true);
+    setUploadProgress(0);
 
-        for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            const storageRef = ref(storage, `blog_media/${post?.clubId}/${postId}/${Date.now()}-${file.name}`);
-            const uploadTask = uploadBytesResumable(storageRef, file);
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const storageRef = ref(storage, `blog_media/${post?.clubId}/${postId}/${Date.now()}-${file.name}`);
+        const uploadTask = uploadBytesResumable(storageRef, file);
 
-            try {
-                const downloadURL = await new Promise<string>((resolve, reject) => {
-                    uploadTask.on('state_changed',
-                        (snapshot) => {
-                             const progress = ((i + (snapshot.bytesTransferred / snapshot.totalBytes)) / files.length) * 100;
-                            setUploadProgress(progress);
-                        },
-                        (error) => reject(error),
-                        async () => resolve(await getDownloadURL(uploadTask.snapshot.ref))
-                    );
-                });
-                
-                setMediaFiles(prev => [...prev, { url: downloadURL, name: file.name, type: file.type }]);
+        try {
+            const downloadURL = await new Promise<string>((resolve, reject) => {
+                uploadTask.on('state_changed',
+                    (snapshot) => {
+                         const progress = ((i + (snapshot.bytesTransferred / snapshot.totalBytes)) / files.length) * 100;
+                        setUploadProgress(progress);
+                    },
+                    (error) => reject(error),
+                    async () => resolve(await getDownloadURL(uploadTask.snapshot.ref))
+                );
+            });
+            
+            setMediaFiles(prev => [...prev, { url: downloadURL, name: file.name, type: file.type }]);
 
-            } catch (error) {
-                console.error(`Error uploading ${file.name}:`, error)
-                toast({ variant: 'destructive', title: 'Upload Failed', description: `Could not upload ${file.name}.`});
-                break;
-            }
+        } catch (error) {
+            console.error(`Error uploading ${file.name}:`, error)
+            toast({ variant: 'destructive', title: 'Upload Failed', description: `Could not upload ${file.name}.`});
+            break;
         }
-        
-        setIsUploading(false);
-        toast({ title: 'Upload Complete', description: 'File(s) added. Remember to save the post.'});
-        if (fileInputRef.current) fileInputRef.current.value = "";
-    };
+    }
     
-    const handleRemoveMedia = async (fileToRemove: MediaFile) => {
-      setMediaFiles(prev => prev.filter(file => file.url !== fileToRemove.url));
+    setIsUploading(false);
+    toast({ title: 'Upload Complete', description: 'File(s) added. Remember to save the post.'});
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+    
+  const handleRemoveMedia = async (fileToRemove: MediaFile) => {
+    setMediaFiles(prev => prev.filter(file => file.url !== fileToRemove.url));
 
-      try {
-        const fileRef = ref(storage, fileToRemove.url);
-        await deleteObject(fileRef);
-        toast({ title: 'Ready to Remove', description: `${fileToRemove.name} will be removed from storage when you save.` });
-      } catch (error: any) {
-        if (error.code === 'storage/object-not-found') {
-            console.log("File not in storage, removing from list only.");
-        } else {
-            console.error("Error deleting file from storage:", error);
-            toast({ variant: 'destructive', title: 'Delete Failed', description: 'Could not delete file from storage. It will be removed from the post on save.' });
-        }
+    try {
+      const fileRef = ref(storage, fileToRemove.url);
+      await deleteObject(fileRef);
+      toast({ title: 'Ready to Remove', description: `${fileToRemove.name} will be removed from storage when you save.` });
+    } catch (error: any) {
+      if (error.code === 'storage/object-not-found') {
+          console.log("File not in storage, removing from list only.");
+      } else {
+          console.error("Error deleting file from storage:", error);
+          toast({ variant: 'destructive', title: 'Delete Failed', description: 'Could not delete file from storage. It will be removed from the post on save.' });
       }
-    };
+    }
+  };
+    
+  const handleTruncateClick = () => {
+    const plainText = content.replace(/<[^>]*>?/gm, '');
+    const truncatedContent = plainText.substring(0, 100) + (plainText.length > 100 ? '...' : '');
+    const firstImage = mediaFiles.find(file => file.type.startsWith('image/'))?.url;
+
+    setTruncatePreview({
+        subject: subject,
+        content: truncatedContent,
+        imageUrl: firstImage,
+    });
+    setIsTruncateModalOpen(true);
+  };
     
   if (isLoading) {
     return <div className="space-y-4"><Skeleton className="h-12 w-1/4" /><Skeleton className="h-80 w-full" /></div>;
@@ -167,57 +197,90 @@ export default function EditBlogPostPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => router.back()}><ArrowLeft className="h-4 w-4" /></Button>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Edit Blog Post</h1>
-          <p className="text-muted-foreground">Make changes to your post.</p>
+    <>
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="icon" onClick={() => router.back()}><ArrowLeft className="h-4 w-4" /></Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Edit Blog Post</h1>
+            <p className="text-muted-foreground">Make changes to your post.</p>
+          </div>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Edit Content</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="subject">Subject</Label>
+              <Input id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="content">Content</Label>
+              <RichTextEditor id="content" value={content} onChange={setContent} />
+            </div>
+            <div className="space-y-4">
+                <Label>Media</Label>
+                <div className="grid gap-2">
+                    {mediaFiles.map((file) => (
+                        <div key={file.url} className="flex items-center justify-between p-2 border rounded-md">
+                            <div className="flex items-center gap-2 text-sm">
+                                {file.type.startsWith('image/') ? <img src={file.url} className="h-8 w-8 object-cover rounded-sm" alt={file.name} /> : 
+                                file.type.startsWith('video/') ? <Video className="h-6 w-6" /> : 
+                                <FileText className="h-6 w-6" />}
+                                <span className="truncate">{file.name}</span>
+                            </div>
+                            <Button variant="ghost" size="icon" onClick={() => handleRemoveMedia(file)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        </div>
+                    ))}
+                </div>
+                <input type="file" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" disabled={isUploading} accept="image/*,video/*,.pdf" />
+                <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                    <Upload className="mr-2 h-4 w-4" />{isUploading ? 'Uploading...' : 'Upload Media'}
+                </Button>
+                {isUploading && <Progress value={uploadProgress} className="w-full" />}
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            <Button variant="secondary" onClick={handleTruncateClick}>
+              <TestTube className="mr-2 h-4 w-4" />
+              Truncate
+            </Button>
+            <div className="flex gap-4">
+              <Button variant="outline" onClick={() => router.push(`/main/blog/${postId}`)}>Cancel</Button>
+              <Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Post'}</Button>
+            </div>
+          </CardFooter>
+        </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Edit Content</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="subject">Subject</Label>
-            <Input id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="content">Content</Label>
-            <RichTextEditor id="content" value={content} onChange={setContent} />
-          </div>
-           <div className="space-y-4">
-              <Label>Media</Label>
-              <div className="grid gap-2">
-                  {mediaFiles.map((file) => (
-                      <div key={file.url} className="flex items-center justify-between p-2 border rounded-md">
-                          <div className="flex items-center gap-2 text-sm">
-                              {file.type.startsWith('image/') ? <img src={file.url} className="h-8 w-8 object-cover rounded-sm" alt={file.name} /> : 
-                              file.type.startsWith('video/') ? <Video className="h-6 w-6" /> : 
-                              <FileText className="h-6 w-6" />}
-                              <span className="truncate">{file.name}</span>
-                          </div>
-                          <Button variant="ghost" size="icon" onClick={() => handleRemoveMedia(file)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                      </div>
-                  ))}
-              </div>
-              <input type="file" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" disabled={isUploading} accept="image/*,video/*,.pdf" />
-              <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-                  <Upload className="mr-2 h-4 w-4" />{isUploading ? 'Uploading...' : 'Upload Media'}
-              </Button>
-              {isUploading && <Progress value={uploadProgress} className="w-full" />}
-          </div>
-        </CardContent>
-        <CardFooter className="flex justify-end">
-          <div className="flex gap-4">
-            <Button variant="outline" onClick={() => router.push(`/main/blog/${postId}`)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Post'}</Button>
-          </div>
-        </CardFooter>
-      </Card>
-    </div>
+      <Dialog open={isTruncateModalOpen} onOpenChange={setIsTruncateModalOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Truncate Preview</DialogTitle>
+                <DialogDescription>This is a preview of how your truncated teaser will appear.</DialogDescription>
+            </DialogHeader>
+            {truncatePreview && (
+                <div className="py-4 space-y-4">
+                    <h3 className="text-lg font-semibold">{truncatePreview.subject}</h3>
+                    <p className="text-sm text-muted-foreground italic">"{truncatePreview.content}"</p>
+                    {truncatePreview.imageUrl ? (
+                        <div className="relative aspect-video w-full">
+                            <NextImage src={truncatePreview.imageUrl} alt="Cover image preview" fill className="object-cover rounded-md" />
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-center h-32 border border-dashed rounded-md bg-muted text-sm text-muted-foreground">
+                            No image available
+                        </div>
+                    )}
+                </div>
+            )}
+            <DialogFooter>
+                <Button onClick={() => setIsTruncateModalOpen(false)}>Close</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
