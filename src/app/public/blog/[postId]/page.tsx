@@ -3,28 +3,21 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { doc, getDoc, Timestamp } from 'firebase/firestore';
+import { firestore } from '@/lib/firebase-client';
+import type { PublicBlogPost } from '@/lib/types';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft } from 'lucide-react';
-import { firestore } from '@/lib/firebase-client';
-import { doc, getDoc, Timestamp } from 'firebase/firestore';
-import type { PublicBlogPost } from '@/lib/types';
-import { format } from 'date-fns';
 import NextImage from 'next/image';
+import { format } from 'date-fns';
+import { ArrowRight, LogIn } from 'lucide-react';
 import Link from 'next/link';
 
 export default function PublicBlogPostPage() {
-  const router = useRouter();
   const params = useParams();
   const postId = params.postId as string;
+  const router = useRouter();
 
   const [post, setPost] = useState<PublicBlogPost | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,9 +25,10 @@ export default function PublicBlogPostPage() {
 
   useEffect(() => {
     if (!postId || !firestore) {
-      setIsLoading(false);
-      return;
-    }
+        setIsLoading(false);
+        return;
+    };
+
     const fetchPost = async () => {
       setIsLoading(true);
       setError(null);
@@ -43,16 +37,21 @@ export default function PublicBlogPostPage() {
         const docSnap = await getDoc(postDocRef);
 
         if (docSnap.exists()) {
-          setPost(docSnap.data() as PublicBlogPost);
+          const data = docSnap.data() as PublicBlogPost;
+           setPost({
+                ...data,
+                id: docSnap.id,
+                publishedAt: (data.publishedAt as Timestamp)
+            });
         } else {
           setError('This blog post could not be found.');
         }
       } catch (e: any) {
         console.error(e);
-        if (e.code === 'permission-denied') {
-            setError('You do not have permission to view this content. Please check your Firestore security rules to allow public access to the "publicBlogPosts" collection.');
+        if (e.message.includes('permission-denied')) {
+             setError('You do not have permission to view this content. Please check your Firestore security rules.');
         } else {
-            setError('An error occurred while fetching the blog post.');
+            setError('Failed to load the blog post.');
         }
       } finally {
         setIsLoading(false);
@@ -61,75 +60,67 @@ export default function PublicBlogPostPage() {
 
     fetchPost();
   }, [postId]);
-  
+
   if (isLoading) {
     return (
-        <div className="space-y-4">
-            <Skeleton className="h-10 w-24" />
-            <div className="space-y-2">
-                <Skeleton className="h-8 w-3/4" />
-                <Skeleton className="h-6 w-1/2" />
-            </div>
-            <Skeleton className="aspect-video w-full" />
-            <Skeleton className="h-32 w-full" />
+        <div className="container mx-auto max-w-3xl py-8 px-4">
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-8 w-3/4 mb-2" />
+                    <Skeleton className="h-4 w-1/2" />
+                </CardHeader>
+                <CardContent>
+                    <Skeleton className="h-48 w-full" />
+                    <Skeleton className="h-6 w-full mt-4" />
+                </CardContent>
+            </Card>
         </div>
-    )
-  }
-  
-  if (error) {
-    return (
-        <div className="flex flex-col items-center justify-center text-center py-10">
-            <p className="text-xl font-semibold text-destructive mb-4">Error</p>
-            <p className="text-muted-foreground mb-8">{error}</p>
-            <Button asChild variant="outline">
-                 <Link href="/public/dashboard">Return to Dashboard</Link>
-            </Button>
-        </div>
-    )
+    );
   }
 
+  if (error) {
+    return <div className="container mx-auto p-8 text-center text-red-500">{error}</div>;
+  }
+  
   if (!post) {
-    return null;
+      return <div className="container mx-auto p-8 text-center">Blog post not found.</div>;
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <Button variant="outline" size="sm" className="w-fit" onClick={() => router.push('/public/dashboard')}>
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Back to Dashboard
-      </Button>
-
-      <Card>
+    <div className="container mx-auto max-w-3xl py-12 px-4">
+      <Card className="overflow-hidden">
         <CardHeader>
-          <p className="text-sm text-muted-foreground">
-            {post.clubName} - {format(post.publishedAt.toDate(), 'PPP')}
-          </p>
-          <CardTitle className="text-4xl font-bold tracking-tight">{post.subject}</CardTitle>
-          <CardDescription>By {post.authorName}</CardDescription>
+            <p className="text-sm text-muted-foreground">{post.clubName}</p>
+            <CardTitle className="text-3xl lg:text-4xl">{post.subject}</CardTitle>
+            <CardDescription>
+                By {post.authorName} on {format(post.publishedAt.toDate(), 'PPP')}
+            </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {post.coverImageUrl && (
-            <div className="relative aspect-video w-full overflow-hidden rounded-lg">
-              <NextImage
-                src={post.coverImageUrl}
-                alt={`Cover image for ${post.subject}`}
-                fill
-                className="object-cover"
-              />
-            </div>
-          )}
-          <div className="prose dark:prose-invert max-w-none">
-            <p>{post.snippet}</p>
-          </div>
+            {post.coverImageUrl && (
+                <div className="relative aspect-video w-full">
+                    <NextImage 
+                        src={post.coverImageUrl} 
+                        alt={post.subject}
+                        fill
+                        className="object-cover rounded-md"
+                        priority
+                    />
+                </div>
+            )}
+            <p className="text-lg text-muted-foreground italic">
+                {post.snippet}
+            </p>
         </CardContent>
-         <CardFooter className="flex-col items-center gap-4 text-center bg-muted/50 p-6">
-            <p className="font-semibold">Want to read the full post and join the discussion?</p>
-            <Button asChild>
+        <CardFooter className="bg-muted/50 p-6 flex-col items-center text-center gap-4">
+            <h3 className="font-semibold text-lg">Want to read the full article?</h3>
+            <p className="text-muted-foreground">Join the club to get access to all posts, comments, match registrations, and more.</p>
+            <Button asChild size="lg">
                 <Link href="/auth/login">
-                    Sign In or Create an Account
+                    <LogIn className="mr-2 h-4 w-4" />
+                    Log in or Sign Up
                 </Link>
             </Button>
-            <p className="text-xs text-muted-foreground">Full content is available to registered club members.</p>
         </CardFooter>
       </Card>
     </div>
