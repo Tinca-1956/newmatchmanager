@@ -3,14 +3,24 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, onSnapshot, Timestamp } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase-client';
+import { doc, getDoc, Timestamp } from 'firebase/firestore';
 import type { PublicBlogPost } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { ArrowLeft, LogIn, Rss } from 'lucide-react';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, LogIn } from 'lucide-react';
 import NextImage from 'next/image';
+import PublicHeader from '@/components/public-header';
+import PublicFooter from '@/components/public-footer';
 
 export default function PublicBlogPostPage() {
   const params = useParams();
@@ -23,106 +33,111 @@ export default function PublicBlogPostPage() {
 
   useEffect(() => {
     if (!postId || !firestore) {
-      setError('Invalid post ID or database connection.');
-      setIsLoading(false);
-      return;
-    }
+        setIsLoading(false);
+        setError('The post ID is missing or the database is not available.');
+        return;
+    };
 
-    const postDocRef = doc(firestore, 'publicBlogPosts', postId);
-    const unsubscribe = onSnapshot(postDocRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data() as Omit<PublicBlogPost, 'id'>;
-        setPost({ id: docSnap.id, ...data });
-        setError(null);
-      } else {
-        setError('This blog post could not be found. It may have been removed.');
-        setPost(null);
+    const fetchPost = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const postDocRef = doc(firestore, 'publicBlogPosts', postId);
+        const docSnap = await getDoc(postDocRef);
+
+        if (docSnap.exists()) {
+          setPost(docSnap.data() as PublicBlogPost);
+        } else {
+          setError('This blog post could not be found. It may have been removed.');
+        }
+      } catch (err) {
+        console.error('Error fetching public blog post:', err);
+        setError('A database error occurred while trying to load this post.');
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
-    }, (err) => {
-      console.error("Error fetching public post:", err);
-      setError('There was an error loading this post.');
-      setIsLoading(false);
-    });
+    };
 
-    return () => unsubscribe();
+    fetchPost();
   }, [postId]);
-
+  
   if (isLoading) {
     return (
-      <div className="container mx-auto max-w-4xl py-12 px-4">
-        <Skeleton className="h-12 w-3/4 mb-2" />
-        <Skeleton className="h-6 w-1/2 mb-8" />
-        <Skeleton className="aspect-video w-full mb-8" />
-        <Skeleton className="h-4 w-full mb-2" />
-        <Skeleton className="h-4 w-full mb-2" />
-        <Skeleton className="h-4 w-2/3" />
-      </div>
-    );
+        <div className="p-4 md:p-8 space-y-6">
+            <Skeleton className="h-8 w-1/4" />
+            <Skeleton className="h-96 w-full" />
+        </div>
+    )
   }
   
   if (error) {
       return (
-          <div className="container mx-auto max-w-4xl py-12 px-4 text-center">
-              <h1 className="text-2xl font-bold text-destructive mb-4">Error</h1>
+          <div className="p-4 md:p-8 text-center">
+              <Rss className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
+              <h2 className="text-2xl font-semibold mb-2">Post Not Available</h2>
               <p className="text-muted-foreground">{error}</p>
-               <Button onClick={() => router.push('/public/dashboard')} className="mt-8">
+              <Button onClick={() => router.push('/public/dashboard')} className="mt-6">
                   <ArrowLeft className="mr-2 h-4 w-4" />
-                  Return to Dashboard
+                  Back to Public Dashboard
               </Button>
           </div>
       )
   }
 
   if (!post) {
-    return null; // Should be handled by error state
+      return null;
   }
-  
-  const publishedDate = post.publishedAt instanceof Timestamp 
-    ? post.publishedAt.toDate()
-    : new Date(); // Fallback
 
   return (
-    <div className="container mx-auto max-w-4xl py-8 sm:py-12 px-4">
-      <article className="bg-card p-6 sm:p-8 rounded-lg shadow-md">
-        <header className="mb-8">
-            <p className="text-sm text-muted-foreground mb-2">
-                Published by {post.authorName} of {post.clubName} on {format(publishedDate, 'PPP')}
-            </p>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight">
-            {post.subject}
-          </h1>
-        </header>
-        
-        {post.coverImageUrl && (
-            <div className="relative aspect-video w-full mb-8 rounded-md overflow-hidden">
-                <NextImage
+    <>
+      <PublicHeader />
+      <main className="flex-grow bg-muted/40 p-4 sm:p-6 md:p-8">
+        <div className="max-w-4xl mx-auto">
+          <Card>
+            <CardHeader>
+              <div className="mb-4">
+                <Button variant="outline" size="sm" onClick={() => router.push('/public/dashboard')}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Dashboard
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {post.clubName} - Published on {format((post.publishedAt as Timestamp).toDate(), 'PPP')}
+              </p>
+              <CardTitle className="text-4xl font-bold tracking-tight">{post.subject}</CardTitle>
+              <CardDescription>By {post.authorName}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {post.coverImageUrl && (
+                <div className="relative aspect-video w-full overflow-hidden rounded-lg">
+                  <NextImage
                     src={post.coverImageUrl}
                     alt={`Cover image for ${post.subject}`}
                     fill
                     className="object-cover"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 75vw, 66vw"
-                />
-            </div>
-        )}
-        
-        <div className="prose prose-lg dark:prose-invert max-w-none mb-12">
-            <p>{post.snippet}</p>
-        </div>
-
-        <footer className="text-center border-t pt-8">
-            <h2 className="text-xl font-semibold mb-2">Want to read more?</h2>
-            <p className="text-muted-foreground mb-4">
-                Log in or sign up to read the full article and join the conversation.
-            </p>
-            <Button asChild size="lg">
+                  />
+                </div>
+              )}
+              <div className="prose dark:prose-invert max-w-none">
+                <p>{post.snippet}</p>
+              </div>
+            </CardContent>
+            <CardFooter className="flex-col items-center gap-4 bg-primary/5 p-8">
+              <h3 className="text-xl font-semibold text-center">Want to read more?</h3>
+              <p className="text-center text-muted-foreground">
+                This is just a preview. Log in or sign up to read the full post, join discussions, and register for matches.
+              </p>
+              <Button asChild size="lg">
                 <a href="/auth/login">
-                    <LogIn className="mr-2 h-5 w-5" />
-                    Login to Read More
+                  <LogIn className="mr-2 h-5 w-5" />
+                  Log In or Sign Up
                 </a>
-            </Button>
-        </footer>
-      </article>
-    </div>
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </main>
+      <PublicFooter />
+    </>
   );
 }
