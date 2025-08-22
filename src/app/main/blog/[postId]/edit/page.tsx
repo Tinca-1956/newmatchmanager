@@ -158,59 +158,6 @@ export default function EditBlogPostPage() {
       }
     };
     
-    const handlePublish = async () => {
-        if (!canEdit || !post || !firestore) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Cannot publish post.' });
-            return;
-        }
-
-        setIsPublishing(true);
-        try {
-            // 1. Fetch club name
-            const clubDocRef = doc(firestore, 'clubs', post.clubId);
-            const clubDoc = await getDoc(clubDocRef);
-            const clubName = clubDoc.exists() ? (clubDoc.data() as Club).name : 'A Club';
-
-            // 2. Create snippet
-            const snippet = content.replace(/<[^>]*>?/gm, '').substring(0, 200) + '...';
-
-            // 3. Find cover image
-            const coverImage = mediaFiles.find(file => file.type.startsWith('image/'));
-
-            // 4. Create public blog post object
-            const publicPostData: Omit<PublicBlogPost, 'id'> = {
-                originalPostId: postId,
-                clubId: post.clubId,
-                clubName: clubName,
-                authorName: post.authorName,
-                subject: subject,
-                snippet: snippet,
-                coverImageUrl: coverImage?.url || '',
-                publishedAt: serverTimestamp(),
-            };
-
-            // 5. Save to the new collection, using the original post's ID as the public document ID
-            const publicDocRef = doc(firestore, 'publicBlogPosts', postId);
-            await setDoc(publicDocRef, publicPostData, { merge: true });
-            
-            // 6. Copy URL to clipboard
-            const publicUrl = `${window.location.origin}/public/blog/${postId}`;
-            navigator.clipboard.writeText(publicUrl);
-
-            toast({
-                title: 'Published & Copied!',
-                description: 'A public teaser has been published and the URL is in your clipboard.',
-            });
-
-        } catch (error) {
-            console.error("Error publishing post:", error);
-            toast({ variant: 'destructive', title: 'Publish Failed', description: 'Could not publish the blog post teaser.' });
-        } finally {
-            setIsPublishing(false);
-        }
-    };
-
-
   if (isLoading) {
     return <div className="space-y-4"><Skeleton className="h-12 w-1/4" /><Skeleton className="h-80 w-full" /></div>;
   }
@@ -264,11 +211,7 @@ export default function EditBlogPostPage() {
               {isUploading && <Progress value={uploadProgress} className="w-full" />}
           </div>
         </CardContent>
-        <CardFooter className="flex justify-between">
-          <Button variant="secondary" onClick={handlePublish} disabled={isPublishing}>
-            <Globe className="mr-2 h-4 w-4" />
-            {isPublishing ? 'Publishing...' : 'Publish Teaser & Copy URL'}
-          </Button>
+        <CardFooter className="flex justify-end">
           <div className="flex gap-4">
             <Button variant="outline" onClick={() => router.push(`/main/blog/${postId}`)}>Cancel</Button>
             <Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Post'}</Button>
