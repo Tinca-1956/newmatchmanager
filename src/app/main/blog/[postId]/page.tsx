@@ -12,13 +12,24 @@ import {
   CardDescription,
   CardFooter,
 } from '@/components/ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/use-auth';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useToast } from '@/hooks/use-toast';
-import { firestore } from '@/lib/firebase-client';
+import { firestore, storage } from '@/lib/firebase-client';
 import {
   doc,
   onSnapshot,
@@ -28,7 +39,9 @@ import {
   addDoc,
   deleteDoc,
   serverTimestamp,
+  writeBatch,
 } from 'firebase/firestore';
+import { ref, deleteObject } from 'firebase/storage';
 import type { Blog, BlogComment } from '@/lib/types';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ArrowLeft, Send, Trash2, Edit, FileText, Video } from 'lucide-react';
@@ -49,6 +62,7 @@ export default function BlogPostPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
   const [isPostingComment, setIsPostingComment] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!postId || !firestore) return;
@@ -104,17 +118,40 @@ export default function BlogPostPage() {
   const handleDeletePost = async () => {
     if (!post) return;
     
-    if (!window.confirm("Are you sure you want to delete this entire blog post and all its comments? This cannot be undone.")) {
-        return;
-    }
-
+    setIsDeleting(true);
     try {
-        await deleteDoc(doc(firestore, 'blogs', post.id));
-        toast({ title: 'Success', description: 'Blog post deleted.' });
+        const batch = writeBatch(firestore);
+
+        // Delete media files from storage
+        if (post.mediaUrls && post.mediaUrls.length > 0) {
+            for (const media of post.mediaUrls) {
+                const fileRef = ref(storage, media.url);
+                try {
+                    await deleteObject(fileRef);
+                } catch (storageError: any) {
+                    // It's okay if the object doesn't exist, we can still delete the firestore doc
+                    if (storageError.code !== 'storage/object-not-found') {
+                        throw storageError; // Rethrow other storage errors
+                    }
+                }
+            }
+        }
+
+        // Note: Deleting comments (a subcollection) should ideally be handled by a Cloud Function.
+        // We will just delete the main post document here.
+
+        const postDocRef = doc(firestore, 'blogs', post.id);
+        batch.delete(postDocRef);
+        
+        await batch.commit();
+
+        toast({ title: 'Success', description: 'Blog post and its media have been deleted.' });
         router.push('/main/blog');
     } catch (error) {
-        console.error("Error deleting post: ", error);
+        console.error("Error deleting post:", error);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not delete the post.' });
+    } finally {
+        setIsDeleting(false);
     }
   };
   
@@ -175,7 +212,27 @@ export default function BlogPostPage() {
         {canManagePost && (
             <div className="flex gap-2">
                  <Button variant="outline" onClick={() => router.push(`/main/blog/${post.id}/edit`)}><Edit className="mr-2 h-4 w-4" /> Edit</Button>
-                <Button variant="destructive" onClick={handleDeletePost}><Trash2 className="mr-2 h-4 w-4" /> Delete Post</Button>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive" disabled={isDeleting}>
+                            <Trash2 className="mr-2 h-4 w-4" /> {isDeleting ? 'Deleting...' : 'Delete Post'}
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete this blog post, its comments, and all associated media files.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDeletePost} className="bg-destructive hover:bg-destructive/90">
+                                Confirm Delete
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </div>
         )}
       </div>
