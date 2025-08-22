@@ -15,7 +15,7 @@ import { firestore, storage } from '@/lib/firebase-client';
 import { doc, getDoc, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { Blog } from '@/lib/types';
-import { ArrowLeft, Upload, FileText, Video, Trash2, TestTube } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Video, Trash2, TestTube, Eye } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -40,6 +40,15 @@ interface TruncatePreviewData {
     imageUrl?: string;
 }
 
+interface PublicPostData {
+  subject: string;
+  snippet: string;
+  coverImageUrl?: string;
+  authorName?: string;
+  publishedAt?: any;
+}
+
+
 export default function EditBlogPostPage() {
   const router = useRouter();
   const params = useParams();
@@ -63,6 +72,10 @@ export default function EditBlogPostPage() {
 
   const [isTruncateModalOpen, setIsTruncateModalOpen] = useState(false);
   const [truncatePreview, setTruncatePreview] = useState<TruncatePreviewData | null>(null);
+  
+  const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
+  const [publicPost, setPublicPost] = useState<PublicPostData | null>(null);
+  const [isFetchingPublicPost, setIsFetchingPublicPost] = useState(false);
   
   useEffect(() => {
     if (!postId || !firestore) return;
@@ -223,6 +236,29 @@ export default function EditBlogPostPage() {
     });
     setIsTruncateModalOpen(true);
   };
+  
+  const handleViewSummary = async () => {
+    if (!postId || !firestore) return;
+    setIsFetchingPublicPost(true);
+    setIsSummaryModalOpen(true);
+    try {
+        const publicDocRef = doc(firestore, 'publicBlogPosts', postId);
+        const docSnap = await getDoc(publicDocRef);
+        if (docSnap.exists()) {
+            setPublicPost(docSnap.data() as PublicPostData);
+        } else {
+            setPublicPost(null);
+            toast({ variant: 'destructive', title: 'Not Found', description: 'This post has not been made public yet.' });
+            setIsSummaryModalOpen(false);
+        }
+    } catch (e) {
+        console.error("Error fetching public post:", e);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch the public summary.' });
+        setIsSummaryModalOpen(false);
+    } finally {
+        setIsFetchingPublicPost(false);
+    }
+  };
     
   if (isLoading) {
     return <div className="space-y-4"><Skeleton className="h-12 w-1/4" /><Skeleton className="h-80 w-full" /></div>;
@@ -287,6 +323,10 @@ export default function EditBlogPostPage() {
                  <Button onClick={handleMakePublic} disabled={isPublishing}>
                     {isPublishing ? 'Publishing...' : 'Make Public'}
                 </Button>
+                 <Button variant="secondary" onClick={handleViewSummary} disabled={isFetchingPublicPost}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    {isFetchingPublicPost ? 'Loading...' : 'View Summary'}
+                </Button>
             </div>
             <div className="flex gap-4">
               <Button variant="outline" onClick={() => router.push(`/main/blog/${postId}`)}>Cancel</Button>
@@ -322,6 +362,37 @@ export default function EditBlogPostPage() {
             </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      <Dialog open={isSummaryModalOpen} onOpenChange={setIsSummaryModalOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Public Summary Preview</DialogTitle>
+                <DialogDescription>This is the content currently stored in the public blog post document.</DialogDescription>
+            </DialogHeader>
+            {isFetchingPublicPost ? <Skeleton className="h-48 w-full" /> : (
+                publicPost && (
+                    <div className="py-4 space-y-4">
+                        <h3 className="text-lg font-semibold">{publicPost.subject}</h3>
+                        <p className="text-sm text-muted-foreground italic">"{publicPost.snippet}"</p>
+                        <p className="text-xs text-muted-foreground">By: {publicPost.authorName}</p>
+                        {publicPost.coverImageUrl ? (
+                            <div className="relative aspect-video w-full">
+                                <NextImage src={publicPost.coverImageUrl} alt="Public cover image" fill className="object-cover rounded-md" />
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-center h-32 border border-dashed rounded-md bg-muted text-sm text-muted-foreground">
+                                No cover image was published.
+                            </div>
+                        )}
+                    </div>
+                )
+            )}
+            <DialogFooter>
+                <Button onClick={() => setIsSummaryModalOpen(false)}>Close</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
+
